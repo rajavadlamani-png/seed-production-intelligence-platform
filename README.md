@@ -15,7 +15,7 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 - Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
 - Guided field app preview with a welcome screen, mobile-number entry, a clearly labeled demo verification code (`123456`), compact Today / Fields / Reports / More tabs, and one selected farmer/field at a time.
 - Nearby-field suggestion can use the officer's location only when assigned field boundaries have been captured in the current browser session; otherwise officers choose from their assigned field list.
-- The six inspection stages appear together as a stage navigator. Each field starts at stage one; the officer can save a draft or mark a report complete, and only a completed report unlocks the following stage. Completion state is only in-memory demo state and is not server-enforced.
+- The six inspection stages appear together as a stage navigator. Officers can preview later-stage fields and answer choices in read-only mode, but cannot enter or save those reports until the prior stage is completed. Saving a draft does not unlock the following stage. Completion state is only in-memory demo state and is not server-enforced.
 - Branded field app header and footer with the approved Sage Harvest wordmark and fixed mobile navigation.
 - Separate parent seed lot fields for male M-1/M-2/M-3 and female parents, with browser QR scanning when supported; master-list auto-fill remains planned.
 - Farmer master-list and assignment workflow. Excel import is intentionally not enabled in the public prototype.
