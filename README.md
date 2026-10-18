@@ -8,9 +8,10 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 
 ## Current scope
 
-- Responsive production overview with sample fields, inspection progress, follow-ups and seed production snapshot.
-- Production Officer team overview scoped to assigned officers and farmers, with on-track/follow-up comparisons, recorded acreage, and a six-stage crop-inspection progress chart. This is based on synthetic demo records; area totals remain zero until areas are entered.
-- Sample role views for production managers, production officers, field officers, and aggregators.
+- Role-specific dashboards for Field Officers (personal assignments), Territory Managers (assigned Field Officers), and Production Managers (consolidated state scope), plus an aggregator sample view.
+- Territory and state comparisons of assigned farmers, measured acreage, on-track/follow-up status, and counts across all six inspection stages. The dashboards recalculate from current in-browser sample records.
+- Production Manager planning cards and a stage-by-stage yield outlook framework. Target achievement likelihood and yield estimates are explicitly unavailable until approved seasonal targets and validated crop/hybrid yield assumptions are supplied; the demo does not invent forecast values.
+- Synthetic hierarchy: Maharashtra Production Manager → two sample Territory Managers → four sample Field Officers → 12 sample farmers. Role filters are only UI demonstrations; they are not access controls.
 - Editable Paddy baseline inspections across six screenshot-based reports: First Inspection, Vegetative, Pre Flowering, Flowering, Pre Harvesting, and Harvesting. Shared farmer, assignment, season, field number, area and SAP lot context is shown once per report.
 - First Inspection includes conditional isolation follow-ups; “No” isolation or missing applicable answers create human-review flags. Pest/disease remarks and poor-purity reasons appear when relevant. These forms use Paddy screenshot fields; crop-specific rules remain unconfigured.
 - Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
@@ -36,4 +37,4 @@ The project-specific Codex skill is in `.agents/skills/sageharvest-seed-monitor/
 
 ## Next stage
 
-Confirm crop-specific isolation rules with the production team before adding automated compliance decisions. The six Paddy inspection report forms are the current baseline. Other crops should use separately confirmed, configurable field definitions. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
+Confirm crop-specific isolation rules, seasonal acreage and production targets, and crop/hybrid yield assumptions with the production team before adding compliance or predictive forecasts. The six Paddy inspection report forms are the current baseline. Other crops should use separately confirmed, configurable field definitions. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.

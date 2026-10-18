@@ -7,7 +7,7 @@
   <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
   <title>SageHarvest — Seed Production Monitor</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=production-officer-dashboard-v1">
+  <link rel="stylesheet" href="styles.css?v=role-dashboards-v2">
 </head>
 <body>
   <header class="topbar">
@@ -55,15 +55,15 @@
         <div class="page-heading"><div><p class="eyebrow">ONBOARDING & ASSIGNMENTS</p><h1>Farmer master list</h1><p class="muted">Bulk onboarding is the starting point for field work.</p></div><button class="primary" id="addFieldRegistry">＋ Review import process</button></div>
         <div class="onboarding-grid">
           <article class="panel import-panel"><div class="panel-head"><div><h2>Bulk import from Excel</h2><p class="muted">Validate the master list before assigning field work.</p></div><span class="status-chip planned">NOT CONNECTED</span></div>
-            <div class="import-steps"><div><span>1</span><section><strong>Prepare the approved template</strong><small>Farmer name, mobile, village, district, state, crop, hybrid, seasonal field number, and distinct parent seed identities and lot numbers for male M-1/M-2/M-3 and female.</small></section></div><div><span>2</span><section><strong>Validate and resolve row issues</strong><small>Check required values, duplicate seasonal field numbers, crop/hybrid choices and territory assignments.</small></section></div><div><span>3</span><section><strong>Assign and release records</strong><small>Route farmers to an aggregator and field officer, within the production officer and state manager scope.</small></section></div><div><span>4</span><section><strong>Receive the SAP lot number</strong><small>SAP generates a unique lot number for the farmer and season. When it is available, sync it to the assigned field officer’s mobile record.</small></section></div></div>
+            <div class="import-steps"><div><span>1</span><section><strong>Prepare the approved template</strong><small>Farmer name, mobile, village, district, state, crop, hybrid, seasonal field number, and distinct parent seed identities and lot numbers for male M-1/M-2/M-3 and female.</small></section></div><div><span>2</span><section><strong>Validate and resolve row issues</strong><small>Check required values, duplicate seasonal field numbers, crop/hybrid choices and territory assignments.</small></section></div><div><span>3</span><section><strong>Assign and release records</strong><small>Route each farmer to an aggregator and Field Officer, within a Territory Manager’s scope and the Production Manager’s state scope.</small></section></div><div><span>4</span><section><strong>Receive the SAP lot number</strong><small>SAP generates a unique lot number for the farmer and season. When it is available, sync it to the assigned field officer’s mobile record.</small></section></div></div>
             <div class="privacy-callout"><strong>Bank details need restricted handling</strong><p>Do not upload real farmer files to this public prototype. Bank account details should be handled in a secured finance workflow and stay hidden from field teams.</p></div>
             <button class="outline import-button" id="importMasterList">Excel import is planned for the secure application</button>
           </article>
           <article class="panel role-panel"><div class="panel-head"><div><h2>Who sees each assignment?</h2><p class="muted">Access follows each person’s assigned scope.</p></div></div>
             <div class="role-row"><span class="role-icon">A</span><div><strong>Organizer / Aggregator</strong><small>Assigned farmer group</small></div></div>
             <div class="role-row"><span class="role-icon">F</span><div><strong>Field Officer / Assistant</strong><small>Only their assigned farmers and fields; updates inspections</small></div></div>
-            <div class="role-row"><span class="role-icon">P</span><div><strong>Production Officer</strong><small>Assigned team of about 10–15 field assistants</small></div></div>
-            <div class="role-row"><span class="role-icon">M</span><div><strong>Production Manager</strong><small>Assigned state-level production scope</small></div></div>
+            <div class="role-row"><span class="role-icon">T</span><div><strong>Territory Manager</strong><small>Supervises assigned Field Officers and farmers</small></div></div>
+            <div class="role-row"><span class="role-icon">M</span><div><strong>Production Manager</strong><small>Supervises Territory Managers · consolidated state view</small></div></div>
             <div class="access-note">Role limits must be enforced by the secure backend, not just by hiding screens.</div>
           </article>
         </div>
@@ -83,6 +83,6 @@
   </div>
   <div class="toast" id="toast" role="status"></div>
   <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
-  <script defer src="app.js?v=production-officer-dashboard-v1"></script>
+  <script defer src="app.js?v=role-dashboards-v2"></script>
 </body>
 </html>
