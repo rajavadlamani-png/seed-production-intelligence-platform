@@ -13,12 +13,14 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 - Editable Paddy baseline inspections across six screenshot-based reports: First Inspection, Vegetative, Pre Flowering, Flowering, Pre Harvesting, and Harvesting. Shared farmer, assignment, season, field number, area and SAP lot context is shown once per report.
 - First Inspection includes conditional isolation follow-ups; “No” isolation or missing applicable answers create human-review flags. Pest/disease remarks and poor-purity reasons appear when relevant. These forms use Paddy screenshot fields; crop-specific rules remain unconfigured.
 - Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
+- Guided field app preview with a welcome screen, mobile-number entry, a clearly labeled demo verification code (`123456`), compact Today / Fields / Reports / More tabs, and one selected farmer/field at a time.
+- Nearby-field suggestion can use the officer's location only when assigned field boundaries have been captured in the current browser session; otherwise officers choose from their assigned field list.
 - Branded field app header and footer with the approved Sage Harvest wordmark and fixed mobile navigation.
 - Separate parent seed lot fields for male M-1/M-2/M-3 and female parents, with browser QR scanning when supported; master-list auto-fill remains planned.
 - Farmer master-list and assignment workflow. Excel import is intentionally not enabled in the public prototype.
 - Shared Sage Harvest corporate logo, favicon, color palette, and typography. The source artwork is in `assets/`.
 
-All figures, locations and observations are illustrative. The prototype does not include authentication, server-side persistence, production data, a backend, database, Excel import, SAP integration, satellite or weather feeds, or AI models. GPS capture runs in the browser only while the page is open; captured points and area are not sent to a server or retained after refresh. Do not enter or upload real farmer, mobile, or bank data on the public demo.
+All figures, locations and observations are illustrative. The mobile-number and demo-code screens are not authentication and do not send an OTP. The prototype does not include server-side persistence, production data, a backend, database, Excel import, SAP integration, satellite or weather feeds, or AI models. GPS capture runs in the browser only while the page is open; captured points and area are not sent to a server or retained after refresh. Nearby matching requires assigned field boundaries in the current browser session and does not run against production maps. Do not enter or upload real farmer, mobile, or bank data on the public demo.
 
 ## Project development skill
 
