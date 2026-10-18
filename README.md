@@ -11,8 +11,9 @@ Open `index.html` in a browser. The Manager / Field Officer switch shows the two
 - Responsive production overview with sample fields, inspection progress, follow-ups and seed production snapshot.
 - Mobile field officer home with a sample day schedule, follow-up alert and quick action affordances.
 - Six-stage inspection cycle represented in the manager view.
+- Field registration prototype with grower, plot, crop, area and sowing details; submitted demo records are stored in the current browser only.
 
-All figures, locations and observations are illustrative. The prototype does not include authentication, persistence, GPS capture, production data, a backend, database, satellite or weather feeds, or AI models. Buttons that lead to unbuilt features identify them as planned.
+All figures, locations and observations are illustrative. The prototype does not include authentication, server-side persistence, GPS boundary capture, production data, a backend, database, satellite or weather feeds, or AI models. Browser-local field entries are demo-only and are not shared with managers or other devices. Buttons that lead to unbuilt features identify them as planned.
 
 ## Project development skill
 
