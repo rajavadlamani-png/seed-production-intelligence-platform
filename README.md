@@ -9,6 +9,7 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 ## Current scope
 
 - Responsive production overview with sample fields, inspection progress, follow-ups and seed production snapshot.
+- Production Officer team overview scoped to assigned officers and farmers, with on-track/follow-up comparisons, recorded acreage, and a six-stage crop-inspection progress chart. This is based on synthetic demo records; area totals remain zero until areas are entered.
 - Sample role views for production managers, production officers, field officers, and aggregators.
 - Editable Paddy baseline inspections across six screenshot-based reports: First Inspection, Vegetative, Pre Flowering, Flowering, Pre Harvesting, and Harvesting. Shared farmer, assignment, season, field number, area and SAP lot context is shown once per report.
 - First Inspection includes conditional isolation follow-ups; “No” isolation or missing applicable answers create human-review flags. Pest/disease remarks and poor-purity reasons appear when relevant. These forms use Paddy screenshot fields; crop-specific rules remain unconfigured.
