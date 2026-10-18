@@ -14,6 +14,10 @@ Open `index.html` in a browser. The Manager / Field Officer switch shows the two
 
 All figures, locations and observations are illustrative. The prototype does not include authentication, persistence, GPS capture, production data, a backend, database, satellite or weather feeds, or AI models. Buttons that lead to unbuilt features identify them as planned.
 
+## Project development skill
+
+The project-specific Codex skill is in `.agents/skills/sageharvest-seed-monitor/`. Use `$sageharvest-seed-monitor` for future work on this application to keep requirements, branding, and implementation boundaries consistent.
+
 ## Next stage
 
 Review the source platform brief, confirm field and crop terminology, then implement field registration and the first inspection capture flow. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
