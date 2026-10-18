@@ -117,7 +117,19 @@ using (
   public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
   or (
     field_id is not null
-    and exists (select 1 from public.fields f where f.id = form_submissions.field_id and f.company_id = form_submissions.company_id)
+    and public.user_can_access_field(company_id, field_id)
+    and exists (
+      select 1
+      from public.company_memberships m
+      join public.form_role_rules rr
+        on rr.company_id = form_submissions.company_id
+       and rr.form_definition_id = form_submissions.form_definition_id
+       and rr.role = m.role
+      where m.company_id = form_submissions.company_id
+        and m.user_id = auth.uid()
+        and m.is_active
+        and rr.can_view
+    )
   )
 );
 
@@ -207,20 +219,38 @@ for update to authenticated
 using (
   public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
   or (
-    public.has_company_role(company_id, array['territory_manager','field_officer']::public.member_role[])
-    and field_id is not null and exists (
-      select 1 from public.fields f
-      where f.id = form_submissions.field_id and f.company_id = form_submissions.company_id
+    field_id is not null
+    and public.user_can_access_field(company_id, field_id)
+    and exists (
+      select 1
+      from public.company_memberships m
+      join public.form_role_rules rr
+        on rr.company_id = form_submissions.company_id
+       and rr.form_definition_id = form_submissions.form_definition_id
+       and rr.role = m.role
+      where m.company_id = form_submissions.company_id
+        and m.user_id = auth.uid()
+        and m.is_active
+        and rr.can_edit
     )
   )
 )
 with check (
   public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
   or (
-    public.has_company_role(company_id, array['territory_manager','field_officer']::public.member_role[])
-    and field_id is not null and exists (
-      select 1 from public.fields f
-      where f.id = form_submissions.field_id and f.company_id = form_submissions.company_id
+    field_id is not null
+    and public.user_can_access_field(company_id, field_id)
+    and exists (
+      select 1
+      from public.company_memberships m
+      join public.form_role_rules rr
+        on rr.company_id = form_submissions.company_id
+       and rr.form_definition_id = form_submissions.form_definition_id
+       and rr.role = m.role
+      where m.company_id = form_submissions.company_id
+        and m.user_id = auth.uid()
+        and m.is_active
+        and rr.can_edit
     )
   )
 );
