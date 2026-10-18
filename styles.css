@@ -155,6 +155,7 @@ body.field-mode .field-view:not(.hidden){padding-bottom:130px}
 .bottom-nav{height:67px;bottom:0;justify-content:space-around;border-top:1px solid #e3e8e1;background:#fff}
 .bottom-nav button{flex:1;min-width:0;font-size:9px}.bottom-nav button.active{color:#245536;font-weight:750}.bottom-nav button.active span{color:#245536}
 @media(max-width:620px){
+  .field-mode main{padding:0 0 105px}
   body.field-mode .field-view:not(.hidden){padding:0 0 105px}
   .field-app-shell{padding:0 15px 26px}
   .field-onboarding{min-height:calc(100vh - 115px);padding:48px 21px 70px}
