@@ -19,6 +19,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 - **Field officer mobile experience:** review assigned farmer and plot records, capture GPS boundaries, complete six-stage crop inspections, add photos and activity records, record observations, and enter harvest details for seed-lot creation. New master records arrive through controlled bulk onboarding and assignment.
 - Keep the field app guided and mobile-first: welcome and phone sign-in entry, a single assigned farmer/seasonal field selection, optional nearest-field suggestion where assigned GPS boundaries exist, one active lot/report at a time, and compact navigation tabs. Any demo code or simulated location result must be labeled as prototype behavior; production phone verification and assignment/location lookup require secure backend services.
 - **Management web experience:** production overview, field registry and GIS, satellite and weather monitoring, crop risk follow-ups, yield and production planning, seed traceability, and reports.
+- **Production Officer overview:** show all field assistants and farmer records in that officer's assigned scope, recorded acreage, on-track and lagging workload, and a visual six-stage crop-inspection progress summary. Label demo figures and distinguish recorded area from missing area.
 - These are connected experiences for one seed production workflow. Keep navigation and records consistent across them as implementation grows.
 
 ## Assignment and access model
@@ -51,6 +52,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 
 - Start from the current repository and its existing interface. Preserve agreed workflows and branding while making targeted improvements.
 - Keep field use mobile-first and make management views work well on desktop and smaller screens.
+- Keep Ask Ram easy to find across the field app with its branded green callout and friendly illustrated assistant avatar; label voice and AI as planned until their services are connected.
 - Build in verifiable stages. Prefer completing a coherent user flow, such as registering a field or submitting an inspection, over adding disconnected controls.
 - Keep UI copy clear for field officers and production managers. Use crop, season, units, and terminology appropriate to the confirmed operating context; flag assumptions when the source brief does not confirm them.
 - Keep examples and mock records visibly labeled as sample data. Never present estimates, locations, weather, satellite observations, AI assessments, or field activity as live unless connected to a verified source.
