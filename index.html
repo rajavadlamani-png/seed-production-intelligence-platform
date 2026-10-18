@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#174e37">
+  <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
+  <title>SageHarvest — Seed Production Monitor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#overview" aria-label="SageHarvest home"><span class="brand-mark">S</span><span><strong>SageHarvest</strong><small>SEED PRODUCTION MONITOR</small></span></a>
+    <div class="top-actions"><span class="prototype-tag">Prototype · Sample data</span><button class="avatar" aria-label="Account menu">RK</button></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="side-label">WORKSPACE</p>
+      <button class="nav-item selected" data-view="overview"><span>◫</span> Overview</button>
+      <button class="nav-item" data-view="fields"><span>⌖</span> Field registry</button>
+      <button class="nav-item" data-view="inspections"><span>☷</span> Inspections</button>
+      <button class="nav-item" data-view="production"><span>▤</span> Production & lots</button>
+      <button class="nav-item" data-view="reports"><span>▥</span> Reports</button>
+      <div class="side-bottom"><div class="season-card"><span class="season-dot"></span><div><small>ACTIVE SEASON</small><strong>Kharif 2026</strong></div></div><p class="muted tiny">Management workspace</p></div>
+    </aside>
+    <main>
+      <div class="mobile-switch"><button class="active" data-mode="manager">Manager view</button><button data-mode="field">Field officer</button></div>
+      <section class="manager-view" id="managerView">
+        <div class="page-heading"><div><p class="eyebrow">MONDAY, 18 OCTOBER 2026 · KHARIF SEASON</p><h1>Production overview</h1><p class="muted">A clear view of your seed fields, crop progress and team activity.</p></div><button class="primary" id="addField">＋ Register a field</button></div>
+        <div class="metric-grid">
+          <article class="metric"><div class="metric-title">Registered fields <span>↗</span></div><strong>128</strong><small><i class="good">+8</i> this season</small><div class="spark green"></div></article>
+          <article class="metric"><div class="metric-title">Area under seed <span>⌖</span></div><strong>846 <em>ac</em></strong><small>Across 6 districts</small><div class="spark blue"></div></article>
+          <article class="metric"><div class="metric-title">Inspections completed <span>✓</span></div><strong>76%</strong><small>97 of 128 fields this cycle</small><div class="progress"><span style="width:76%"></span></div></article>
+          <article class="metric"><div class="metric-title">Fields needing review <span>!</span></div><strong>12</strong><small><i class="warn">4 high priority</i></small><div class="spark amber"></div></article>
+        </div>
+        <div class="content-grid">
+          <article class="panel map-panel"><div class="panel-head"><div><h2>Field activity</h2><p class="muted">Illustrative regional view · field locations are sample data</p></div><button class="text-button">View all fields →</button></div>
+            <div class="map-art"><div class="map-label label-one">Nashik</div><div class="map-label label-two">Jalgaon</div><div class="map-label label-three">Dhule</div><div class="field-shape f1"></div><div class="field-shape f2"></div><div class="field-shape f3"></div><div class="field-shape f4"></div><span class="map-pin p1">●</span><span class="map-pin p2">●</span><span class="map-pin p3 alert">●</span><span class="map-pin p4">●</span><span class="map-pin p5">●</span><span class="map-caption">FIELD COVERAGE · SAMPLE MAP</span></div>
+            <div class="map-legend"><span><i class="legend-dot green-dot"></i> On track <b>92</b></span><span><i class="legend-dot amber-dot"></i> Review needed <b>12</b></span><span><i class="legend-dot gray-dot"></i> Not inspected <b>24</b></span></div>
+          </article>
+          <article class="panel risk-panel"><div class="panel-head"><div><h2>Priority follow-ups</h2><p class="muted">Recent observations from the field team</p></div><button class="icon-button" aria-label="More options">···</button></div>
+            <div class="risk-item"><span class="risk-icon red">!</span><div><strong>Leaf discoloration reported</strong><p>SH-024 · Niphad · 2 hours ago</p></div><span class="severity high">HIGH</span></div>
+            <div class="risk-item"><span class="risk-icon amber">◷</span><div><strong>Inspection overdue</strong><p>SH-061 · Chalisgaon · Yesterday</p></div><span class="severity medium">DUE</span></div>
+            <div class="risk-item"><span class="risk-icon blue-icon">☁</span><div><strong>Weather review suggested</strong><p>North cluster · Seasonal advisory</p></div><span class="severity low">INFO</span></div>
+            <button class="outline full">Open follow-up list <span>→</span></button>
+          </article>
+          <article class="panel inspections-panel"><div class="panel-head"><div><h2>Inspection progress</h2><p class="muted">Six-stage crop monitoring cycle</p></div><button class="text-button">See schedule →</button></div><div class="stage-row"><div class="stage"><span class="stage-num done">✓</span><div><strong>Land preparation</strong><small>128 complete</small></div><b>100%</b></div><div class="stage"><span class="stage-num done">✓</span><div><strong>Sowing & emergence</strong><small>121 complete</small></div><b>95%</b></div><div class="stage"><span class="stage-num current">3</span><div><strong>Vegetative growth</strong><small>97 complete · In progress</small></div><b>76%</b></div><div class="stage"><span class="stage-num">4</span><div><strong>Flowering & reproduction</strong><small>Upcoming</small></div><b class="muted">—</b></div><div class="stage"><span class="stage-num">5</span><div><strong>Harvest readiness</strong><small>Upcoming</small></div><b class="muted">—</b></div><div class="stage"><span class="stage-num">6</span><div><strong>Harvest & seed lot</strong><small>Upcoming</small></div><b class="muted">—</b></div></div></article>
+          <article class="panel lots-panel"><div class="panel-head"><div><h2>Production snapshot</h2><p class="muted">Planned harvest and traceability</p></div><button class="text-button">View lots →</button></div><div class="production-total"><strong>1,240 <small>q</small></strong><span>forecast quantity <small>Illustrative estimate</small></span></div><div class="lot-bar"><i></i><i></i><i></i><i></i><i></i></div><div class="lot-legend"><span><i class="green-dot"></i> Rice <b>52%</b></span><span><i class="gold-dot"></i> Wheat <b>28%</b></span><span><i class="blue-dot"></i> Other <b>20%</b></span></div><div class="lot-note">Seed lot tracking will be available as harvest records are entered.</div></article>
+        </div>
+        <footer>Prototype interface · Sample figures and locations · No live field, satellite, weather or AI connections</footer>
+      </section>
+      <section class="field-view hidden" id="fieldView"><div class="field-head"><div><p class="eyebrow">SAGEHARVEST · FIELD TEAM</p><h1>Good morning, Rohan</h1><p class="muted">Your field work for today</p></div><div class="weather-pill">☀ <span><b>28°</b><small>Local conditions not connected</small></span></div></div>
+        <div class="field-summary"><div><strong>3</strong><small>Visits today</small></div><div><strong>2</strong><small>Inspections due</small></div><div><strong>1</strong><small>Follow-up</small></div></div>
+        <div class="field-section-head"><div><h2>Today's schedule</h2><p class="muted">Kharif 2026 · Monday, 18 October</p></div><button class="text-button">View all</button></div>
+        <article class="visit-card urgent"><div class="visit-top"><div><span class="severity high">FOLLOW-UP</span><span class="visit-time">09:30 AM</span></div><button class="icon-button">···</button></div><h3>Patil family farm</h3><p class="muted">SH-024 · Niphad · 3.2 acres</p><div class="crop-chip">Rice · Vegetative growth</div><div class="visit-alert">! Check reported leaf discoloration</div><button class="primary visit-action">Start inspection <span>→</span></button></article>
+        <article class="visit-card"><div class="visit-top"><div><span class="severity low">SCHEDULED</span><span class="visit-time">01:00 PM</span></div><button class="icon-button">···</button></div><h3>Deshmukh seed farm</h3><p class="muted">SH-039 · Yeola · 5.1 acres</p><div class="crop-chip">Rice · Vegetative growth</div><button class="outline visit-action">Open field record <span>→</span></button></article>
+        <div class="field-section-head"><div><h2>Quick actions</h2></div></div><div class="quick-actions"><button><span>＋</span><b>Register field</b><small>Add a grower and plot</small></button><button><span>⌖</span><b>Capture GPS</b><small>Map field boundary</small></button><button><span>▧</span><b>Upload photo</b><small>Attach field evidence</small></button></div><div class="offline-note">◉ <span><b>Ready to work</b><small>Records will be saved on this device in a future version.</small></span></div>
+        <nav class="bottom-nav"><button class="active"><span>⌂</span>Today</button><button><span>⌖</span>Fields</button><button><span>☷</span>Inspections</button><button><span>▤</span>More</button></nav>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
