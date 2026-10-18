@@ -475,3 +475,13 @@ body.demo-authenticated .mobile-switch{display:none!important}
 .plan-footnote{margin:14px 0 0;padding:11px;border-radius:8px;background:#f7f8f3;color:#818b80;font-size:8px;line-height:1.6}
 @media(max-width:850px){.plan-form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.plan-allocation-row{grid-template-columns:minmax(130px,1fr) minmax(120px,1fr);align-items:end}.plan-territory-name{grid-column:1/-1}.allocation-status{justify-self:start}}
 @media(max-width:620px){.plan-heading{gap:12px}.plan-demo-label{font-size:7px}.plan-form,.plan-allocation-panel{padding:12px}.plan-form-grid{grid-template-columns:1fr;gap:11px}.plan-notes-field{grid-column:auto}.pm-planning-grid{grid-template-columns:1fr}.pm-plan-card{min-height:0}.allocation-balance-grid{grid-template-columns:1fr}.plan-allocation-row{grid-template-columns:1fr;gap:10px}.plan-territory-name{grid-column:auto}.allocation-status{justify-self:start}.plan-actions{align-items:stretch;flex-direction:column}.plan-actions button{width:100%}.calculated-volume-panel{padding:12px}.calculated-volume-panel b{font-size:19px}}
+
+
+/* Leadership sign-off document upload */
+.signoff-upload-panel{display:grid;gap:10px;padding:16px;margin:16px 0;border:1px dashed #9aaa8b;border-radius:14px;background:#f7f8f1}
+.signoff-upload-panel b{color:#244b36}
+.signoff-upload-panel p{margin:5px 0}
+.signoff-file-label{display:grid;gap:8px;font-weight:600;color:#244b36}
+.signoff-file-label input[type=file]{width:100%;max-width:100%;padding:10px;border:1px solid #cbd5c2;border-radius:8px;background:#fff;font:inherit}
+.signoff-file-status{font-size:13px;color:#345d43;overflow-wrap:anywhere}
+.signoff-upload-panel small{color:#6b7469;line-height:1.5}
