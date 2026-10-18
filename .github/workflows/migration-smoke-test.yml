@@ -1,5 +1,5 @@
 name: Supabase migration smoke test
-# Disposable PostgreSQL/PostGIS smoke test; not a substitute for full Supabase authorization tests.
+# Disposable PostgreSQL/PostGIS smoke test; validates migration syntax/application, not full Supabase authorization.
 
 on:
   push:
