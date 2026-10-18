@@ -14,6 +14,7 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 - First Inspection includes conditional isolation follow-ups; “No” isolation or missing applicable answers create human-review flags. Pest/disease remarks and poor-purity reasons appear when relevant. These forms use Paddy screenshot fields; crop-specific rules remain unconfigured.
 - Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
 - Branded field app header and footer with the approved Sage Harvest wordmark and fixed mobile navigation.
+- Separate parent seed lot fields for male M-1/M-2/M-3 and female parents, with browser QR scanning when supported; master-list auto-fill remains planned.
 - Farmer master-list and assignment workflow. Excel import is intentionally not enabled in the public prototype.
 - Shared Sage Harvest corporate logo, favicon, color palette, and typography. The source artwork is in `assets/`.
 
