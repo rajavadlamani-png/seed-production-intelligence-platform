@@ -85,3 +85,14 @@ Do not apply the migrations to the intended project until:
 - a rollback/recovery approach is documented.
 
 A successful SQL execution alone is not a security pass.
+
+## G. Automated migration smoke test
+
+A GitHub Actions workflow was added at `.github/workflows/migration-smoke-test.yml`. It starts a disposable PostgreSQL/PostGIS service, creates a minimal compatibility shim for the Supabase Auth objects used by these migrations, applies migrations 0001–0005 in order, and checks that RLS is enabled on the expected tenant tables.
+
+Important limitations:
+- This is a PostgreSQL syntax/application smoke test, not a full Supabase environment.
+- The Auth schema shim does not reproduce all Supabase Auth behavior, default grants, Storage policies, API roles, or dashboard configuration.
+- The RLS check confirms RLS is enabled, not that every policy is correct.
+- The workflow must actually run and pass in GitHub Actions before its result can be reported. No successful run is claimed by this document.
+- The adversarial role/tenant tests in sections C–F remain required; passing the smoke test alone is not authorization approval.
