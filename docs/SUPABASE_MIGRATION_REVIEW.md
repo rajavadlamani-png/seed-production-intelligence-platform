@@ -6,6 +6,8 @@ Reviewed files:
 - `supabase/migrations/0001_core_customer_config.sql`
 - `supabase/migrations/0002_tenant_relationship_guards.sql`
 - `supabase/migrations/0003_role_write_policies.sql`
+- `supabase/migrations/0004_tenant_identity_hardening.sql` (draft)
+- `supabase/migrations/0005_scoped_field_access.sql` (draft)
 
 This review is a static source review only. The migrations have not been executed against PostgreSQL/Supabase, and no automated database security tests have been run.
 
@@ -28,6 +30,12 @@ This review is a static source review only. The migrations have not been execute
 8. **Security helper function privileges need verification.** Review execute grants and function search paths for `is_company_member` and `has_company_role`; ensure callers cannot use helper functions or other grants to expose membership data or bypass intended checks.
 
 9. **Storage and audit controls are not complete in these migrations.** Private Storage bucket policies, object-level tenant authorization, and trusted audit-event insertion still need a separate setup and test. Do not store real grower data or documents until these are configured.
+
+## Additional draft changes
+
+- Migration 0004 adds an immutable `company_id` trigger to tenant-owned rows and removes direct company-row update access. It has not been executed or tested.
+- Migration 0005 adds scoped read/update policies for fields, field assignments, field boundaries, and form submissions. It uses a boolean security-definer helper to avoid recursive row-level-security policy evaluation between fields and assignments. The helper's privileges and behavior must be tested in the disposable project.
+- Migration 0005 is only a partial scope model. Other company-wide tables (including growers, production plans, parent-seed records, upload batches/rows, documents and audit views) still need a deliberate role/territory access decision. Submission authorization must also be checked against form-specific `form_role_rules`, not just the broad role list.
 
 ## Required pre-production tests
 
