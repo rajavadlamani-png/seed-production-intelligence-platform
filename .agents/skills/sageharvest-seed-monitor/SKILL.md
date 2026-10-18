@@ -50,7 +50,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 
 ## Project context and boundaries
 
-- The agreed inspection lifecycle has six stages: land preparation; sowing and emergence; vegetative growth; flowering and reproduction; harvest readiness; harvest and seed-lot creation.
+- The Paddy reference baseline has six inspection reports transcribed from the supplied legacy screenshots: First Inspection Report; Vegetative Report; Pre Flowering Report; Flowering Report; Pre Harvesting Report; Harvesting Report. Preserve each report’s business fields while presenting one mobile-friendly report at a time. Share farmer, seasonal field, team assignment, crop/hybrid, area, season, and read-only SAP lot context across reports. Conditional examples include time-isolation questions after a “No” statutory-isolation answer, pest/disease remarks after “Yes”, and a purity reason after “Poor”. Flag isolation issues for human quality review; do not assert statutory/crop-specific compliance. Confirm fields and rules before adapting the Paddy baseline to other crops.
 - The current prototype is a static HTML/CSS/JavaScript interface. Check its README and source before selecting a framework or changing structure.
 - The original `AI Crop Monitoring Platform.txt` brief was not present when the initial prototype was built. Do not invent its contents; use confirmed requirements and ask for the brief when a decision depends on it.
 - Treat any synced `sources/` folder as read-only reference material. Do not edit, move, rename, or delete its files.
