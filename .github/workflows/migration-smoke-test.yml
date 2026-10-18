@@ -1,0 +1,107 @@
+name: Supabase migration smoke test
+
+on:
+  push:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/migration-smoke-test.yml"
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/migration-smoke-test.yml"
+  workflow_dispatch:
+
+jobs:
+  migration-smoke-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: seed_platform_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d seed_platform_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: seed_platform_test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create minimal Supabase Auth compatibility shim
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE SCHEMA auth;
+          CREATE TABLE auth.users (
+            id uuid PRIMARY KEY
+          );
+          CREATE OR REPLACE FUNCTION auth.uid()
+          RETURNS uuid
+          LANGUAGE sql
+          STABLE
+          AS $$
+            SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+          $$;
+          SQL
+
+      - name: Apply migration 0001
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0001_core_customer_config.sql
+
+      - name: Apply migration 0002
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0002_tenant_relationship_guards.sql
+
+      - name: Apply migration 0003
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0003_role_write_policies.sql
+
+      - name: Apply migration 0004
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0004_tenant_identity_hardening.sql
+
+      - name: Apply migration 0005
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0005_scoped_field_access.sql
+
+      - name: Verify RLS is enabled on tenant tables
+        run: |
+          psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          DO $$
+          DECLARE
+            t text;
+            missing text[] := ARRAY[]::text[];
+          BEGIN
+            FOREACH t IN ARRAY ARRAY[
+              'companies','company_memberships','seasons','crops','hybrids','growers',
+              'fields','production_plans','target_allocations','parent_seed_lots',
+              'parent_seed_distributions','grower_upload_batches','grower_upload_rows',
+              'field_assignments','field_boundaries','form_definitions','form_versions',
+              'form_sections','field_definitions','field_options','form_role_rules',
+              'workflow_definitions','form_submissions','documents','audit_events'
+            ] LOOP
+              IF NOT EXISTS (
+                SELECT 1 FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = 'public' AND c.relname = t AND c.relrowsecurity
+              ) THEN
+                missing := array_append(missing, t);
+              END IF;
+            END LOOP;
+            IF cardinality(missing) > 0 THEN
+              RAISE EXCEPTION 'RLS missing on: %', array_to_string(missing, ', ');
+            END IF;
+          END $$;
+          SQL
