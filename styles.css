@@ -89,6 +89,25 @@
 @media(min-width:621px){.field-mode .field-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;background:#fff;border:1px solid var(--line)}.field-mode .field-summary>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:3px 8px;border-right:1px solid var(--line)}.field-mode .field-summary>div:last-child{border-right:0}.field-mode .field-summary strong,.field-mode .field-summary small{display:block}.field-mode .field-summary strong{font:700 25px Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.field-mode .field-summary small{font-size:11px;color:#738078;margin:0}}
 @media(max-width:620px){.metric-grid>.metric:last-child:nth-child(5){grid-column:1/-1;min-height:96px}}
 
+/* Stage-wise SOP snapshots alongside inspection fields */
+.sop-snapshot{margin:0 0 14px;border:1px solid #dce7dc;border-left:3px solid #8fa68e;border-radius:10px;background:#f7faf6;overflow:hidden}
+.sop-snapshot>summary{display:flex;align-items:center;gap:9px;padding:11px 12px;list-style:none;cursor:pointer}
+.sop-snapshot>summary::-webkit-details-marker{display:none}
+.sop-snapshot-icon{display:grid;place-items:center;flex:none;width:28px;height:28px;border-radius:8px;background:#e6efe5;color:#3d6845;font-size:12px;font-weight:800}
+.sop-snapshot>summary>span:nth-child(2){min-width:0;flex:1}
+.sop-snapshot summary small,.sop-snapshot summary b{display:block}
+.sop-snapshot summary small{color:#718275;font-size:7px;font-weight:700;letter-spacing:.75px}
+.sop-snapshot summary b{margin-top:3px;color:#2d4b35;font-size:10px;line-height:1.3}
+.sop-toggle{color:#607766;font-size:15px;transition:transform .15s ease}
+.sop-snapshot:not([open]) .sop-toggle{transform:rotate(-90deg)}
+.sop-snapshot-body{padding:0 12px 11px 49px}
+.sop-snapshot-body ul{margin:0;padding-left:15px;color:#4f6254;font-size:9px;line-height:1.5}
+.sop-snapshot-body li+li{margin-top:4px}
+.sop-snapshot-body li::marker{color:#809c81}
+.sop-snapshot-body>p{margin:9px 0 0;padding-top:8px;border-top:1px solid #e4ebe3;color:#879087;font-size:8px;line-height:1.45}
+.stage-preview-dialog .sop-snapshot{margin:0 0 12px}
+@media(max-width:620px){.sop-snapshot{margin-bottom:12px;border-radius:9px}.sop-snapshot>summary{gap:8px;padding:10px}.sop-snapshot-icon{width:27px;height:27px}.sop-snapshot summary small{font-size:7px}.sop-snapshot summary b{font-size:10px}.sop-snapshot-body{padding:0 10px 10px 45px}.sop-snapshot-body ul{font-size:9px;line-height:1.5}.sop-snapshot-body>p{font-size:8px}}
+
 /* Locked stages stay previewable; their report controls are never exposed */
 .stage-tab.locked{cursor:pointer}
 .stage-tab.locked:hover,.stage-tab.locked:focus-visible{border-color:#c8d5c9;background:#f2f6f1;outline:2px solid #dce8dc;outline-offset:1px}
