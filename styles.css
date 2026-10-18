@@ -108,3 +108,33 @@
 .stage-panel .form-grid label small{font-size:9px;color:#7d8a81;font-weight:500}
 .isolation-note{margin-top:12px;padding:10px 11px;background:#f5f8f4;border-radius:7px;color:#607366;font-size:9px;line-height:1.5}
 @media(max-width:620px){.shared-context{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:9px}.shared-context>div{padding:8px}.shared-context small{font-size:8px}.shared-context b{font-size:9px}.stage-panel{padding:12px;border-radius:11px}.form-section-title{margin-bottom:12px}.stage-panel .form-grid{grid-template-columns:1fr;gap:12px}.stage-panel .form-grid .wide-field{grid-column:auto}}
+
+/* Branded field application frame */
+body.field-mode .topbar{display:none}
+body.field-mode .field-view:not(.hidden){padding-bottom:140px}
+.field-brand-band{position:sticky;top:0;z-index:8;display:flex;align-items:center;gap:11px;min-height:72px;margin:0 -12px 14px;padding:10px 15px;background:linear-gradient(110deg,#123b2b,#1d4b37);color:#fff;box-shadow:0 5px 16px #123b2b1c}
+.field-brand-lockup{display:flex;align-items:center;justify-content:center;width:108px;height:42px;flex:none;padding:5px 8px;background:#fbfaf6;border-radius:8px}
+.field-brand-lockup img{display:block;width:100%;height:auto}
+.field-brand-meta{min-width:0;display:flex;flex-direction:column;gap:5px}
+.field-brand-meta b{font-size:9px;letter-spacing:1px;line-height:1.25}
+.field-brand-meta span{font-size:8px;letter-spacing:.7px;color:#d3dfd1;line-height:1.25}
+.field-demo-pill{margin-left:auto;padding:6px 8px;border:1px solid #ffffff44;border-radius:20px;color:#f2e7ca;font-size:8px;font-weight:700;letter-spacing:.8px}
+.field-brand-footer{position:fixed;left:0;right:0;bottom:72px;z-index:6;display:flex;align-items:center;justify-content:center;gap:6px;min-height:31px;padding:5px 10px;background:#f7f4ea;border-top:1px solid #e7dfca;color:#607066;font-size:8px;letter-spacing:.65px}
+.field-brand-footer>span{font-size:7px;color:#8c825e;font-weight:700}
+.field-brand-footer>b{color:#123b2b;font-size:8px;letter-spacing:1px}
+.field-brand-footer>i{padding-left:7px;border-left:1px solid #d9d1bc;font-style:normal;color:#768279;font-size:8px;letter-spacing:.1px}
+@media(max-width:620px){
+  body.field-mode .topbar{display:none}
+  body.field-mode .field-view:not(.hidden){padding:0 15px 145px}
+  .field-brand-band{top:0;min-height:69px;margin:0 -15px 13px;padding:9px 12px;gap:9px}
+  .field-brand-lockup{width:91px;height:38px;padding:5px 7px}
+  .field-brand-meta{gap:4px}
+  .field-brand-meta b{font-size:8px;letter-spacing:.65px}
+  .field-brand-meta span{font-size:7px;letter-spacing:.35px}
+  .field-demo-pill{padding:5px 7px;font-size:7px}
+  .field-brand-footer{bottom:72px;min-height:32px;gap:5px}
+}
+@media(min-width:621px){
+  .field-brand-band{margin-top:-12px;border-radius:0 0 12px 12px;padding-left:18px;padding-right:18px}
+  .field-brand-footer{bottom:72px}
+}
