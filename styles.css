@@ -89,6 +89,25 @@
 @media(min-width:621px){.field-mode .field-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;background:#fff;border:1px solid var(--line)}.field-mode .field-summary>div{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:3px 8px;border-right:1px solid var(--line)}.field-mode .field-summary>div:last-child{border-right:0}.field-mode .field-summary strong,.field-mode .field-summary small{display:block}.field-mode .field-summary strong{font:700 25px Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.field-mode .field-summary small{font-size:11px;color:#738078;margin:0}}
 @media(max-width:620px){.metric-grid>.metric:last-child:nth-child(5){grid-column:1/-1;min-height:96px}}
 
+/* Sequential six-stage inspection journey */
+.inspection-journey{margin:15px 0 22px;padding:15px;background:#fff;border:1px solid #e1e8e0;border-radius:14px;box-shadow:0 5px 18px #183d2b08}
+.journey-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px;padding:2px 2px 12px;border-bottom:1px solid #edf0ec}
+.journey-summary>div{flex:none}.journey-summary>div>b{display:block;color:var(--forest);font-size:20px;line-height:1.1}.journey-summary>div>b span{color:#8b978e;font-size:12px}.journey-summary>div>small{display:block;margin-top:4px;color:#7e8a81;font-size:8px}
+.journey-summary>p{max-width:185px;margin:0;color:#738078;font-size:9px;line-height:1.45;text-align:right}
+.stage-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.stage-tab{display:grid;grid-template-columns:27px minmax(0,1fr) 12px;align-items:center;gap:7px;min-height:67px;padding:9px 8px;border:1px solid #e1e8e0;border-radius:10px;background:#fff;color:#32473a;text-align:left;cursor:pointer}
+.stage-tab.ready{border-color:#b9d0bc;background:#f5f9f4}.stage-tab.complete{border-color:#bdd4c0;background:#edf5ed}.stage-tab.locked{background:#f8f9f7;border-color:#e8ece7;color:#929b93;cursor:not-allowed}
+.stage-tab-number{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#edf3ed;color:#3c6144;font-size:9px;font-weight:800}
+.stage-tab.complete .stage-tab-number{background:#dcebdd;color:#2c693b}.stage-tab.locked .stage-tab-number{background:#eef0ed;color:#8e9890;font-size:11px}
+.stage-tab-copy{min-width:0}.stage-tab-copy b,.stage-tab-copy small{display:block}.stage-tab-copy b{font-size:9px;line-height:1.3}.stage-tab-copy small{margin-top:4px;color:#7d897f;font-size:7px;line-height:1.25}.stage-tab.locked .stage-tab-copy small{color:#939c94}
+.stage-tab-arrow{justify-self:end;color:#607b65;font-size:17px}.stage-tab.locked .stage-tab-arrow{color:#a4aca5}
+.journey-note{margin:12px 1px 0;color:#818d84;font-size:8px;line-height:1.5}.journey-note b{color:#526c58}
+.report-stage-pill{display:flex;flex-direction:column;justify-content:center;min-width:0;padding:8px 10px;border:1px solid #dce7dd;border-radius:7px;background:#f4f8f3}
+.report-stage-pill small,.report-stage-pill b{display:block}.report-stage-pill small{color:#7b897e;font-size:7px;font-weight:700;letter-spacing:.7px}.report-stage-pill b{margin-top:4px;color:#35533b;font-size:10px;line-height:1.35}.report-stage-pill input{display:none!important}
+.report-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.report-actions button{min-height:42px;padding:8px 10px;border-radius:8px}.report-actions button:last-child{grid-column:1/-1}
+@media(min-width:700px){.stage-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.stage-tab{min-height:76px;padding:11px}.stage-tab-copy b{font-size:10px}.stage-tab-copy small{font-size:8px}}
+@media(max-width:620px){.inspection-journey{padding:13px;border-radius:12px}.stage-tabs{gap:7px}.stage-tab{grid-template-columns:25px minmax(0,1fr) 9px;gap:6px;min-height:73px;padding:8px 7px;border-radius:9px}.stage-tab-number{width:24px;height:24px}.stage-tab-copy b{font-size:8px}.stage-tab-copy small{font-size:7px}.journey-summary>p{font-size:8px}.report-actions{grid-template-columns:1fr 1fr}.report-actions button:last-child{grid-column:1/-1}}
+
 /* Guided field officer application: welcome, one selected field, compact tabs */
 body.field-mode .field-view:not(.hidden){padding-bottom:130px}
 .field-app-shell{max-width:760px;margin:0 auto;padding:0 14px 42px}
