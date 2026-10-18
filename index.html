@@ -7,7 +7,7 @@
   <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
   <title>SageHarvest — Seed Production Monitor</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=roster-first-v1">
+  <link rel="stylesheet" href="styles.css?v=welcome-gate-v1">
 </head>
 <body>
   <header class="topbar">
@@ -81,9 +81,42 @@
       </section>
     </main>
   </div>
+  <section class="welcome-gate" id="welcomeGate" aria-labelledby="welcomeTitle">
+    <div class="welcome-shell">
+      <div class="welcome-brand"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"><span>SEED PRODUCTION INTELLIGENCE</span></div>
+      <div class="welcome-copy"><p class="eyebrow">ONE CONNECTED PRODUCTION WORKFLOW</p><h1 id="welcomeTitle">Welcome to SageHarvest</h1><p>From leadership plan to field execution — connect targets, parent-seed distribution, grower records and field inspections in one guided workflow.</p></div>
+      <div class="welcome-columns">
+        <div class="welcome-flow" aria-label="Workflow overview">
+          <div><span>01</span><section><b>Plan & allocate</b><small>Production Manager records approved acres, productivity and volume.</small></section></div>
+          <div><span>02</span><section><b>Distribute parent seed</b><small>Territory teams track planned, issued and received quantities.</small></section></div>
+          <div><span>03</span><section><b>Upload & route growers</b><small>Review the grower Excel list and allocate records to Field Officers.</small></section></div>
+          <div><span>04</span><section><b>Execute in the field</b><small>Field Officers update GPS, inspections and production progress.</small></section></div>
+        </div>
+        <form class="welcome-login" id="demoLoginForm">
+          <span class="demo-pill">DEMO ACCESS · NOT SECURE AUTHENTICATION</span>
+          <h2>Sign in to your workspace</h2>
+          <p class="muted">Choose a demo role and use its sample credentials.</p>
+          <label for="demoRole">Workspace role</label>
+          <select id="demoRole" name="role">
+            <option value="manager">Production Manager</option>
+            <option value="territory">Territory Manager</option>
+            <option value="officer">Field Officer</option>
+          </select>
+          <label for="demoUsername">Username</label>
+          <input id="demoUsername" name="username" autocomplete="username" value="manager" required>
+          <label for="demoPassword">Password</label>
+          <input id="demoPassword" name="password" type="password" autocomplete="current-password" value="demo123" required>
+          <p class="login-error hidden" id="loginError" role="alert">The username, password or selected role does not match the demo account.</p>
+          <button class="primary welcome-submit" type="submit">Enter workspace <span>→</span></button>
+          <div class="demo-credentials"><b>Demo accounts</b><span>Production Manager: <code>manager</code></span><span>Territory Manager: <code>territory</code></span><span>Field Officer: <code>officer</code></span><small>Password for all accounts: <code>demo123</code></small></div>
+        </form>
+      </div>
+      <p class="welcome-disclaimer">Prototype only. Uses sample data in your browser. This public demo does not provide secure authentication, user isolation or server-side data storage. Do not enter real farmer or company information.</p>
+    </div>
+  </section>
   <div class="toast" id="toast" role="status"></div>
   <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script defer src="app.js?v=roster-first-v1"></script>
+  <script defer src="app.js?v=welcome-gate-v1"></script>
 </body>
 </html>
