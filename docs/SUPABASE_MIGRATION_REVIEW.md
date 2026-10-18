@@ -52,3 +52,11 @@ This review is a static source review only. The migrations have not been execute
 ## Decision
 
 Do **not** execute migrations 0001–0003 yet. Correct the blockers, prepare a trusted first-customer onboarding path, and run the migration sequence plus authorization tests in a disposable project first. The current scripts are a useful draft, not a production-ready security boundary.
+
+
+## Latest follow-up (18 October 2026)
+
+- The disposable PostgreSQL/PostGIS migration smoke test passed for migrations 0001–0005 and the RLS-enabled check. This confirms the scripts apply in the compatibility test environment; it does not prove Supabase Auth behavior or tenant/territory authorization.
+- Migration 0005 was further tightened so field-officer and territory-manager access to form submissions requires both access to the linked field through `user_can_access_field` and a matching `form_role_rules` entry: `can_view` for SELECT and `can_edit` for UPDATE. Admins and production managers retain the explicit manager path.
+- This policy change is awaiting its own migration smoke-test result and has not been executed against the intended Supabase project.
+- Remaining required work: automated authorization tests with two synthetic companies and users, verify field assignment/territory isolation, test cross-company foreign-key relationships under RLS, review helper-function grants/search paths, and implement/test trusted onboarding, workflow transition RPCs, private Storage policies, and trusted audit writes.
