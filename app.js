@@ -236,4 +236,29 @@ function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.re
 nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=false;render()}));
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';showMasterImport=true;render()});
+
+/* Public prototype sign-in gate. This is demo routing, not secure authentication. */
+const demoLoginForm=document.getElementById('demoLoginForm');
+const demoRoleSelect=document.getElementById('demoRole');
+const demoUsernameInput=document.getElementById('demoUsername');
+const demoPasswordInput=document.getElementById('demoPassword');
+const loginError=document.getElementById('loginError');
+const demoAccounts={manager:{username:'manager',role:'manager'},territory:{username:'territory',role:'territory'},officer:{username:'officer',role:'officer'}};
+demoRoleSelect?.addEventListener('change',()=>{const account=demoAccounts[demoRoleSelect.value];if(account)demoUsernameInput.value=account.username;loginError?.classList.add('hidden')});
+demoLoginForm?.addEventListener('submit',event=>{
+  event.preventDefault();
+  const account=demoAccounts[demoRoleSelect.value];
+  const valid=account&&demoUsernameInput.value.trim().toLowerCase()===account.username&&demoPasswordInput.value==='demo123';
+  if(!valid){loginError?.classList.remove('hidden');return}
+  loginError?.classList.add('hidden');
+  role=account.role;
+  selectedOfficer='FA-01';
+  selectedTerritoryManager='TM-01';
+  page='overview';
+  fieldMode=role==='officer';
+  document.body.classList.add('demo-authenticated');
+  if(fieldMode){fieldScreen()}else{render()}
+  notify('Demo workspace opened. Sample data only.');
+});
+
 render();
