@@ -117,7 +117,15 @@ function planningPage(){
  const num=v=>Number.isFinite(Number(v))&&String(v).trim()!==''?Number(v):0;
  const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});
  const acres=num(p.plannedAcres),prod=num(p.plannedProductivity),volume=num(p.plannedVolume);
- const calculated=acres>0&&prod>0?acres*prod:0;
+  const productivityToVolumeFactor={
+   'kg/acre':{kg:1,MT:0.001},
+   'q/acre':{kg:100,MT:0.1},
+   'packets/acre':{packets:1}
+  };
+  const conversion=productivityToVolumeFactor[p.productivityUnit]?.[p.volumeUnit];
+  const calculated=acres>0&&prod>0&&conversion!==undefined?acres*prod*conversion:0;
+  const calculatedCompatible=conversion!==undefined;
+  const calculatedLabel=calculatedCompatible?(calculated?fmt(calculated)+' '+escape(p.volumeUnit):'Enter acres and productivity'):'Unit mismatch — select compatible units';
  const allocatedAcres=territoryAllocations.reduce((sum,t)=>sum+num(t.acres),0);
  const allocatedVolume=territoryAllocations.reduce((sum,t)=>sum+num(t.volume),0);
  const acreBalance=acres-allocatedAcres,volumeBalance=volume-allocatedVolume;
@@ -137,7 +145,7 @@ function planningPage(){
  '<label class="plan-notes-field">Notes / assumptions<textarea name="notes" rows="2" placeholder="Record approved assumptions or caveats">'+escape(p.notes)+'</textarea></label></div>'+
  '<div class="plan-actions"><button class="primary" type="submit">Save leadership plan</button><span>'+(p.savedAt?'Last saved in this session: '+escape(new Date(p.savedAt).toLocaleString()):'Not saved yet')+'</span></div></form>'+
  '<div class="pm-planning-grid">'+card('APPROVED PLAN ACRES',fmt(acres)+' ac','Leadership input')+card('PLANNED PRODUCTIVITY',fmt(prod)+' '+escape(p.productivityUnit),'Leadership input')+card('LEADERSHIP PLANNED VOLUME',fmt(volume)+' '+escape(p.volumeUnit),'Preserved as entered')+'</div>'+
- '<article class="panel calculated-volume-panel"><div><small>CALCULATED COMPARISON · NOT THE APPROVED TARGET</small><b>'+(calculated?fmt(calculated)+' '+escape(p.volumeUnit):'Enter acres and productivity')+'</b><p>Calculated from planned acres × productivity. Confirm unit compatibility before using this comparison; no automatic conversion is applied.</p></div><span class="plan-calc-icon">∑</span></article>'+
+ '<article class="panel calculated-volume-panel"><div><small>CALCULATED COMPARISON · NOT THE APPROVED TARGET</small><b>'+calculatedLabel+'</b><p>'+(calculatedCompatible?'Calculated from planned acres × productivity, with unit conversion where needed. kg ÷ 1,000 = MT; quintals (q) × 100 = kg; packets remain packets.':'The productivity unit and planned-volume unit are incompatible. Choose kg/acre or q/acre with kg/MT, or packets/acre with packets. No misleading number is shown.')+' The leadership-approved volume remains unchanged.</p></div><span class="plan-calc-icon">∑</span></article>'+
  '<section class="panel plan-allocation-panel"><div class="panel-head"><div><h2>2. Allocate targets to Territory Managers</h2><p class="muted">Enter each territory allocation, check the balance, then release explicitly.</p></div><span class="status-chip '+(acreBalance<0||volumeBalance<0?'needs-review':'planned')+'">'+(acreBalance<0||volumeBalance<0?'OVER-ALLOCATED':'BALANCE CHECK')+'</span></div>'+
  '<div class="allocation-balance-grid"><div><small>ACRE BALANCE</small><b class="'+(acreBalance<0?'balance-negative':'')+'">'+fmt(acreBalance)+' ac</b><span>'+fmt(allocatedAcres)+' ac allocated of '+fmt(acres)+' ac</span></div><div><small>VOLUME BALANCE</small><b class="'+(volumeBalance<0?'balance-negative':'')+'">'+fmt(volumeBalance)+' '+escape(p.volumeUnit)+'</b><span>'+fmt(allocatedVolume)+' '+escape(p.volumeUnit)+' allocated of '+fmt(volume)+' '+escape(p.volumeUnit)+'</span></div></div>'+
  '<div class="plan-allocation-list">'+allocRows+'</div><div class="plan-actions"><button class="outline" id="saveAllocations">Save draft allocations</button><button class="primary" id="releaseAllocations">Release targets to Territory Managers</button></div>'+
