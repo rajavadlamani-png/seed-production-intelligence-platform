@@ -80,6 +80,42 @@ begin
  if n <> 0 then raise exception 'FAIL: Alpha officer can see Beta submission'; end if;
 end $$;
 
+-- Submission creation must honor form_role_rules.can_create/can_submit.
+do $
+declare denied boolean := false;
+begin
+  begin
+    insert into public.form_submissions(id,company_id,form_definition_id,form_version_id,field_id,payload,status)
+    values ('10000000-0000-0000-0000-000000000018',
+      '10000000-0000-0000-0000-000000000010',
+      '10000000-0000-0000-0000-000000000015',
+      '10000000-0000-0000-0000-000000000016',
+      '10000000-0000-0000-0000-000000000014',
+      '{"synthetic":"must-be-denied"}','draft');
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: Field Officer created a submission without can_create/can_submit';
+  end if;
+end $;
+
+reset role;
+update public.form_role_rules
+set can_create = true
+where company_id='10000000-0000-0000-0000-000000000010'
+  and form_definition_id='10000000-0000-0000-0000-000000000015'
+  and role='field_officer';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+insert into public.form_submissions(id,company_id,form_definition_id,form_version_id,field_id,payload,status)
+values ('10000000-0000-0000-0000-000000000019',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000015',
+  '10000000-0000-0000-0000-000000000016',
+  '10000000-0000-0000-0000-000000000014',
+  '{"synthetic":"permitted-create"}','draft');
+
 -- Field Officer Alpha cannot change an unassigned Beta submission, even by knowing its UUID.
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
