@@ -42,6 +42,9 @@ Use this skill for feature work, design changes, and technical planning in this 
 
 
 - For the First Inspection Report, keep parent seed identities and lot numbers distinct for male M-1, M-2, M-3, and female. A future approved master import should prefill these by farmer-season/hybrid. QR scanning may capture the packet’s lot code into its matching parent field; verify it before saving and do not assume a payload format or combine male/female lots. The public prototype can scan with browser QR support or accept manual lot entry, but it does not look up parent records from Excel or a seed registry yet.
+- Every inspection stage can capture optional fertilizer/agrochemical use (category, product, quantity, unit, and purpose) and a field/leaf photo preview. Treat these as in-memory prototype data only: no upload, diagnosis, or production persistence.
+- The field officer has a separate satellite observations page that is read only. Keep it explicitly unavailable until an approved satellite source is connected; never fabricate imagery, vegetation indices, moisture values, or alerts.
+- AI photo assessment is deferred at the user's request. Do not set up provider credentials or claim image diagnosis until the user asks to resume and a secure backend integration is designed.
 ## Implementation guidance
 
 - Start from the current repository and its existing interface. Preserve agreed workflows and branding while making targeted improvements.
