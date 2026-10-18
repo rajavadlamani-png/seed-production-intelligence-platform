@@ -7,6 +7,12 @@ description: Build and maintain the SageHarvest Seed Production Monitor, includi
 
 Use this skill for feature work, design changes, and technical planning in this product. Keep the product name **SageHarvest — Seed Production Monitor** and preserve its Sage Harvest visual identity.
 
+## Brand source of truth
+
+- Match the approved Sage Harvest corporate website at `https://rajavadlamani-png.github.io/Sage-Harvest/`. Use the supplied illustrated wordmark from `assets/sage-harvest-logo.svg` and matching favicon from `assets/favicon.svg`; do not replace the wordmark with a typed name or generic initial.
+- Keep the shared palette: deep green `#123b2b`, sage `#8fa68e`, warm gold `#c9a75a`, off-white `#fbfaf6`, ink `#17231d`, muted text `#607066`, and border `#dce1da`.
+- Use the corporate website’s Inter/system sans-serif typography. The app may retain its product descriptor, **Seed Production Monitor**, beside the shared logo.
+
 ## Product shape
 
 - **Bulk onboarding is the starting point:** operations staff load the farmer and plot master list from the approved Excel template, validate rows, and assign records before field work begins. Field officers update assigned records and inspections; they do not start with an unscoped farmer registry.

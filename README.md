@@ -4,17 +4,18 @@ A mobile-first front-end prototype for field officers and seed production manage
 
 ## Open the prototype
 
-Open `index.html` in a browser. The Manager / Field Officer switch shows the two responsive views.
+Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png.github.io/seed-production-intelligence-platform/). The management workspace and field officer app view are both interactive.
 
 ## Current scope
 
 - Responsive production overview with sample fields, inspection progress, follow-ups and seed production snapshot.
-- Mobile field officer home with a sample day schedule, follow-up alert and quick action affordances.
-- Six-stage inspection cycle represented in the manager view.
-- Farmer master-list onboarding and role assignment are shown as a planned workflow. Excel import is intentionally not enabled in the public prototype.
-- Sample field officer records distinguish the seasonal field number from the SAP lot number, including an awaiting-SAP state.
+- Sample role views for production managers, production officers, field officers, and aggregators.
+- Editable six-stage inspections with observations, seasonal field numbers, and simulated SAP lot responses.
+- Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
+- Farmer master-list and assignment workflow. Excel import is intentionally not enabled in the public prototype.
+- Shared Sage Harvest corporate logo, favicon, color palette, and typography. The source artwork is in `assets/`.
 
-All figures, locations and observations are illustrative. The prototype does not include authentication, server-side persistence, GPS boundary capture, production data, a backend, database, Excel import, SAP integration, satellite or weather feeds, or AI models. Do not enter or upload real farmer, mobile, or bank data on the public demo. Buttons that lead to unbuilt features identify them as planned.
+All figures, locations and observations are illustrative. The prototype does not include authentication, server-side persistence, production data, a backend, database, Excel import, SAP integration, satellite or weather feeds, or AI models. GPS capture runs in the browser only while the page is open; captured points and area are not sent to a server or retained after refresh. Do not enter or upload real farmer, mobile, or bank data on the public demo.
 
 ## Project development skill
 
