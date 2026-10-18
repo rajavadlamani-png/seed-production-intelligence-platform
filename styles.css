@@ -374,3 +374,8 @@ body.field-mode .field-view:not(.hidden){padding-bottom:140px}
 .ask-ram-welcome>span{display:grid;place-items:center;flex:none;width:31px;height:31px;border-radius:50%;background:var(--forest);color:white;font-weight:750}
 .ask-ram-welcome>div{flex:1}.ask-ram-welcome b,.ask-ram-welcome small{display:block}.ask-ram-welcome b{font-size:9px;color:var(--ink)}.ask-ram-welcome small{margin-top:3px;color:var(--muted);font-size:8px;line-height:1.4}
 .ask-ram-welcome em{flex:none;color:#82754f;font-size:6px;font-style:normal;font-weight:750;letter-spacing:.35px}
+.ask-ram-back{margin:0 0 12px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--forest);font:600 10px Inter,sans-serif}
+.more-nav-link{width:100%;margin:5px 0;text-align:left}
+/* Keep field navigation available while moving between reports and Ask Ram. */
+.field-mode .bottom-nav{display:flex}
+.field-mode .bottom-nav button{min-width:0;flex:1;font-size:clamp(7px,2vw,9px)}
