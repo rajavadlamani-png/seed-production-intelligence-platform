@@ -13,6 +13,7 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 - Editable Paddy baseline inspections across six screenshot-based reports: First Inspection, Vegetative, Pre Flowering, Flowering, Pre Harvesting, and Harvesting. Shared farmer, assignment, season, field number, area and SAP lot context is shown once per report.
 - First Inspection includes conditional isolation follow-ups; “No” isolation or missing applicable answers create human-review flags. Pest/disease remarks and poor-purity reasons appear when relevant. These forms use Paddy screenshot fields; crop-specific rules remain unconfigured.
 - Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
+- Branded field app header and footer with the approved Sage Harvest wordmark and fixed mobile navigation.
 - Farmer master-list and assignment workflow. Excel import is intentionally not enabled in the public prototype.
 - Shared Sage Harvest corporate logo, favicon, color palette, and typography. The source artwork is in `assets/`.
 
