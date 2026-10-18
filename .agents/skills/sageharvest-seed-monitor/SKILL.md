@@ -37,6 +37,8 @@ Use this skill for feature work, design changes, and technical planning in this 
 - Show the seasonal field number as soon as the master record is assigned. Show the SAP lot as `Awaiting SAP` until a confirmed value is returned, then display the returned value read-only to the assigned field officer. Include a clear sync status when relevant.
 - Keep SAP credentials and integration secrets server-side. Do not claim the SAP integration works until it is connected and verified.
 
+
+- For the First Inspection Report, keep parent seed identities and lot numbers distinct for male M-1, M-2, M-3, and female. A future approved master import should prefill these by farmer-season/hybrid. QR scanning may capture the packet’s lot code into its matching parent field; verify it before saving and do not assume a payload format or combine male/female lots. The public prototype can scan with browser QR support or accept manual lot entry, but it does not look up parent records from Excel or a seed registry yet.
 ## Implementation guidance
 
 - Start from the current repository and its existing interface. Preserve agreed workflows and branding while making targeted improvements.
