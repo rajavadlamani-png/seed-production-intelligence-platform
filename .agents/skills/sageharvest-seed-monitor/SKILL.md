@@ -15,11 +15,12 @@ Use this skill for feature work, design changes, and technical planning in this 
 
 ## Product shape
 
-- **Bulk onboarding is the starting point:** operations staff load the farmer and plot master list from the approved Excel template, validate rows, and assign records before field work begins. Field officers update assigned records and inspections; they do not start with an unscoped farmer registry.
+- **Bulk onboarding is the starting point:** the Production Manager loads the farmer and plot master list from the approved Excel template, validates rows, and allocates acreage and farmer records to Territory Managers and Field Officers before field work begins. Field officers update assigned records and inspections; they do not start with an unscoped farmer registry.
 - **Field officer mobile experience:** review assigned farmer and plot records, capture GPS boundaries, complete six-stage crop inspections, add photos and activity records, record observations, and enter harvest details for seed-lot creation. New master records arrive through controlled bulk onboarding and assignment.
 - Keep the field app guided and mobile-first: welcome and phone sign-in entry, a single assigned farmer/seasonal field selection, optional nearest-field suggestion where assigned GPS boundaries exist, one active lot/report at a time, and compact navigation tabs. Any demo code or simulated location result must be labeled as prototype behavior; production phone verification and assignment/location lookup require secure backend services.
 - **Management web experience:** production overview, field registry and GIS, satellite and weather monitoring, crop risk follow-ups, yield and production planning, seed traceability, and reports.
 - **Role dashboards:** Field Officers see their own assigned farmers, acreage, follow-ups, and six-stage progress. Territory Managers supervise their assigned Field Officers and farmers. Production Managers supervise Territory Managers and see a consolidated assigned geography, target tracking, periodic inspection progress, and yield outlook by crop stage. Label demo figures and distinguish recorded area from missing area.
+- Add separate disease and pest observations and condition grades at each inspection stage. Summarize latest officer-entered grades by acreage for each role’s scope, with consistent color bands for Excellent, Good, Average, Poor, and Not recorded. Keep unrated acreage separate; do not infer a diagnosis or classify missing observations as healthy.
 - These are connected experiences for one seed production workflow. Keep navigation and records consistent across them as implementation grows.
 
 ## Assignment and access model
@@ -34,6 +35,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 - Include a stage-specific SOP snapshot alongside every editable report and locked-stage preview. When only legacy report fields are available, summarize the observations to capture and clearly label the snapshot as a draft reference; do not invent agronomic procedures, acceptance limits, or rejection rules. Replace it with approved company SOP content when supplied.
 - Do not put real farmer records, contact details, or bank data in this public repository, sample fixtures, GitHub Pages, screenshots, logs, or browser local storage.
 - Excel imports must validate required columns, duplicates, assignment references, and row errors before committing. Keep the original import traceable and log who imported and assigned each batch. Never treat a client-side file picker or UI filter as a security boundary.
+- The public prototype may preview and validate invented master-list rows in browser memory to demonstrate the Production Manager workflow. Never imply it is a secure production upload or use it for real farmer, mobile, or bank-account information. Ignore banking columns in the public demo; production import, audit, persistence, and authorization belong in the secure backend.
 
 ## Seasonal field and SAP lot identifiers
 
@@ -43,7 +45,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 - Keep SAP credentials and integration secrets server-side. Do not claim the SAP integration works until it is connected and verified.
 
 
-- For the First Inspection Report, keep parent seed identities and lot numbers distinct for male M-1, M-2, M-3, and female. A future approved master import should prefill these by farmer-season/hybrid. QR scanning may capture the packet’s lot code into its matching parent field; verify it before saving and do not assume a payload format or combine male/female lots. The public prototype can scan with browser QR support or accept manual lot entry, but it does not look up parent records from Excel or a seed registry yet.
+- For the First Inspection Report, keep parent seed identities and lot numbers distinct for male M-1, M-2, M-3, and female. The browser demo master upload can prefill these values when supplied, but only for the current session and invented records. Production prefill requires secure approved master data by farmer-season/hybrid. QR scanning may capture the packet’s lot code into its matching parent field; verify it before saving and do not assume a payload format or combine male/female lots.
 - Every inspection stage can capture optional fertilizer/agrochemical use (category, product, quantity, unit, and purpose) and a field/leaf photo preview. Treat these as in-memory prototype data only: no upload, diagnosis, or production persistence.
 - The field officer has a separate satellite observations page that is read only. Keep it explicitly unavailable until an approved satellite source is connected; never fabricate imagery, vegetation indices, moisture values, or alerts.
 - AI photo assessment is deferred at the user's request. Do not set up provider credentials or claim image diagnosis until the user asks to resume and a secure backend integration is designed.
