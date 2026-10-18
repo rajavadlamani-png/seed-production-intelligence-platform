@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "supabase/migrations/**"
+      - "supabase/tests/**"
       - ".github/workflows/migration-smoke-test.yml"
   pull_request:
     paths:
