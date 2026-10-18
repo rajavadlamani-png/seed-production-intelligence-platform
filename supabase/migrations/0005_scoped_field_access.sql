@@ -13,7 +13,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $$
   select
     exists (
       select 1 from public.company_memberships m
@@ -40,7 +40,7 @@ as $
         and a.company_id = p_company_id and a.field_id = p_field_id
         and a.status = 'active'
     );
-$;
+$$;
 
 revoke all on function public.user_can_access_field(uuid, uuid) from public;
 grant execute on function public.user_can_access_field(uuid, uuid) to authenticated;
