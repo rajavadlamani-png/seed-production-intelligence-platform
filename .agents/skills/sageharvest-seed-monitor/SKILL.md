@@ -17,6 +17,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 
 - **Bulk onboarding is the starting point:** operations staff load the farmer and plot master list from the approved Excel template, validate rows, and assign records before field work begins. Field officers update assigned records and inspections; they do not start with an unscoped farmer registry.
 - **Field officer mobile experience:** review assigned farmer and plot records, capture GPS boundaries, complete six-stage crop inspections, add photos and activity records, record observations, and enter harvest details for seed-lot creation. New master records arrive through controlled bulk onboarding and assignment.
+- Keep the field app guided and mobile-first: welcome and phone sign-in entry, a single assigned farmer/seasonal field selection, optional nearest-field suggestion where assigned GPS boundaries exist, one active lot/report at a time, and compact navigation tabs. Any demo code or simulated location result must be labeled as prototype behavior; production phone verification and assignment/location lookup require secure backend services.
 - **Management web experience:** production overview, field registry and GIS, satellite and weather monitoring, crop risk follow-ups, yield and production planning, seed traceability, and reports.
 - These are connected experiences for one seed production workflow. Keep navigation and records consistent across them as implementation grows.
 
