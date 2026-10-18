@@ -16,6 +16,11 @@ const SEED = [
 
 let records = structuredClone(SEED), pendingMasterRows=null, showMasterImport=false;
 let role = 'manager', selectedOfficer = 'FA-01', selectedTerritoryManager = 'TM-01', page = 'overview', fieldMode = false;
+let productionPlan={season:'Kharif 2026',crop:'Paddy',hybrid:'',planReference:'',plannedAcres:'',plannedProductivity:'',productivityUnit:'kg/acre',plannedVolume:'',volumeUnit:'kg',notes:'',savedAt:null,status:'Draft'};
+let territoryAllocations=[
+ {id:'TM-01',name:'Territory Manager 1',acres:'',volume:'',released:false},
+ {id:'TM-02',name:'Territory Manager 2',acres:'',volume:'',released:false}
+];
 let fieldSignedIn=false,fieldAuthStep='welcome',fieldMobile='',fieldTab='today',selectedFieldId=1,nearbyMessage='',askLanguage='English',askChat=[];
 const manager = document.getElementById('managerView'), field = document.getElementById('fieldView');
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
@@ -106,7 +111,66 @@ function bindMasterUpload(){const file=document.getElementById('masterFile');if(
 function inspections(list){return `<div class="page-heading"><div><p class="eyebrow">FIELD MONITORING</p><h1>Inspections</h1><p class="muted">Update sample records through the six crop monitoring stages.</p></div></div>${metrics(list)}<article class="panel"><div class="panel-head"><div><h2>Inspection worklist</h2><p class="muted">Select Update to record a demo inspection.</p></div></div>${table(list)}</article>`}
 function production(list){return `<div class="page-heading"><div><p class="eyebrow">HARVEST TRACEABILITY</p><h1>Production & lots</h1><p class="muted">A simulated SAP lot response demonstrates the expected handoff.</p></div></div>${metrics(list)}<article class="panel"><div class="panel-head"><div><h2>Seasonal field and SAP identifiers</h2><p class="muted">SAP IDs below are synthetic and do not connect to company SAP.</p></div></div>${table(list)}</article>`}
 function reports(list){let crops={};list.forEach(r=>crops[r.crop]=(crops[r.crop]||0)+1);return `<div class="page-heading"><div><p class="eyebrow">DEMO SUMMARY</p><h1>Reports</h1><p class="muted">A live summary of this role’s sample records.</p></div></div>${metrics(list)}<div class="demo-columns">${Object.entries(crops).map(([crop,n])=>`<article class="panel"><h2>${escape(crop)}</h2><p class="report-number">${n}</p><p class="muted">sample fields in this role scope</p></article>`).join('')||'<article class="panel">No records to summarize.</article>'}</div>`}
-function renderManager(){document.body.classList.remove('field-mode');shell();const list=scoped();dashboard.classList.toggle('hidden',page!=='overview');registry.classList.toggle('hidden',page==='overview');if(page==='overview')dashboard.innerHTML=overview(list);else if(page==='fields')registry.innerHTML=roster(list);else if(page==='inspections')registry.innerHTML=inspections(list);else if(page==='production')registry.innerHTML=production(list);else registry.innerHTML=reports(list);nav.forEach(n=>n.classList.toggle('selected',n.dataset.view===page));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{showMasterImport=page!=='fields'&&b.dataset.go==='fields'&&/upload master|bulk onboard/i.test(b.textContent);page=b.dataset.go;render()});document.querySelectorAll('[data-open-territory]').forEach(b=>b.onclick=()=>{selectedTerritoryManager=b.dataset.openTerritory;role='territory';page='overview';render()});document.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>editInspection(+b.dataset.inspect));document.querySelectorAll('[data-sap]').forEach(b=>b.onclick=()=>simulateSap(+b.dataset.sap));bindMasterUpload();document.getElementById('toggleMasterImport')?.addEventListener('click',()=>{showMasterImport=!showMasterImport;render()});document.getElementById('rosterSearch')?.addEventListener('input',filterRoster);document.getElementById('rosterCrop')?.addEventListener('change',filterRoster);document.getElementById('reloadSamples')?.addEventListener('click',()=>{records=structuredClone(SEED);showMasterImport=false;notify('Sample roster reloaded.');render()})}
+
+function planningPage(){
+ const p=productionPlan;
+ const num=v=>Number.isFinite(Number(v))&&String(v).trim()!==''?Number(v):0;
+ const fmt=v=>Number(v||0).toLocaleString('en-IN',{maximumFractionDigits:2});
+ const acres=num(p.plannedAcres),prod=num(p.plannedProductivity),volume=num(p.plannedVolume);
+ const calculated=acres>0&&prod>0?acres*prod:0;
+ const allocatedAcres=territoryAllocations.reduce((sum,t)=>sum+num(t.acres),0);
+ const allocatedVolume=territoryAllocations.reduce((sum,t)=>sum+num(t.volume),0);
+ const acreBalance=acres-allocatedAcres,volumeBalance=volume-allocatedVolume;
+ const card=(label,value,detail)=>'<article class="pm-plan-card"><small>'+label+'</small><b>'+value+'</b><span>'+detail+'</span></article>';
+ const allocRows=territoryAllocations.map(t=>'<div class="plan-allocation-row" data-territory-row="'+t.id+'"><div class="plan-territory-name"><span>'+t.id+'</span><div><b>'+t.name+'</b><small>'+ (t.released?'Allocation released':'Draft allocation') +'</small></div></div><label>Acres allocated<input type="number" min="0" step="0.01" data-allocation-acres="'+t.id+'" value="'+escape(t.acres)+'" '+(t.released?'disabled':'')+'></label><label>Volume allocated ('+escape(p.volumeUnit||'kg')+')<input type="number" min="0" step="0.01" data-allocation-volume="'+t.id+'" value="'+escape(t.volume)+'" '+(t.released?'disabled':'')+'></label><span class="allocation-status '+(t.released?'released':'draft')+'">'+(t.released?'RELEASED':'DRAFT')+'</span></div>').join('');
+ return '<div class="page-heading plan-heading"><div><p class="eyebrow">LEADERSHIP PLAN → TERRITORY TARGETS</p><h1>Production planning & allocation</h1><p class="muted">Record the approved plan first. Allocate targets only after reviewing the remaining balance.</p></div><span class="plan-demo-label">DEMO · BROWSER SESSION ONLY</span></div>'+
+ '<div class="plan-notice"><b>Planning control</b><span>Planned production volume is entered as received from leadership. The calculated volume is a comparison only and will not overwrite the approved figure.</span></div>'+
+ '<form id="productionPlanForm" class="panel plan-form"><div class="panel-head"><div><h2>1. Leadership-approved production plan</h2><p class="muted">Enter the plan exactly as received from leadership.</p></div><span class="status-chip planned">'+escape(p.status.toUpperCase())+'</span></div>'+
+ '<div class="plan-form-grid"><label>Season<select name="season"><option '+(p.season==='Kharif 2026'?'selected':'')+'>Kharif 2026</option><option '+(p.season==='Rabi 2026–27'?'selected':'')+'>Rabi 2026–27</option><option '+(p.season==='Kharif 2027'?'selected':'')+'>Kharif 2027</option></select></label>'+
+ '<label>Crop<select name="crop"><option '+(p.crop==='Paddy'?'selected':'')+'>Paddy</option><option '+(p.crop==='Cotton'?'selected':'')+'>Cotton</option><option '+(p.crop==='Maize'?'selected':'')+'>Maize</option><option '+(p.crop==='Millet'?'selected':'')+'>Millet</option><option '+(p.crop==='Wheat'?'selected':'')+'>Wheat</option><option '+(p.crop==='Other'?'selected':'')+'>Other</option></select></label>'+
+ '<label>Hybrid / variety<input name="hybrid" value="'+escape(p.hybrid)+'" placeholder="Enter approved hybrid"></label><label>Leadership plan reference<input name="planReference" value="'+escape(p.planReference)+'" placeholder="File name, email or plan ID"></label>'+
+ '<label>Planned acres<input name="plannedAcres" type="number" min="0" step="0.01" value="'+escape(p.plannedAcres)+'" required></label>'+
+ '<label>Planned productivity<input name="plannedProductivity" type="number" min="0" step="0.01" value="'+escape(p.plannedProductivity)+'" required></label>'+
+ '<label>Productivity unit<select name="productivityUnit"><option '+(p.productivityUnit==='kg/acre'?'selected':'')+'>kg/acre</option><option '+(p.productivityUnit==='q/acre'?'selected':'')+'>q/acre</option><option '+(p.productivityUnit==='packets/acre'?'selected':'')+'>packets/acre</option></select></label>'+
+ '<label>Leadership planned volume<input name="plannedVolume" type="number" min="0" step="0.01" value="'+escape(p.plannedVolume)+'" required></label>'+
+ '<label>Volume unit<select name="volumeUnit"><option '+(p.volumeUnit==='kg'?'selected':'')+'>kg</option><option '+(p.volumeUnit==='MT'?'selected':'')+'>MT</option><option '+(p.volumeUnit==='packets'?'selected':'')+'>packets</option></select></label>'+
+ '<label class="plan-notes-field">Notes / assumptions<textarea name="notes" rows="2" placeholder="Record approved assumptions or caveats">'+escape(p.notes)+'</textarea></label></div>'+
+ '<div class="plan-actions"><button class="primary" type="submit">Save leadership plan</button><span>'+(p.savedAt?'Last saved in this session: '+escape(new Date(p.savedAt).toLocaleString()):'Not saved yet')+'</span></div></form>'+
+ '<div class="pm-planning-grid">'+card('APPROVED PLAN ACRES',fmt(acres)+' ac','Leadership input')+card('PLANNED PRODUCTIVITY',fmt(prod)+' '+escape(p.productivityUnit),'Leadership input')+card('LEADERSHIP PLANNED VOLUME',fmt(volume)+' '+escape(p.volumeUnit),'Preserved as entered')+'</div>'+
+ '<article class="panel calculated-volume-panel"><div><small>CALCULATED COMPARISON · NOT THE APPROVED TARGET</small><b>'+(calculated?fmt(calculated)+' '+escape(p.volumeUnit):'Enter acres and productivity')+'</b><p>Calculated from planned acres × productivity. Confirm unit compatibility before using this comparison; no automatic conversion is applied.</p></div><span class="plan-calc-icon">∑</span></article>'+
+ '<section class="panel plan-allocation-panel"><div class="panel-head"><div><h2>2. Allocate targets to Territory Managers</h2><p class="muted">Enter each territory allocation, check the balance, then release explicitly.</p></div><span class="status-chip '+(acreBalance<0||volumeBalance<0?'needs-review':'planned')+'">'+(acreBalance<0||volumeBalance<0?'OVER-ALLOCATED':'BALANCE CHECK')+'</span></div>'+
+ '<div class="allocation-balance-grid"><div><small>ACRE BALANCE</small><b class="'+(acreBalance<0?'balance-negative':'')+'">'+fmt(acreBalance)+' ac</b><span>'+fmt(allocatedAcres)+' ac allocated of '+fmt(acres)+' ac</span></div><div><small>VOLUME BALANCE</small><b class="'+(volumeBalance<0?'balance-negative':'')+'">'+fmt(volumeBalance)+' '+escape(p.volumeUnit)+'</b><span>'+fmt(allocatedVolume)+' '+escape(p.volumeUnit)+' allocated of '+fmt(volume)+' '+escape(p.volumeUnit)+'</span></div></div>'+
+ '<div class="plan-allocation-list">'+allocRows+'</div><div class="plan-actions"><button class="outline" id="saveAllocations">Save draft allocations</button><button class="primary" id="releaseAllocations">Release targets to Territory Managers</button></div>'+
+ '<p class="plan-footnote">Release is blocked if the leadership plan is not saved, if any allocation is negative, or if total allocated acres or volume exceeds the approved plan. Unallocated balances are permitted and remain visible. Revisions and secure multi-user approvals require a backend and are not provided by this demo.</p></section>'+
+ '<footer>Demo planning data stays in the current page session and is not sent to a server.</footer>';
+}
+function bindPlanningPage(){
+ const form=document.getElementById('productionPlanForm');
+ form?.addEventListener('submit',e=>{
+  e.preventDefault();const data=new FormData(form);
+  productionPlan={...productionPlan,season:String(data.get('season')),crop:String(data.get('crop')),hybrid:String(data.get('hybrid')).trim(),planReference:String(data.get('planReference')).trim(),plannedAcres:String(data.get('plannedAcres')),plannedProductivity:String(data.get('plannedProductivity')),productivityUnit:String(data.get('productivityUnit')),plannedVolume:String(data.get('plannedVolume')),volumeUnit:String(data.get('volumeUnit')),notes:String(data.get('notes')).trim(),savedAt:new Date().toISOString(),status:'Saved'};
+  render();notify('Leadership plan saved in this browser session.');
+ });
+ document.querySelectorAll('[data-allocation-acres],[data-allocation-volume]').forEach(input=>input.addEventListener('change',()=>{
+  const id=input.dataset.allocationAcres||input.dataset.allocationVolume;const t=territoryAllocations.find(x=>x.id===id);if(!t||t.released)return;
+  if(input.dataset.allocationAcres)t.acres=input.value;else t.volume=input.value;
+  render();
+ }));
+ document.getElementById('saveAllocations')?.addEventListener('click',()=>{territoryAllocations.forEach(t=>{if(!t.released)t.released=false});notify('Draft allocations saved in this browser session.');render()});
+ document.getElementById('releaseAllocations')?.addEventListener('click',()=>{
+  const n=v=>Number.isFinite(Number(v))&&String(v).trim()!==''?Number(v):0;
+  const totalAcres=territoryAllocations.reduce((s,t)=>s+n(t.acres),0),totalVolume=territoryAllocations.reduce((s,t)=>s+n(t.volume),0);
+  const planAcres=n(productionPlan.plannedAcres),planVolume=n(productionPlan.plannedVolume);
+  if(!productionPlan.savedAt){notify('Save the leadership-approved plan before releasing targets.');return}
+  if(territoryAllocations.some(t=>n(t.acres)<0||n(t.volume)<0)){notify('Allocations cannot be negative.');return}
+  if(totalAcres>planAcres+0.0001||totalVolume>planVolume+0.0001){notify('Release blocked: total allocations exceed the leadership plan.');return}
+  if(!territoryAllocations.some(t=>n(t.acres)>0||n(t.volume)>0)){notify('Enter at least one territory allocation first.');return}
+  territoryAllocations.forEach(t=>{if(n(t.acres)>0||n(t.volume)>0)t.released=true});
+  render();notify('Targets released in this demo. No Territory Manager notification is connected.');
+ });
+}
+
+function renderManager(){document.body.classList.remove('field-mode');shell();const list=scoped();dashboard.classList.toggle('hidden',page!=='overview');registry.classList.toggle('hidden',page==='overview');if(page==='overview')dashboard.innerHTML=overview(list);else if(page==='planning')registry.innerHTML=planningPage();else if(page==='fields')registry.innerHTML=roster(list);else if(page==='inspections')registry.innerHTML=inspections(list);else if(page==='production')registry.innerHTML=production(list);else registry.innerHTML=reports(list);nav.forEach(n=>n.classList.toggle('selected',n.dataset.view===page));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{showMasterImport=page!=='fields'&&b.dataset.go==='fields'&&/upload master|bulk onboard/i.test(b.textContent);page=b.dataset.go;render()});document.querySelectorAll('[data-open-territory]').forEach(b=>b.onclick=()=>{selectedTerritoryManager=b.dataset.openTerritory;role='territory';page='overview';render()});document.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>editInspection(+b.dataset.inspect));document.querySelectorAll('[data-sap]').forEach(b=>b.onclick=()=>simulateSap(+b.dataset.sap));if(page==='planning')bindPlanningPage();bindMasterUpload();document.getElementById('toggleMasterImport')?.addEventListener('click',()=>{showMasterImport=!showMasterImport;render()});document.getElementById('rosterSearch')?.addEventListener('input',filterRoster);document.getElementById('rosterCrop')?.addEventListener('change',filterRoster);document.getElementById('reloadSamples')?.addEventListener('click',()=>{records=structuredClone(SEED);showMasterImport=false;notify('Sample roster reloaded.');render()})}
 function fieldSummaryScreen(r){
   const pre=(r.inspectionReports||{})[5]||{},harvest=(r.inspectionReports||{})[6]||{};
   const shown=(value,unit)=>value!==undefined&&value!==null&&String(value).trim()!==''?escape(String(value)+(unit?' '+unit:'')):'Not recorded';
