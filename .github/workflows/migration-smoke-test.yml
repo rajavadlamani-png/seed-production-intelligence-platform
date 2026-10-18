@@ -77,6 +77,9 @@ jobs:
       - name: Apply migration 0005
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0005_scoped_field_access.sql
 
+      - name: Run synthetic tenant and field authorization tests
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
+
       - name: Verify RLS is enabled on tenant tables
         run: |
           psql -v ON_ERROR_STOP=1 -At <<'SQL'
