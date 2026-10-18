@@ -140,3 +140,17 @@ body.field-mode .field-view:not(.hidden){padding-bottom:140px}
 }
 
 @media(min-width:621px){.field-brand-footer{display:none}}
+
+/* Separate parent seed lot capture and QR scan */
+.parent-lot-control{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;margin-top:6px}
+.parent-lot-control input{min-width:0;width:100%;height:42px!important;margin:0!important}
+.parent-lot-control .small-action{height:42px;padding:0 11px;font-size:9px;white-space:nowrap}
+.qr-dialog{width:min(430px,calc(100vw - 28px));max-height:min(90vh,760px);padding:20px;border:1px solid var(--line);border-radius:16px;background:#fff;color:var(--ink);box-shadow:0 20px 60px #102d2066}
+.qr-dialog::backdrop{background:#102d20a6;backdrop-filter:blur(3px)}
+.qr-dialog-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.qr-dialog-head h2{font-size:19px;letter-spacing:-.3px;margin:4px 0}
+.qr-dialog-head p:not(.eyebrow){font-size:11px;line-height:1.5;color:var(--muted);margin:0}
+.qr-dialog video{display:block;width:100%;max-height:52vh;aspect-ratio:4/3;object-fit:cover;background:#0e2f23;border-radius:11px}
+.qr-scan-status{padding:10px 11px;margin:10px 0 4px;border-radius:8px;background:#eef5ef;color:#385f43;font-size:11px;line-height:1.45}
+.qr-scan-help{font-size:10px;line-height:1.5;color:#77847b;margin:7px 0}
+@media(max-width:620px){.parent-lot-control{grid-template-columns:minmax(0,1fr) 102px;gap:6px}.parent-lot-control .small-action{padding:0 7px;font-size:9px}.qr-dialog{padding:17px;border-radius:14px}}
