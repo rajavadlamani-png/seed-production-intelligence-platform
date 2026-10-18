@@ -474,10 +474,8 @@ with check (public.has_company_role(id, array['customer_admin','platform_admin']
 
 create policy memberships_select_company on public.company_memberships
 for select to authenticated using (public.is_company_member(company_id));
-create policy memberships_admin_manage on public.company_memberships
-for all to authenticated
-using (public.has_company_role(company_id, array['customer_admin','platform_admin']::public.member_role[]))
-with check (public.has_company_role(company_id, array['customer_admin','platform_admin']::public.member_role[]));
+-- Membership creation, role changes and removal are deliberately not exposed to client SQL policies.
+-- Add a trusted invitation/admin RPC or server-side workflow before onboarding users.
 
 -- Generic tenant policies. Access requires company membership. Sensitive transitions
 -- (approval/release/publication) will need server-side RPCs before production use.
@@ -489,13 +487,17 @@ begin
     'parent_seed_lots','parent_seed_distributions','grower_upload_batches','grower_upload_rows',
     'field_assignments','field_boundaries','form_definitions','form_versions','form_sections',
     'field_definitions','field_options','form_role_rules','workflow_definitions',
-    'form_submissions','documents','audit_events'
+    'form_submissions','documents'
   ] loop
     execute format('create policy %I_select_member on public.%I for select to authenticated using (public.is_company_member(company_id))', t, t);
     execute format('create policy %I_insert_member on public.%I for insert to authenticated with check (public.has_company_role(company_id, array[''platform_admin'',''customer_admin'',''production_manager'',''territory_manager'',''field_officer'']::public.member_role[]))', t, t);
     execute format('create policy %I_update_member on public.%I for update to authenticated using (public.has_company_role(company_id, array[''platform_admin'',''customer_admin'',''production_manager'',''territory_manager'',''field_officer'']::public.member_role[])) with check (public.has_company_role(company_id, array[''platform_admin'',''customer_admin'',''production_manager'',''territory_manager'',''field_officer'']::public.member_role[]))', t, t);
   end loop;
 end $$;
+
+-- Audit events are intentionally read-only to authenticated clients. Inserts must be performed
+-- by trusted server-side functions so clients cannot forge or alter the audit trail.
+-- No INSERT, UPDATE or DELETE policy is created for audit_events.
 
 -- Form configuration changes are restricted to customer admins / platform admins.
 drop policy form_definitions_insert_member on public.form_definitions;
@@ -555,6 +557,8 @@ create policy workflow_definitions_update_admin on public.workflow_definitions f
 using (public.has_company_role(company_id, array['customer_admin','platform_admin']::public.member_role[]))
 with check (public.has_company_role(company_id, array['customer_admin','platform_admin']::public.member_role[]));
 
+-- Audit events are intentionally excluded from client write policies; trusted server-side code
+-- must append audit events. Membership administration likewise requires a trusted invitation flow.
 -- The service role bypasses RLS by design and must only be used in trusted server-side code.
 -- This migration intentionally does not create a public company bootstrap or grant anonymous access.
 commit;
