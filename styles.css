@@ -370,3 +370,7 @@ body.field-mode .field-view:not(.hidden){padding-bottom:140px}
 .ask-chat-suggestions{margin:8px 0}.ask-chat-suggestions>small{display:block;margin-bottom:6px;color:var(--muted);font-size:7px;font-weight:750;letter-spacing:.55px}.ask-chat-suggestions button{margin:3px 3px 3px 0;padding:6px 8px;border:1px solid var(--line);border-radius:14px;background:white;color:#52675a;font:inherit;font-size:8px}
 .ask-chat-compose{display:flex;align-items:flex-end;gap:7px;padding-top:9px;border-top:1px solid #edf0eb}.ask-chat-compose textarea{flex:1;min-width:0;resize:vertical;padding:9px;border:1px solid var(--line);border-radius:8px;color:var(--ink);font:inherit;font-size:10px;line-height:1.45}.ask-chat-compose>button{width:37px;height:37px;border:0;border-radius:50%;background:var(--forest);color:white;font-size:20px}
 .ask-chat-local-note{margin:7px 0 0;color:var(--muted);font-size:8px;line-height:1.45}
+.ask-ram-welcome{display:flex;align-items:center;gap:9px;margin:13px 0 3px;padding:10px;border:1px solid #dce7dc;border-radius:10px;background:#f1f6f0}
+.ask-ram-welcome>span{display:grid;place-items:center;flex:none;width:31px;height:31px;border-radius:50%;background:var(--forest);color:white;font-weight:750}
+.ask-ram-welcome>div{flex:1}.ask-ram-welcome b,.ask-ram-welcome small{display:block}.ask-ram-welcome b{font-size:9px;color:var(--ink)}.ask-ram-welcome small{margin-top:3px;color:var(--muted);font-size:8px;line-height:1.4}
+.ask-ram-welcome em{flex:none;color:#82754f;font-size:6px;font-style:normal;font-weight:750;letter-spacing:.35px}
