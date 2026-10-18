@@ -81,6 +81,9 @@ jobs:
       - name: Apply migration 0006
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0006_scoped_submission_insert.sql
 
+      - name: Apply migration 0007
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0007_harden_auth_helpers.sql
+
       - name: Run synthetic tenant and field authorization tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
 
