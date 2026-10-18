@@ -9,9 +9,19 @@ Use this skill for feature work, design changes, and technical planning in this 
 
 ## Product shape
 
-- **Field officer mobile experience:** field and grower registration, GPS boundary capture, six-stage crop inspections, photos and activity records, observations, harvest details, and seed-lot creation.
+- **Bulk onboarding is the starting point:** operations staff load the farmer and plot master list from the approved Excel template, validate rows, and assign records before field work begins. Field officers update assigned records and inspections; they do not start with an unscoped farmer registry.
+- **Field officer mobile experience:** review assigned farmer and plot records, capture GPS boundaries, complete six-stage crop inspections, add photos and activity records, record observations, and enter harvest details for seed-lot creation. New master records arrive through controlled bulk onboarding and assignment.
 - **Management web experience:** production overview, field registry and GIS, satellite and weather monitoring, crop risk follow-ups, yield and production planning, seed traceability, and reports.
 - These are connected experiences for one seed production workflow. Keep navigation and records consistent across them as implementation grows.
+
+## Assignment and access model
+
+- Model access through assigned scope, not merely hidden navigation. Enforce permissions in the backend for every record and operation.
+- A farmer/plot can be associated with an organizer (aggregator), a field officer/assistant, a production officer, and a state-level production manager.
+- A field officer/assistant can read and update only assigned farmer and plot records, including inspection data. A production officer can review their assigned team of roughly 10–15 field assistants and the records within that scope. A production manager can review the assigned state scope. Keep the aggregator's scope explicit in assignments.
+- Treat farmer mobile numbers and bank account details as sensitive personal data. Exclude bank details from field officer and production dashboards. Restrict any bank-detail access to a separately authorized finance/operations role; mask values by default, log access, and protect them with server-side authorization and encryption.
+- Do not put real farmer records, contact details, or bank data in this public repository, sample fixtures, GitHub Pages, screenshots, logs, or browser local storage.
+- Excel imports must validate required columns, duplicates, assignment references, and row errors before committing. Keep the original import traceable and log who imported and assigned each batch. Never treat a client-side file picker or UI filter as a security boundary.
 
 ## Implementation guidance
 

@@ -17,7 +17,7 @@
     <aside class="sidebar">
       <p class="side-label">WORKSPACE</p>
       <button class="nav-item selected" data-view="overview"><span>◫</span> Overview</button>
-      <button class="nav-item" data-view="fields"><span>⌖</span> Field registry</button>
+      <button class="nav-item" data-view="fields"><span>⌖</span> Farmer & field roster</button>
       <button class="nav-item" data-view="inspections"><span>☷</span> Inspections</button>
       <button class="nav-item" data-view="production"><span>▤</span> Production & lots</button>
       <button class="nav-item" data-view="reports"><span>▥</span> Reports</button>
@@ -27,15 +27,15 @@
       <div class="mobile-switch"><button class="active" data-mode="manager">Manager view</button><button data-mode="field">Field officer</button></div>
       <section class="manager-view" id="managerView">
       <div id="dashboardPage">
-        <div class="page-heading"><div><p class="eyebrow">MONDAY, 18 OCTOBER 2026 · KHARIF SEASON</p><h1>Production overview</h1><p class="muted">A clear view of your seed fields, crop progress and team activity.</p></div><button class="primary" id="addField">＋ Register a field</button></div>
+        <div class="page-heading"><div><p class="eyebrow">MONDAY, 18 OCTOBER 2026 · KHARIF SEASON</p><h1>Production overview</h1><p class="muted">A clear view of farmer coverage, field progress and team activity.</p></div><button class="primary" id="addField">＋ Bulk onboard farmers</button></div>
         <div class="metric-grid">
-          <article class="metric"><div class="metric-title">Registered fields <span>↗</span></div><strong>128</strong><small><i class="good">+8</i> this season</small><div class="spark green"></div></article>
-          <article class="metric"><div class="metric-title">Area under seed <span>⌖</span></div><strong>846 <em>ac</em></strong><small>Across 6 districts</small><div class="spark blue"></div></article>
+          <article class="metric"><div class="metric-title">Farmer master records <span>↗</span></div><strong>1,248</strong><small>Illustrative sample total</small><div class="spark green"></div></article>
+          <article class="metric"><div class="metric-title">Area under seed <span>⌖</span></div><strong>846 <em>ac</em></strong><small>Illustrative · across 6 districts</small><div class="spark blue"></div></article>
           <article class="metric"><div class="metric-title">Inspections completed <span>✓</span></div><strong>76%</strong><small>97 of 128 fields this cycle</small><div class="progress"><span style="width:76%"></span></div></article>
           <article class="metric"><div class="metric-title">Fields needing review <span>!</span></div><strong>12</strong><small><i class="warn">4 high priority</i></small><div class="spark amber"></div></article>
         </div>
         <div class="content-grid">
-          <article class="panel map-panel"><div class="panel-head"><div><h2>Field activity</h2><p class="muted">Illustrative regional view · field locations are sample data</p></div><button class="text-button" data-view-registry>View all fields →</button></div>
+          <article class="panel map-panel"><div class="panel-head"><div><h2>Field activity</h2><p class="muted">Illustrative regional view · field locations are sample data</p></div><button class="text-button" data-view-registry>View farmer roster →</button></div>
             <div class="map-art"><div class="map-label label-one">Nashik</div><div class="map-label label-two">Jalgaon</div><div class="map-label label-three">Dhule</div><div class="field-shape f1"></div><div class="field-shape f2"></div><div class="field-shape f3"></div><div class="field-shape f4"></div><span class="map-pin p1">●</span><span class="map-pin p2">●</span><span class="map-pin p3 alert">●</span><span class="map-pin p4">●</span><span class="map-pin p5">●</span><span class="map-caption">FIELD COVERAGE · SAMPLE MAP</span></div>
             <div class="map-legend"><span><i class="legend-dot green-dot"></i> On track <b>92</b></span><span><i class="legend-dot amber-dot"></i> Review needed <b>12</b></span><span><i class="legend-dot gray-dot"></i> Not inspected <b>24</b></span></div>
           </article>
@@ -51,39 +51,35 @@
         <footer>Prototype interface · Sample figures and locations · No live field, satellite, weather or AI connections</footer>
       </div>
       <div class="registry-page hidden" id="registryPage">
-        <div class="page-heading"><div><p class="eyebrow">FIELD MANAGEMENT</p><h1>Field registry</h1><p class="muted">Field records saved in this browser for prototype review.</p></div><button class="primary" id="addFieldRegistry">＋ Register a field</button></div>
-        <div class="panel registry-panel"><div class="panel-head"><div><h2>Registered fields</h2><p class="muted">Demo records from this browser only</p></div><span class="registry-count" id="registryCount">0 fields</span></div><div id="registryList" class="registry-list"></div></div>
-        <footer>Browser-local prototype data · Not connected to a company database</footer>
+        <div class="page-heading"><div><p class="eyebrow">ONBOARDING & ASSIGNMENTS</p><h1>Farmer master list</h1><p class="muted">Bulk onboarding is the starting point for field work.</p></div><button class="primary" id="addFieldRegistry">＋ Review import process</button></div>
+        <div class="onboarding-grid">
+          <article class="panel import-panel"><div class="panel-head"><div><h2>Bulk import from Excel</h2><p class="muted">Validate the master list before assigning field work.</p></div><span class="status-chip planned">NOT CONNECTED</span></div>
+            <div class="import-steps"><div><span>1</span><section><strong>Prepare the approved template</strong><small>Farmer/field ID, farmer name, mobile, village, district, state, crop and hybrid.</small></section></div><div><span>2</span><section><strong>Validate and resolve row issues</strong><small>Check required values, duplicates, crop/hybrid choices and territory assignments.</small></section></div><div><span>3</span><section><strong>Assign and release records</strong><small>Route farmers to an aggregator and field officer, within the production officer and state manager scope.</small></section></div></div>
+            <div class="privacy-callout"><strong>Bank details need restricted handling</strong><p>Do not upload real farmer files to this public prototype. Bank account details should be handled in a secured finance workflow and stay hidden from field teams.</p></div>
+            <button class="outline import-button" id="importMasterList">Excel import is planned for the secure application</button>
+          </article>
+          <article class="panel role-panel"><div class="panel-head"><div><h2>Who sees each assignment?</h2><p class="muted">Access follows each person’s assigned scope.</p></div></div>
+            <div class="role-row"><span class="role-icon">A</span><div><strong>Organizer / Aggregator</strong><small>Assigned farmer group</small></div></div>
+            <div class="role-row"><span class="role-icon">F</span><div><strong>Field Officer / Assistant</strong><small>Only their assigned farmers and fields; updates inspections</small></div></div>
+            <div class="role-row"><span class="role-icon">P</span><div><strong>Production Officer</strong><small>Assigned team of about 10–15 field assistants</small></div></div>
+            <div class="role-row"><span class="role-icon">M</span><div><strong>Production Manager</strong><small>Assigned state-level production scope</small></div></div>
+            <div class="access-note">Role limits must be enforced by the secure backend, not just by hiding screens.</div>
+          </article>
+        </div>
+        <footer>Illustrative workflow only · No Excel upload or real farmer data is enabled on this site</footer>
       </div>
       </section>
       <section class="field-view hidden" id="fieldView"><div class="field-head"><div><p class="eyebrow">SAGEHARVEST · FIELD TEAM</p><h1>Good morning, Rohan</h1><p class="muted">Your field work for today</p></div><div class="weather-pill">☀ <span><b>28°</b><small>Local conditions not connected</small></span></div></div>
         <div class="field-summary"><div><strong>3</strong><small>Visits today</small></div><div><strong>2</strong><small>Inspections due</small></div><div><strong>1</strong><small>Follow-up</small></div></div>
-        <div class="field-section-head"><div><h2>Today's schedule</h2><p class="muted">Kharif 2026 · Monday, 18 October</p></div><button class="text-button">View all</button></div>
+        <div class="assigned-scope">Showing only the farmers assigned to this field officer · sample records</div>
+        <div class="field-section-head"><div><h2>Assigned visits</h2><p class="muted">Kharif 2026 · Monday, 18 October</p></div><button class="text-button">View all</button></div>
         <article class="visit-card urgent"><div class="visit-top"><div><span class="severity high">FOLLOW-UP</span><span class="visit-time">09:30 AM</span></div><button class="icon-button">···</button></div><h3>Patil family farm</h3><p class="muted">SH-024 · Niphad · 3.2 acres</p><div class="crop-chip">Rice · Vegetative growth</div><div class="visit-alert">! Check reported leaf discoloration</div><button class="primary visit-action">Start inspection <span>→</span></button></article>
         <article class="visit-card"><div class="visit-top"><div><span class="severity low">SCHEDULED</span><span class="visit-time">01:00 PM</span></div><button class="icon-button">···</button></div><h3>Deshmukh seed farm</h3><p class="muted">SH-039 · Yeola · 5.1 acres</p><div class="crop-chip">Rice · Vegetative growth</div><button class="outline visit-action">Open field record <span>→</span></button></article>
-        <div class="field-section-head"><div><h2>Quick actions</h2></div></div><div class="quick-actions"><button data-action="register-field"><span>＋</span><b>Register field</b><small>Add a grower and plot</small></button><button data-action="gps"><span>⌖</span><b>Capture GPS</b><small>Map field boundary</small></button><button data-action="photo"><span>▧</span><b>Upload photo</b><small>Attach field evidence</small></button></div><div class="offline-note">◉ <span><b>Demo storage</b><small>New field records stay in this browser only.</small></span></div>
+        <div class="field-section-head"><div><h2>Quick actions</h2></div></div><div class="quick-actions"><button data-action="assigned-list"><span>☷</span><b>My assignments</b><small>View assigned farmer list</small></button><button data-action="gps"><span>⌖</span><b>Capture GPS</b><small>Map field boundary</small></button><button data-action="photo"><span>▧</span><b>Upload photo</b><small>Attach field evidence</small></button></div><div class="offline-note">◉ <span><b>Assigned view · sample only</b><small>Real assignment access needs secure sign-in and server-side permissions.</small></span></div>
         <nav class="bottom-nav"><button class="active"><span>⌂</span>Today</button><button><span>⌖</span>Fields</button><button><span>☷</span>Inspections</button><button><span>▤</span>More</button></nav>
       </section>
     </main>
   </div>
-  <dialog class="field-dialog" id="fieldDialog" aria-labelledby="fieldDialogTitle">
-    <form id="fieldForm" method="dialog">
-      <div class="dialog-heading"><div><p class="eyebrow">FIELD REGISTRATION · DEMO</p><h2 id="fieldDialogTitle">Register a field</h2><p class="muted">Enter the basic plot details. This record stays in this browser.</p></div><button type="button" class="dialog-close" id="closeFieldDialog" aria-label="Close">×</button></div>
-      <div class="form-grid">
-        <label>Grower name<input name="grower" required maxlength="80" autocomplete="name" placeholder="e.g. Anil Patil"></label>
-        <label>Field name or number<input name="fieldName" required maxlength="60" placeholder="e.g. North plot"></label>
-        <label>Village<input name="village" required maxlength="60" placeholder="Village"></label>
-        <label>District<input name="district" required maxlength="60" placeholder="District"></label>
-        <label>Crop<select name="crop" required><option value="">Select crop</option><option>Rice</option><option>Wheat</option><option>Maize</option><option>Other</option></select></label>
-        <label>Variety<input name="variety" maxlength="60" placeholder="Variety (optional)"></label>
-        <label>Area (acres)<input name="area" type="number" min="0.01" max="100000" step="0.01" required placeholder="e.g. 2.5"></label>
-        <label>Sowing date<input name="sowingDate" type="date"></label>
-      </div>
-      <div class="gps-placeholder"><span>⌖</span><div><strong>GPS boundary capture isn’t connected yet</strong><small>Add the field location manually in a later step.</small></div></div>
-      <div class="dialog-note">Prototype only: details are saved to this browser’s local storage, not to a secure company database.</div>
-      <div class="dialog-actions"><button type="button" class="outline" id="cancelFieldDialog">Cancel</button><button type="submit" class="primary">Save demo field</button></div>
-    </form>
-  </dialog>
   <div class="toast" id="toast" role="status"></div>
   <script src="app.js"></script>
 </body>
