@@ -5,6 +5,46 @@
 
 begin;
 
+-- SECURITY DEFINER helper avoids recursive RLS between fields and field_assignments.
+-- The function returns only a boolean and exposes no membership or assignment rows.
+create or replace function public.user_can_access_field(p_company_id uuid, p_field_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select
+    exists (
+      select 1 from public.company_memberships m
+      where m.company_id = p_company_id and m.user_id = auth.uid()
+        and m.is_active
+        and m.role in ('customer_admin'::public.member_role,
+                       'platform_admin'::public.member_role,
+                       'production_manager'::public.member_role)
+    )
+    or exists (
+      select 1
+      from public.company_memberships m
+      join public.fields f on f.company_id = m.company_id
+      where m.company_id = p_company_id and m.user_id = auth.uid()
+        and m.is_active and m.role = 'territory_manager'::public.member_role
+        and m.territory_code = f.territory_code and f.id = p_field_id
+    )
+    or exists (
+      select 1
+      from public.company_memberships m
+      join public.field_assignments a on a.field_officer_membership_id = m.id
+      where m.company_id = p_company_id and m.user_id = auth.uid()
+        and m.is_active and m.role = 'field_officer'::public.member_role
+        and a.company_id = p_company_id and a.field_id = p_field_id
+        and a.status = 'active'
+    );
+$;
+
+revoke all on function public.user_can_access_field(uuid, uuid) from public;
+grant execute on function public.user_can_access_field(uuid, uuid) to authenticated;
+
 -- Remove company-wide read policies from the field-scoped tables. PostgreSQL
 -- permissive policies are ORed, so leaving the old policy would defeat scoping.
 drop policy if exists fields_select_member on public.fields;
@@ -36,17 +76,7 @@ using (
         and m.territory_code = fields.territory_code
     )
   )
-  or exists (
-    select 1
-    from public.field_assignments a
-    join public.company_memberships m on m.id = a.field_officer_membership_id
-    where a.company_id = fields.company_id
-      and a.field_id = fields.id
-      and a.status = 'active'
-      and m.user_id = auth.uid()
-      and m.is_active
-      and m.role = 'field_officer'::public.member_role
-  )
+  or public.user_can_access_field(company_id, id)
 );
 
 create policy field_assignments_select_scoped on public.field_assignments
