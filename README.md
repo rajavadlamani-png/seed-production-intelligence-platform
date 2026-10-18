@@ -1,0 +1,19 @@
+# SageHarvest — Seed Production Monitor
+
+A mobile-first front-end prototype for field officers and seed production managers.
+
+## Open the prototype
+
+Open `index.html` in a browser. The Manager / Field Officer switch shows the two responsive views.
+
+## Current scope
+
+- Responsive production overview with sample fields, inspection progress, follow-ups and seed production snapshot.
+- Mobile field officer home with a sample day schedule, follow-up alert and quick action affordances.
+- Six-stage inspection cycle represented in the manager view.
+
+All figures, locations and observations are illustrative. The prototype does not include authentication, persistence, GPS capture, production data, a backend, database, satellite or weather feeds, or AI models. Buttons that lead to unbuilt features identify them as planned.
+
+## Next stage
+
+Review the source platform brief, confirm field and crop terminology, then implement field registration and the first inspection capture flow. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
