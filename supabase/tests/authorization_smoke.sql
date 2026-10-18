@@ -67,7 +67,7 @@ on conflict do nothing;
 -- Field Officer Alpha must see its assigned Alpha field, never Beta's field or submission.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
-do $$
+do $$$
 declare n integer;
 begin
  select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000014';
@@ -84,12 +84,12 @@ end $$;
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
 reset role;
-do $
+do $$
 declare actual jsonb;
 begin
  select payload into actual from public.form_submissions where id='20000000-0000-0000-0000-000000000027';
  if actual is distinct from '{"synthetic":"beta"}'::jsonb then
    raise exception 'FAIL: cross-tenant update changed Beta submission';
  end if;
-end $;
+end $$;
 rollback;
