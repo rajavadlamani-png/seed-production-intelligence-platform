@@ -83,12 +83,13 @@ end $$;
 -- Field Officer Alpha cannot change an unassigned Beta submission, even by knowing its UUID.
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
-do $$
-declare n integer;
-begin
- select count(*) into n from public.form_submissions where id='20000000-0000-0000-0000-000000000027' and payload='{"synthetic":"beta"}';
- if n <> 0 then raise exception 'FAIL: expected cross-tenant row to remain invisible under RLS'; end if;
-end $$;
-
 reset role;
+do $
+declare actual jsonb;
+begin
+ select payload into actual from public.form_submissions where id='20000000-0000-0000-0000-000000000027';
+ if actual is distinct from '{"synthetic":"beta"}'::jsonb then
+   raise exception 'FAIL: cross-tenant update changed Beta submission';
+ end if;
+end $;
 rollback;
