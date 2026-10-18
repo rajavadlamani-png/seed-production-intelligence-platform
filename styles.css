@@ -138,3 +138,5 @@ body.field-mode .field-view:not(.hidden){padding-bottom:140px}
   .field-brand-band{margin-top:-12px;border-radius:0 0 12px 12px;padding-left:18px;padding-right:18px}
   .field-brand-footer{bottom:72px}
 }
+
+@media(min-width:621px){.field-brand-footer{display:none}}
