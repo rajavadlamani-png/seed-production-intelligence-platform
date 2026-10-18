@@ -46,6 +46,7 @@ Use this skill for feature work, design changes, and technical planning in this 
 - The field officer has a separate satellite observations page that is read only. Keep it explicitly unavailable until an approved satellite source is connected; never fabricate imagery, vegetation indices, moisture values, or alerts.
 - AI photo assessment is deferred at the user's request. Do not set up provider credentials or claim image diagnosis until the user asks to resume and a secure backend integration is designed.
 - When all six stage reports are complete, show the field officer a final summary of net G.S. acres, productivity per acre, dispatch challan (DC), STN, dispatch date, seed weight, moisture and quality status. Use recorded data only; calculate productivity only when the area, weight, and weight unit are present. Clearly label the public prototype summary as unverified and session-only.
+- Include **Ask Ram** as the field officer's multilingual voice-assistant concept, with a preferred-language selector and contextual help entry points. Until Google AI is connected, keep microphone access, speech recognition, spoken replies and AI answers clearly marked unavailable; do not simulate live AI advice or claim broad language support works.
 ## Implementation guidance
 
 - Start from the current repository and its existing interface. Preserve agreed workflows and branding while making targeted improvements.
