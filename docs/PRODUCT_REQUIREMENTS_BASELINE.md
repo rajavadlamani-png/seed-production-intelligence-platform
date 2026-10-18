@@ -144,3 +144,36 @@ Use explicit statuses such as Draft, Submitted, Under review, Approved, Released
 6. Territory Manager-to-Field Officer assignment.
 7. Connect this workflow to the existing six-stage inspection and traceability prototype.
 8. Replace browser-only state with secure server-side persistence/authentication before any real company data is entered.
+
+## Product architecture decision — Separate mobile and manager web applications
+
+This is a core product requirement and must guide all future implementation. The mobile application and the manager web application are separate user-facing applications, but they must share the same authorised backend, data model and synchronisation services.
+
+### 1. Manager web application
+- Continue developing the web interface as the full-featured management workspace for Production Managers, Territory Managers and authorised administrators.
+- Support leadership sign-off documents, plan approval, target allocation, parent-seed distribution, grower-list import and validation, officer assignments, reconciliation, dashboards, reports, exception management and audit history.
+- Provide detailed tables, filters, bulk operations, review/approval controls and consolidated views suited to desktop use.
+
+### 2. Standalone mobile application
+- Develop the field/mobile interface as a separate installable application, not merely a mobile-sized screen embedded in the manager website.
+- Plan for Android distribution through Google Play so Field Officers can find, install and update it easily. Google Play publication is a release goal; it will require the appropriate Android app packaging, store listing, privacy disclosures, testing and policy compliance.
+- Prioritise field work: assigned grower/field list, GPS and field-boundary capture, the six Paddy inspection stages, photos/evidence, observations, corrective actions, harvest/dispatch capture and clear sync status.
+- Design for unreliable rural connectivity. Where approved, field records should be saved securely on-device and synchronised when connectivity returns, with visible pending/success/failure states and conflict handling. Offline support must not be claimed until implemented and tested.
+
+### 3. Shared backend and data synchronisation
+- Both applications must use the same secure backend APIs and authoritative database. They must not rely on directly sharing browser memory or separate local datasets.
+- A record created or approved in the manager web app must become available to the relevant authorised mobile users through synchronisation. Field submissions from mobile must flow back to the manager web app for review and consolidated reporting.
+- Enforce company/tenant isolation, role-based access, geographic scope, server-side validation and audit trails on the backend. Do not rely on hiding screens in the client as a security control.
+- Define stable IDs, season/crop/hybrid references, record ownership, timestamps, record versions, sync status and conflict-resolution rules. Prevent duplicate submissions when a device retries synchronisation.
+- Keep the leadership-approved plan and Sign Off Document linked as controlled records with version, uploader, timestamp and access permissions. A filename displayed in the current public prototype is not a document upload or a durable approval record.
+- Integrations such as SAP, weather and satellite services must connect through approved backend interfaces rather than directly from each client.
+
+### 4. Architecture boundary and delivery order
+1. Continue using the public GitHub Pages site only to demonstrate and refine the web workflow with synthetic data.
+2. Design the shared data model, authentication/authorisation, API contracts, file storage and synchronisation behaviour before connecting real company data.
+3. Build the manager web application and standalone Android mobile application as separate clients against those shared contracts.
+4. Test end-to-end flows: plan and allocation published from web to mobile; assigned field work and inspections submitted from mobile to web; offline queue/retry; duplicate prevention; access restrictions; and audit history.
+5. Publish the mobile application to Google Play only after security, data-protection, field usability and synchronisation tests pass.
+
+**Non-negotiable principle:** separate applications, one governed source of truth. The web and mobile interfaces may differ by role and workflow, but authorised records must remain consistent and traceable across both.
+
