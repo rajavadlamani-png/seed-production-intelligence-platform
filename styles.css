@@ -57,3 +57,32 @@
   .field-dialog{border-radius:15px}.field-dialog form{padding:20px 17px}.dialog-heading h2{font-size:21px}.form-grid label,.isolation-questions label{font-size:11px}.form-grid input,.form-grid select,.isolation-questions input,.isolation-questions select{height:44px;font-size:13px;border-radius:9px}.dialog-note{font-size:10px;line-height:1.5}.dialog-actions button{min-height:43px;font-size:11px;border-radius:9px}
 }
 @media(min-width:621px){.demo-status{font-size:9px}.small-action{font-size:9px}.table-wrap th{font-size:9px}.table-wrap td{font-size:10px}.table-wrap td b{font-size:10px}.table-wrap td small{font-size:9px}}
+
+
+/* A centered, focused field-app preview at desktop widths */
+@media(min-width:621px){
+  body.field-mode{background:#f5f6f1}
+  .field-mode .layout{display:block;min-height:0}
+  .field-mode .sidebar{display:none}
+  .field-mode main{max-width:1080px;padding:28px 32px}
+  .field-mode .field-view:not(.hidden){max-width:900px;margin:0 auto;padding:0 12px 42px}
+  .field-mode .back-manager{min-height:42px;font-size:11px;border-radius:9px;margin-bottom:16px}
+  .field-mode .field-head{padding:22px 24px;margin:0 0 18px;background:linear-gradient(135deg,#f2f4eb,#fff 75%);border:1px solid #e3e8df;border-radius:16px;box-shadow:0 5px 18px #183d2b08;gap:18px}
+  .field-mode .field-head .eyebrow{font-size:9px;letter-spacing:1.1px}
+  .field-mode .field-head h1{font-size:26px;line-height:1.2;letter-spacing:-.6px}
+  .field-mode .field-head p:not(.eyebrow){font-size:13px;line-height:1.5}
+  .field-mode .mobile-role{font-size:11px}
+  .field-mode .mobile-role select{min-width:145px;height:40px;font-size:12px;border-radius:8px}
+  .field-mode .field-summary{gap:12px;padding:16px 12px;margin:0 0 16px;border-radius:13px;box-shadow:0 3px 12px #183d2b08}
+  .field-mode .field-summary strong{font-size:25px}.field-mode .field-summary small{font-size:11px;margin-top:5px}
+  .field-mode .assigned-scope{font-size:11px;line-height:1.5;padding:12px 14px;border-radius:9px;margin:0 0 22px}
+  .field-mode .field-section-head{margin:22px 2px 13px}.field-mode .field-section-head h2{font-size:19px}.field-mode .field-section-head p{font-size:12px}
+  .field-mode .visit-card{padding:20px;margin-bottom:15px;border-radius:15px;box-shadow:0 5px 18px #183d2b0a}.field-mode .visit-card.urgent{border-left:4px solid #c95b4d;background:linear-gradient(110deg,#fff9f7 0,#fff 40%)}
+  .field-mode .visit-card h3{font-size:18px;line-height:1.3}.field-mode .visit-card>.muted{font-size:13px;line-height:1.5}
+  .field-mode .crop-chip{font-size:11px;padding:7px 10px;border-radius:20px}.field-mode .identifier-pair{gap:8px;margin-top:12px}.field-mode .identifier-pair span{font-size:10px;padding:8px 10px;border-radius:7px}
+  .field-mode .area-summary{font-size:12px;padding:12px;border-radius:9px}.field-mode .area-summary b{font-size:13px}
+  .field-mode .gps-open{min-height:46px;font-size:12px;border-radius:9px}.field-mode .visit-action{min-height:48px;font-size:13px;border-radius:10px}
+  .field-mode .quality-alert,.field-mode .visit-alert{font-size:11px;line-height:1.5;padding:12px;border-radius:9px}.field-mode .quality-alert b{font-size:11px}
+  .field-mode .quick-actions{gap:12px}.field-mode .quick-actions button{min-height:112px;padding:15px;border-radius:12px}.field-mode .quick-actions b{font-size:11px}.field-mode .quick-actions small{font-size:10px;line-height:1.45}
+  .field-mode .offline-note{padding:14px;border-radius:10px}.field-mode .offline-note b{font-size:11px}.field-mode .offline-note small{font-size:10px;line-height:1.5}
+}
