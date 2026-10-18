@@ -177,7 +177,8 @@ for update to authenticated
 using (
   public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
   or (
-    field_id is not null and exists (
+    public.has_company_role(company_id, array['territory_manager','field_officer']::public.member_role[])
+    and field_id is not null and exists (
       select 1 from public.fields f
       where f.id = form_submissions.field_id and f.company_id = form_submissions.company_id
     )
@@ -186,7 +187,8 @@ using (
 with check (
   public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
   or (
-    field_id is not null and exists (
+    public.has_company_role(company_id, array['territory_manager','field_officer']::public.member_role[])
+    and field_id is not null and exists (
       select 1 from public.fields f
       where f.id = form_submissions.field_id and f.company_id = form_submissions.company_id
     )
