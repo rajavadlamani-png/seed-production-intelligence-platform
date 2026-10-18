@@ -201,7 +201,7 @@ f.querySelectorAll('[data-stage-panel]').forEach(panel=>{const n=+panel.dataset.
 syncReportForm(f);dlg.showModal()
 }
 function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.remove('hidden');field.classList.add('hidden');renderManager()}}
-nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;role='manager';fieldMode=false;render()}));
+nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=false;render()}));
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';render()});
 render();
