@@ -16,6 +16,7 @@ const SEED = [
 
 let records = structuredClone(SEED), pendingMasterRows=null, showMasterImport=false;
 let role = 'manager', selectedOfficer = 'FA-01', selectedTerritoryManager = 'TM-01', page = 'overview', fieldMode = false;
+let signOffDocument=null;
 let productionPlan={season:'Kharif 2026',crop:'Paddy',hybrid:'',planReference:'',plannedAcres:'',plannedProductivity:'',productivityUnit:'kg/acre',plannedVolume:'',volumeUnit:'kg',notes:'',savedAt:null,status:'Draft'};
 let territoryAllocations=[
  {id:'TM-01',name:'Territory Manager 1',acres:'',volume:'',released:false},
@@ -138,7 +139,7 @@ function planningPage(){
  '<label>Productivity unit<select name="productivityUnit"><option '+(p.productivityUnit==='kg/acre'?'selected':'')+'>kg/acre</option><option '+(p.productivityUnit==='q/acre'?'selected':'')+'>q/acre</option><option '+(p.productivityUnit==='packets/acre'?'selected':'')+'>packets/acre</option></select></label>'+
  '<label>Leadership planned volume<input name="plannedVolume" type="number" min="0" step="0.01" value="'+escape(p.plannedVolume)+'" required></label>'+
  '<label>Volume unit<select name="volumeUnit"><option '+(p.volumeUnit==='kg'?'selected':'')+'>kg</option><option '+(p.volumeUnit==='MT'?'selected':'')+'>MT</option><option '+(p.volumeUnit==='packets'?'selected':'')+'>packets</option></select></label>'+
- '<label class="plan-notes-field">Notes / assumptions<textarea name="notes" rows="2" placeholder="Record approved assumptions or caveats">'+escape(p.notes)+'</textarea></label></div>'+
+ '<div class="signoff-upload-panel"><div><b>Leadership approval · Sign Off Document</b><p class="muted">Attach the approved leadership sign-off file for this production plan.</p></div><label class="signoff-file-label">Upload Sign Off Document<input id="signOffDocumentInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"></label><p class="signoff-file-status">'+(signOffDocument?('Selected: '+escape(signOffDocument.name)+' · '+(signOffDocument.size/1024).toFixed(1)+' KB'):'No Sign Off Document selected')+'</p><small>Prototype limitation: this file is selected in the current browser session only. It is not uploaded to a server or retained as an official record.</small></div>'+\n '<label class="plan-notes-field">Notes / assumptions<textarea name="notes" rows="2" placeholder="Record approved assumptions or caveats">'+escape(p.notes)+'</textarea></label></div>'+
  '<div class="plan-actions"><button class="primary" type="submit">Save leadership plan</button><span>'+(p.savedAt?'Last saved in this session: '+escape(new Date(p.savedAt).toLocaleString()):'Not saved yet')+'</span></div></form>'+
  '<div class="pm-planning-grid">'+card('APPROVED PLAN ACRES',fmt(acres)+' ac','Leadership input')+card('PLANNED PRODUCTIVITY',fmt(prod)+' '+escape(p.productivityUnit),'Leadership input')+card('LEADERSHIP PLANNED VOLUME',fmt(volume)+' '+escape(p.volumeUnit),'Preserved as entered')+'</div>'+
  '<article class="panel calculated-volume-panel"><div><small>CALCULATED PRODUCTION (MT) · COMPARISON ONLY</small><b>'+calculatedLabel+'</b><p>'+(calculatedCompatible?'Calculated from planned acres × productivity and converted to metric tonnes (MT). kg ÷ 1,000 = MT; quintals × 0.1 = MT.':'Enter productivity in kg/acre or quintals/acre to calculate MT. For packets/acre, an approved packet-weight conversion is required.')+' The leadership-approved planned volume remains unchanged.</p></div><span class="plan-calc-icon">∑</span></article>'+
@@ -149,6 +150,13 @@ function planningPage(){
  '<footer>Demo planning data stays in the current page session and is not sent to a server.</footer>';
 }
 function bindPlanningPage(){
+ const signOffInput=document.getElementById('signOffDocumentInput');
+ signOffInput?.addEventListener('change',()=>{
+  const file=signOffInput.files?.[0]||null;
+  if(file && file.size>15*1024*1024){signOffInput.value='';signOffDocument=null;notify('Sign Off Document must be 15 MB or smaller in this demo.');render();return;}
+  signOffDocument=file;
+  render();
+ });
  const form=document.getElementById('productionPlanForm');
  form?.addEventListener('submit',e=>{
   e.preventDefault();const data=new FormData(form);
