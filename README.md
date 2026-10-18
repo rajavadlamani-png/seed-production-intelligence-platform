@@ -11,6 +11,7 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 - Responsive production overview with sample fields, inspection progress, follow-ups and seed production snapshot.
 - Sample role views for production managers, production officers, field officers, and aggregators.
 - Editable six-stage inspections with observations, seasonal field numbers, and simulated SAP lot responses.
+- Stage-one isolation dropdowns with conditional time-isolation, nearby-crop, distance, and male-border-row questions. Missing applicable answers and a “No” isolation answer are surfaced as quality red flags in the field view and management roster.
 - Field officer GPS boundary capture and area measurement in acres, plus a clearly labeled sample walk for previewing the flow.
 - Farmer master-list and assignment workflow. Excel import is intentionally not enabled in the public prototype.
 - Shared Sage Harvest corporate logo, favicon, color palette, and typography. The source artwork is in `assets/`.
@@ -23,4 +24,4 @@ The project-specific Codex skill is in `.agents/skills/sageharvest-seed-monitor/
 
 ## Next stage
 
-Review the source platform brief, confirm field and crop terminology, then implement field registration and the first inspection capture flow. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
+Confirm crop-specific isolation rules with the production team before adding automated compliance decisions. Next, develop field registration and the remaining inspection stage forms. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
