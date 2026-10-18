@@ -23,6 +23,13 @@ Use this skill for feature work, design changes, and technical planning in this 
 - Do not put real farmer records, contact details, or bank data in this public repository, sample fixtures, GitHub Pages, screenshots, logs, or browser local storage.
 - Excel imports must validate required columns, duplicates, assignment references, and row errors before committing. Keep the original import traceable and log who imported and assigned each batch. Never treat a client-side file picker or UI filter as a security boundary.
 
+## Seasonal field and SAP lot identifiers
+
+- The approved master list carries a field number unique within the season. Keep that value distinct from the SAP lot number.
+- SAP is the source of truth for the lot number, which is unique to the farmer-season. Do not invent or generate it in the app. A future secure backend integration should fetch SAP results, match them to the correct farmer-season record using stable identifiers, and handle retries without creating duplicate records.
+- Show the seasonal field number as soon as the master record is assigned. Show the SAP lot as `Awaiting SAP` until a confirmed value is returned, then display the returned value read-only to the assigned field officer. Include a clear sync status when relevant.
+- Keep SAP credentials and integration secrets server-side. Do not claim the SAP integration works until it is connected and verified.
+
 ## Implementation guidance
 
 - Start from the current repository and its existing interface. Preserve agreed workflows and branding while making targeted improvements.
