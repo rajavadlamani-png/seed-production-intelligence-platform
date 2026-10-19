@@ -182,4 +182,32 @@ BEGIN
   IF n <> 1 THEN RAISE EXCEPTION 'FAIL: non-admin tenant member deleted a storage object'; END IF;
 END $test$;
 
+
+-- Trusted onboarding works through service_role; ordinary authenticated users lack EXECUTE.
+SET LOCAL ROLE service_role;
+SELECT public.bootstrap_customer_company(
+  'Trusted Bootstrap Company','trusted-bootstrap-company',
+  '10000000-0000-0000-0000-000000000101'
+);
+SELECT public.provision_company_member(
+  (SELECT id FROM public.companies WHERE slug='trusted-bootstrap-company'),
+  '10000000-0000-0000-0000-000000000102',
+  'territory_manager'::public.member_role,
+  'T-02'
+);
+DO $test$
+DECLARE company_id uuid; membership_id uuid;
+BEGIN
+  SELECT id INTO company_id FROM public.companies WHERE slug='trusted-bootstrap-company';
+  IF company_id IS NULL THEN RAISE EXCEPTION 'FAIL: trusted bootstrap did not create company'; END IF;
+  SELECT id INTO membership_id FROM public.company_memberships
+   WHERE company_id=company_id AND user_id='10000000-0000-0000-0000-000000000102';
+  IF membership_id IS NULL THEN RAISE EXCEPTION 'FAIL: trusted onboarding did not provision membership'; END IF;
+  PERFORM public.deactivate_company_member(membership_id);
+  IF EXISTS (SELECT 1 FROM public.company_memberships WHERE id=membership_id AND is_active) THEN
+    RAISE EXCEPTION 'FAIL: trusted membership deactivation did not persist';
+  END IF;
+END $test$;
+RESET ROLE;
+
 ROLLBACK;
