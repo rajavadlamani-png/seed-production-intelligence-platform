@@ -118,6 +118,25 @@ begin
  if n <> 0 then raise exception 'FAIL: Alpha officer can see Beta submission'; end if;
 end $test$;
 
+-- Published form versions cannot be edited directly, even by an authenticated user.
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    update public.form_versions set definition_snapshot='{"tampered":true}'
+    where id='10000000-0000-0000-0000-000000000016';
+  exception when others then
+    if sqlerrm = 'Published form versions are immutable; create a new version' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: published form version was editable';
+  end if;
+end $test$;
+
 -- Submission creation must honor form_role_rules.can_create/can_submit.
 do $test$
 declare denied boolean := false;
