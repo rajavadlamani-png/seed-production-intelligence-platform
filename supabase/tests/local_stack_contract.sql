@@ -35,7 +35,9 @@ BEGIN
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
      WHERE n.nspname='public'
        AND p.proname IN ('is_company_member','has_company_role','user_can_access_field',
-                         'assert_same_company_relationships','transition_form_submission')
+                         'assert_same_company_relationships','transition_form_submission',
+                         'transition_production_plan','transition_target_allocation',
+                         'transition_grower_upload_batch')
   LOOP
     IF NOT fn.prosecdef THEN
       RAISE EXCEPTION 'Security helper % must be SECURITY DEFINER', fn.proname;
