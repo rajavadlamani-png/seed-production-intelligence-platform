@@ -38,7 +38,7 @@ BEGIN
                          'assert_same_company_relationships','transition_form_submission',
                          'transition_production_plan','transition_target_allocation',
                          'transition_grower_upload_batch','bootstrap_customer_company',
-                         'provision_company_member','deactivate_company_member')
+                         'provision_company_member','deactivate_company_member','publish_form_version')
   LOOP
     IF NOT fn.prosecdef THEN
       RAISE EXCEPTION 'Security helper % must be SECURITY DEFINER', fn.proname;
