@@ -168,9 +168,21 @@ BEGIN
   END;
   IF NOT denied THEN RAISE EXCEPTION 'FAIL: tenant member inserted an object into another company path'; END IF;
 END $test$;
-DELETE FROM storage.objects
- WHERE bucket_id='seed-documents'
-   AND name='10000000-0000-0000-0000-000000000110/fields/synthetic-a.pdf';
+DO $test$
+DECLARE denied boolean := false;
+BEGIN
+  BEGIN
+    DELETE FROM storage.objects
+     WHERE bucket_id='seed-documents'
+       AND name='10000000-0000-0000-0000-000000000110/fields/synthetic-a.pdf';
+  EXCEPTION WHEN others THEN
+    IF SQLERRM LIKE 'Direct deletion from storage tables is not allowed%' THEN
+      denied := true;
+    ELSE RAISE;
+    END IF;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL: direct SQL deletion of a storage object was not blocked'; END IF;
+END $test$;
 RESET ROLE;
 DO $test$
 DECLARE n integer;
