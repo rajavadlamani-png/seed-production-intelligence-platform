@@ -1,6 +1,19 @@
 -- Close field-boundary visibility gap and scope operational records by field/territory.
 begin;
 
+-- Remove the actual policy names introduced by migration 0003; policy names differ
+-- from the generic names in the initial baseline.
+drop policy if exists growers_update_ops on public.growers;
+drop policy if exists target_allocations_update_pm_tm on public.target_allocations;
+drop policy if exists parent_seed_lots_insert_ops on public.parent_seed_lots;
+drop policy if exists parent_seed_lots_update_ops on public.parent_seed_lots;
+drop policy if exists parent_seed_distributions_update_ops on public.parent_seed_distributions;
+drop policy if exists parent_seed_distributions_insert_ops on public.parent_seed_distributions;
+drop policy if exists grower_upload_batches_insert_pm_tm on public.grower_upload_batches;
+drop policy if exists grower_upload_batches_update_pm on public.grower_upload_batches;
+drop policy if exists grower_upload_rows_insert_pm_tm on public.grower_upload_rows;
+drop policy if exists grower_upload_rows_update_pm on public.grower_upload_rows;
+
 drop policy if exists field_boundaries_select_scoped on public.field_boundaries;
 create policy field_boundaries_select_scoped on public.field_boundaries
 for select to authenticated
@@ -113,6 +126,18 @@ using (
        and m.territory_code = parent_seed_distributions.destination_territory_code
   )
 )
+with check (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or exists (
+    select 1 from public.company_memberships m
+     where m.company_id = parent_seed_distributions.company_id and m.user_id = auth.uid()
+       and m.is_active and m.role = 'territory_manager'::public.member_role
+       and m.territory_code = parent_seed_distributions.destination_territory_code
+  )
+);
+
+create policy parent_seed_distributions_insert_scoped on public.parent_seed_distributions
+for insert to authenticated
 with check (
   public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
   or exists (
