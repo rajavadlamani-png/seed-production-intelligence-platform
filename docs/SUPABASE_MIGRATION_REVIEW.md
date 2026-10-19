@@ -60,3 +60,11 @@ Do **not** execute migrations 0001–0003 yet. Correct the blockers, prepare a t
 - Migration 0005 was further tightened so field-officer and territory-manager access to form submissions requires both access to the linked field through `user_can_access_field` and a matching `form_role_rules` entry: `can_view` for SELECT and `can_edit` for UPDATE. Admins and production managers retain the explicit manager path.
 - This policy change is awaiting its own migration smoke-test result and has not been executed against the intended Supabase project.
 - Remaining required work: automated authorization tests with two synthetic companies and users, verify field assignment/territory isolation, test cross-company foreign-key relationships under RLS, review helper-function grants/search paths, and implement/test trusted onboarding, workflow transition RPCs, private Storage policies, and trusted audit writes.
+
+## Latest follow-up (19 October 2026)
+
+- The GitHub Actions disposable PostgreSQL/PostGIS compatibility smoke test passed for migrations 0001–0007, the synthetic tenant/field authorization test suite, and the RLS-enabled check. Run: https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39215319224
+- The suite now checks rejection of a cross-company grower relationship, field-officer visibility boundaries, rejection of submission creation without `can_create`/`can_submit`, acceptance when the permission is granted, and rejection of an unauthorized cross-tenant submission update.
+- This is a compatibility-harness result only. It is not a live test against the actual Supabase project and does not certify production readiness.
+- Next required stage: expand tests to cover relationship triggers while authenticated under RLS, field assignment/boundary scoping, direct edits to sensitive submission lifecycle columns, and immutable published form versions. Then validate the migration sequence in a clean disposable Supabase project before touching the intended project.
+- Production remains blocked pending trusted onboarding, validated workflow-transition functions, private Storage policies, trusted audit writes, and live Supabase staging validation.
