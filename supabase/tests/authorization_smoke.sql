@@ -64,6 +64,25 @@ insert into public.form_submissions(id,company_id,form_definition_id,form_versio
  ('20000000-0000-0000-0000-000000000027','20000000-0000-0000-0000-000000000020','20000000-0000-0000-0000-000000000025','20000000-0000-0000-0000-000000000026','20000000-0000-0000-0000-000000000024','{"synthetic":"beta"}','draft')
 on conflict do nothing;
 
+-- Cross-company relationship guard: a field in Alpha cannot reference Beta's grower.
+do $$
+declare rejected boolean := false;
+begin
+  begin
+    insert into public.fields(id,company_id,season_id,grower_id,field_code,territory_code)
+    values ('10000000-0000-0000-0000-000000000028',
+      '10000000-0000-0000-0000-000000000010',
+      '10000000-0000-0000-0000-000000000012',
+      '20000000-0000-0000-0000-000000000023',
+      'CROSS-TENANT-GROWER','T1');
+  exception when others then
+    rejected := true;
+  end;
+  if not rejected then
+    raise exception 'FAIL: cross-company grower relationship was accepted';
+  end if;
+end $$;
+
 -- Field Officer Alpha must see its assigned Alpha field, never Beta's field or submission.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
