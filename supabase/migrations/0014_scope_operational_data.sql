@@ -66,8 +66,6 @@ using (
      where m.company_id = target_allocations.company_id and m.user_id = auth.uid()
        and m.is_active and m.role = 'territory_manager'::public.member_role
        and m.id = target_allocations.territory_manager_membership_id
-       and (target_allocations.destination_territory_code is null
-            or target_allocations.destination_territory_code = m.territory_code)
   )
 );
 create policy target_allocations_update_scoped on public.target_allocations
