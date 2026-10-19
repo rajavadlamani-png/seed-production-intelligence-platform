@@ -87,6 +87,24 @@ end $test$;
 -- Field Officer Alpha must see its assigned Alpha field, never Beta's field or submission.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+-- Relationship validation must still detect cross-company references under RLS.
+do $test$
+declare actual_error text;
+begin
+  begin
+    insert into public.fields(id,company_id,season_id,grower_id,field_code,territory_code)
+    values ('10000000-0000-0000-0000-000000000029',
+      '10000000-0000-0000-0000-000000000010',
+      '10000000-0000-0000-0000-000000000012',
+      '20000000-0000-0000-0000-000000000023',
+      'CROSS-TENANT-AUTH-TEST','T1');
+  exception when others then
+    get stacked diagnostics actual_error = message_text;
+  end;
+  if actual_error is distinct from 'Related record must exist and belong to the same company' then
+    raise exception 'FAIL: authenticated cross-company relationship was not rejected by the tenant guard: %', coalesce(actual_error, 'no error');
+  end if;
+end $test$;
 do $test$
 declare n integer;
 begin
