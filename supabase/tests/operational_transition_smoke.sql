@@ -144,7 +144,7 @@ VALUES
   '10000000-0000-0000-0000-000000000102','{}'::jsonb),
  ('seed-documents','20000000-0000-0000-0000-000000000210/fields/synthetic-b.pdf',
   '20000000-0000-0000-0000-000000000201','{}'::jsonb)
-ON CONFLICT (bucket_id,name) DO NOTHING;
+
 
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000102',true);
