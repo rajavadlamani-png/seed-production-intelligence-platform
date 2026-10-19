@@ -118,7 +118,9 @@ begin
  if n <> 0 then raise exception 'FAIL: Alpha officer can see Beta submission'; end if;
 end $test$;
 
--- Published form versions cannot be edited directly, even by an authenticated user.
+-- Published form versions cannot be edited directly; execute as the database owner
+-- so the test exercises the trigger rather than being masked by RLS or table grants.
+reset role;
 do $test$
 declare denied boolean := false;
 begin
@@ -136,6 +138,9 @@ begin
     raise exception 'FAIL: published form version was editable';
   end if;
 end $test$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
 
 -- Submission creation must honor form_role_rules.can_create/can_submit.
 do $test$
