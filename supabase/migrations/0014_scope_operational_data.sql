@@ -193,4 +193,149 @@ for update to authenticated
 using (public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[]))
 with check (public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[]));
 
+
+-- Further narrow generic policies that otherwise OR around scoped policies.
+drop policy if exists fields_insert_ops on public.fields;
+create policy fields_insert_scoped on public.fields
+for insert to authenticated
+with check (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or (
+    territory_code is not null
+    and exists (
+      select 1 from public.company_memberships m
+       where m.company_id = fields.company_id and m.user_id = auth.uid()
+         and m.is_active and m.role = 'territory_manager'::public.member_role
+         and m.territory_code = fields.territory_code
+    )
+  )
+);
+
+-- Grower creation/import is manager-owned because growers have no intrinsic territory
+-- column; territory managers may update only growers linked to a field in their territory.
+drop policy if exists growers_insert_ops on public.growers;
+create policy growers_insert_ops_scoped on public.growers
+for insert to authenticated
+with check (public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[]));
+
+-- Assignment administration is restricted to managers or a territory manager acting
+-- within their own territory and assigning a field-officer membership from the same company.
+drop policy if exists field_assignments_insert_pm_tm on public.field_assignments;
+drop policy if exists field_assignments_update_pm_tm on public.field_assignments;
+create policy field_assignments_insert_scoped on public.field_assignments
+for insert to authenticated
+with check (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or exists (
+    select 1 from public.fields f
+    join public.company_memberships tm
+      on tm.company_id=f.company_id and tm.user_id=auth.uid()
+     and tm.is_active and tm.role='territory_manager'::public.member_role
+     and tm.territory_code=f.territory_code
+    join public.company_memberships officer
+      on officer.id=field_assignments.field_officer_membership_id
+     and officer.company_id=f.company_id and officer.role='field_officer'::public.member_role
+    where f.id=field_assignments.field_id and f.company_id=field_assignments.company_id
+  )
+);
+create policy field_assignments_update_scoped on public.field_assignments
+for update to authenticated
+using (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or exists (
+    select 1 from public.fields f
+    join public.company_memberships tm
+      on tm.company_id=f.company_id and tm.user_id=auth.uid()
+     and tm.is_active and tm.role='territory_manager'::public.member_role
+     and tm.territory_code=f.territory_code
+    where f.id=field_assignments.field_id and f.company_id=field_assignments.company_id
+  )
+)
+with check (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or exists (
+    select 1 from public.fields f
+    join public.company_memberships tm
+      on tm.company_id=f.company_id and tm.user_id=auth.uid()
+     and tm.is_active and tm.role='territory_manager'::public.member_role
+     and tm.territory_code=f.territory_code
+    join public.company_memberships officer
+      on officer.id=field_assignments.field_officer_membership_id
+     and officer.company_id=f.company_id and officer.role='field_officer'::public.member_role
+    where f.id=field_assignments.field_id and f.company_id=field_assignments.company_id
+  )
+);
+
+-- Field boundary creation is permitted only for an accessible field.
+drop policy if exists field_boundaries_insert_field_ops on public.field_boundaries;
+create policy field_boundaries_insert_scoped on public.field_boundaries
+for insert to authenticated
+with check (public.user_can_access_field(company_id, field_id));
+
+-- Target allocation creation must bind the allocation to the acting territory manager's
+-- own active membership, unless the actor is a production manager/admin.
+drop policy if exists target_allocations_insert_pm_tm on public.target_allocations;
+create policy target_allocations_insert_scoped on public.target_allocations
+for insert to authenticated
+with check (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or exists (
+    select 1 from public.company_memberships m
+     where m.id=target_allocations.territory_manager_membership_id
+       and m.company_id=target_allocations.company_id
+       and m.user_id=auth.uid() and m.is_active
+       and m.role='territory_manager'::public.member_role
+  )
+);
+
+-- Production plans are visible to operational managers and to territory managers
+-- with an allocation against that plan. Audit events are restricted to managers/admins.
+drop policy if exists production_plans_select_member on public.production_plans;
+create policy production_plans_select_scoped on public.production_plans
+for select to authenticated
+using (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or exists (
+    select 1 from public.target_allocations a
+    join public.company_memberships m on m.id=a.territory_manager_membership_id
+    where a.company_id=production_plans.company_id
+      and a.production_plan_id=production_plans.id
+      and m.user_id=auth.uid() and m.is_active
+      and m.role='territory_manager'::public.member_role
+  )
+);
+
+drop policy if exists audit_events_select_member on public.audit_events;
+create policy audit_events_select_ops on public.audit_events
+for select to authenticated
+using (public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[]));
+
+-- Generic documents are not company-wide field-worker data. Field users can read only
+-- documents explicitly linked to a field they can access; only managers may insert/update.
+drop policy if exists documents_select_member on public.documents;
+drop policy if exists documents_insert_ops on public.documents;
+drop policy if exists documents_update_admin_pm on public.documents;
+create policy documents_select_scoped on public.documents
+for select to authenticated
+using (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or (
+    linked_record_type = 'field' and linked_record_id is not null
+    and public.user_can_access_field(company_id, linked_record_id)
+  )
+);
+create policy documents_insert_ops_scoped on public.documents
+for insert to authenticated
+with check (
+  public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[])
+  or (
+    linked_record_type = 'field' and linked_record_id is not null
+    and public.user_can_access_field(company_id, linked_record_id)
+  )
+);
+create policy documents_update_ops_scoped on public.documents
+for update to authenticated
+using (public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[]))
+with check (public.has_company_role(company_id, array['customer_admin','platform_admin','production_manager']::public.member_role[]));
+
 commit;
