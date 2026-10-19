@@ -125,6 +125,9 @@ jobs:
       - name: Apply migration 0016
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0016_private_storage_and_audit_privileges.sql
 
+      - name: Apply migration 0017
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0017_validated_form_publication.sql
+
       - name: Run synthetic tenant and field authorization tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
 
