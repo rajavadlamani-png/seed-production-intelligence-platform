@@ -196,15 +196,15 @@ SELECT public.provision_company_member(
   'T-02'
 );
 DO $test$
-DECLARE company_id uuid; membership_id uuid;
+DECLARE v_company_id uuid; v_membership_id uuid;
 BEGIN
-  SELECT id INTO company_id FROM public.companies WHERE slug='trusted-bootstrap-company';
-  IF company_id IS NULL THEN RAISE EXCEPTION 'FAIL: trusted bootstrap did not create company'; END IF;
-  SELECT id INTO membership_id FROM public.company_memberships
-   WHERE company_id=company_id AND user_id='10000000-0000-0000-0000-000000000102';
-  IF membership_id IS NULL THEN RAISE EXCEPTION 'FAIL: trusted onboarding did not provision membership'; END IF;
-  PERFORM public.deactivate_company_member(membership_id);
-  IF EXISTS (SELECT 1 FROM public.company_memberships WHERE id=membership_id AND is_active) THEN
+  SELECT c.id INTO v_company_id FROM public.companies c WHERE c.slug='trusted-bootstrap-company';
+  IF v_company_id IS NULL THEN RAISE EXCEPTION 'FAIL: trusted bootstrap did not create company'; END IF;
+  SELECT m.id INTO v_membership_id FROM public.company_memberships m
+   WHERE m.company_id=v_company_id AND m.user_id='10000000-0000-0000-0000-000000000102';
+  IF v_membership_id IS NULL THEN RAISE EXCEPTION 'FAIL: trusted onboarding did not provision membership'; END IF;
+  PERFORM public.deactivate_company_member(v_membership_id);
+  IF EXISTS (SELECT 1 FROM public.company_memberships m WHERE m.id=v_membership_id AND m.is_active) THEN
     RAISE EXCEPTION 'FAIL: trusted membership deactivation did not persist';
   END IF;
 END $test$;
