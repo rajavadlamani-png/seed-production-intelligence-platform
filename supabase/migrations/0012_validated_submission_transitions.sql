@@ -16,6 +16,7 @@ declare
   v_user_id uuid := auth.uid();
   v_submission public.form_submissions%rowtype;
   v_role public.member_role;
+  v_old_status public.record_status;
   v_can_submit boolean := false;
   v_can_review boolean := false;
   v_can_approve boolean := false;
@@ -42,6 +43,11 @@ begin
 
   if v_role is null then
     raise exception 'Active company membership required';
+  end if;
+
+  if v_role in ('field_officer'::public.member_role, 'territory_manager'::public.member_role)
+     and v_submission.field_id is null then
+    raise exception 'Field-scoped roles require a field-linked submission';
   end if;
 
   if v_submission.field_id is not null
@@ -82,6 +88,8 @@ begin
       v_submission.status, p_target_status;
   end if;
 
+  v_old_status := v_submission.status;
+
   update public.form_submissions
      set status = p_target_status,
          submitted_by = case when p_target_status = 'submitted'::public.record_status then v_user_id else submitted_by end,
@@ -95,7 +103,7 @@ begin
   values (
     v_submission.company_id, v_user_id, 'form_submission_status_transition',
     'form_submission', v_submission.id,
-    jsonb_build_object('from_status', (select s.status::text from public.form_submissions s where s.id=v_submission.id),
+    jsonb_build_object('from_status', v_old_status::text,
                        'to_status', p_target_status::text)
   );
 
