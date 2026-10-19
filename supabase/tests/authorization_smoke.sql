@@ -5,7 +5,8 @@ begin;
 
 -- Supabase normally grants these privileges; the disposable harness models that baseline.
 grant usage on schema public to authenticated;
-grant select, insert, update on public.fields, public.form_submissions to authenticated;
+grant select, insert, update on public.fields to authenticated;
+grant select, insert on public.form_submissions to authenticated;
 grant select on public.companies, public.company_memberships, public.seasons,
   public.growers, public.form_definitions, public.form_versions, public.form_role_rules,
   public.field_assignments, public.field_boundaries to authenticated;
