@@ -70,6 +70,23 @@ BEGIN
   END IF;
 END $;
 
+
+DO $
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id='seed-documents' AND public = false) THEN
+    RAISE EXCEPTION 'seed-documents bucket must exist and be private';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
+                 AND policyname='seed_documents_select_member') THEN
+    RAISE EXCEPTION 'Storage tenant SELECT policy is missing';
+  END IF;
+  IF has_table_privilege('authenticated','public.audit_events','INSERT')
+     OR has_table_privilege('authenticated','public.audit_events','UPDATE')
+     OR has_table_privilege('authenticated','public.audit_events','DELETE') THEN
+    RAISE EXCEPTION 'Authenticated clients must not write or delete audit events directly';
+  END IF;
+END $;
+
 -- Confirm the actual Supabase Auth function resolves JWT claims in the local stack.
 BEGIN;
 SELECT set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
