@@ -37,7 +37,8 @@ BEGIN
        AND p.proname IN ('is_company_member','has_company_role','user_can_access_field',
                          'assert_same_company_relationships','transition_form_submission',
                          'transition_production_plan','transition_target_allocation',
-                         'transition_grower_upload_batch')
+                         'transition_grower_upload_batch','bootstrap_customer_company',
+                         'provision_company_member','deactivate_company_member')
   LOOP
     IF NOT fn.prosecdef THEN
       RAISE EXCEPTION 'Security helper % must be SECURITY DEFINER', fn.proname;
@@ -47,6 +48,27 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+
+DO $
+BEGIN
+  IF has_function_privilege('authenticated',
+       'public.bootstrap_customer_company(text,text,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Ordinary authenticated clients must not execute customer bootstrap';
+  END IF;
+  IF has_function_privilege('authenticated',
+       'public.provision_company_member(uuid,uuid,public.member_role,text)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Ordinary authenticated clients must not provision memberships';
+  END IF;
+  IF has_function_privilege('authenticated',
+       'public.deactivate_company_member(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Ordinary authenticated clients must not deactivate memberships';
+  END IF;
+  IF NOT has_function_privilege('service_role',
+       'public.bootstrap_customer_company(text,text,uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Trusted service role must execute customer bootstrap';
+  END IF;
+END $;
 
 -- Confirm the actual Supabase Auth function resolves JWT claims in the local stack.
 BEGIN;
