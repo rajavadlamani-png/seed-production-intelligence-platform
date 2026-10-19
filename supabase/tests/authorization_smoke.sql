@@ -284,6 +284,8 @@ begin
 end $test$;
 
 -- Field Officer Alpha cannot change an unassigned Beta submission, even by knowing its UUID.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
 reset role;
