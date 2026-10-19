@@ -88,6 +88,9 @@ jobs:
       - name: Apply migration 0008
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0008_restrict_submission_updates.sql
 
+      - name: Apply migration 0009
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0009_rls_safe_relationship_guards.sql
+
       - name: Run synthetic tenant and field authorization tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
 
