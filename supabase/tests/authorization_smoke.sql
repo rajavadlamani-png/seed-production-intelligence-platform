@@ -225,6 +225,64 @@ begin
  end if;
 end $test$;
 
+-- Lifecycle transitions must use the validated RPC and the form-specific permission.
+reset role;
+update public.form_role_rules set can_submit = true
+where company_id='10000000-0000-0000-0000-000000000010'
+  and form_definition_id='10000000-0000-0000-0000-000000000015'
+  and role='field_officer';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+select public.transition_form_submission(
+  '10000000-0000-0000-0000-000000000019',
+  'submitted'::public.record_status
+);
+do $test$
+declare actual_status public.record_status;
+begin
+  select status into actual_status from public.form_submissions
+   where id='10000000-0000-0000-0000-000000000019';
+  if actual_status is distinct from 'submitted'::public.record_status then
+    raise exception 'FAIL: validated submit transition did not update status';
+  end if;
+end $test$;
+
+-- A Field Officer cannot skip review and release a submitted record.
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    perform public.transition_form_submission(
+      '10000000-0000-0000-0000-000000000019',
+      'released'::public.record_status
+    );
+  exception when others then
+    if sqlerrm like 'Transition from submitted to released is not permitted%' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: invalid submission transition was accepted';
+  end if;
+end $test$;
+reset role;
+do $test$
+declare v_action text; v_details jsonb;
+begin
+  select action, details into v_action, v_details
+    from public.audit_events
+   where record_type='form_submission'
+     and record_id='10000000-0000-0000-0000-000000000019'
+   order by occurred_at desc limit 1;
+  if v_action is distinct from 'form_submission_status_transition'
+     or v_details->>'from_status' is distinct from 'draft'
+     or v_details->>'to_status' is distinct from 'submitted' then
+    raise exception 'FAIL: lifecycle transition audit event missing or incorrect';
+  end if;
+end $test$;
+
 -- Field Officer Alpha cannot change an unassigned Beta submission, even by knowing its UUID.
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
