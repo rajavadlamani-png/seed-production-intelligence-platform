@@ -47,6 +47,15 @@ jobs:
           PGPASSWORD: postgres
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/local_stack_contract.sql
 
+      - name: Test validated operational workflow transitions
+        env:
+          PGHOST: 127.0.0.1
+          PGPORT: 54322
+          PGDATABASE: postgres
+          PGUSER: postgres
+          PGPASSWORD: postgres
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/operational_transition_smoke.sql
+
       - name: Stop local stack
         if: always()
         run: supabase stop
