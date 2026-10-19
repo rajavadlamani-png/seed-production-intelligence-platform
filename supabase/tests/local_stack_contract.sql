@@ -50,7 +50,7 @@ BEGIN
 END $$;
 
 
-DO $
+DO $$
 BEGIN
   IF has_function_privilege('authenticated',
        'public.bootstrap_customer_company(text,text,uuid)', 'EXECUTE') THEN
@@ -68,10 +68,10 @@ BEGIN
        'public.bootstrap_customer_company(text,text,uuid)', 'EXECUTE') THEN
     RAISE EXCEPTION 'Trusted service role must execute customer bootstrap';
   END IF;
-END $;
+END $$;
 
 
-DO $
+DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id='seed-documents' AND public = false) THEN
     RAISE EXCEPTION 'seed-documents bucket must exist and be private';
@@ -85,7 +85,7 @@ BEGIN
      OR has_table_privilege('authenticated','public.audit_events','DELETE') THEN
     RAISE EXCEPTION 'Authenticated clients must not write or delete audit events directly';
   END IF;
-END $;
+END $$;
 
 -- Confirm the actual Supabase Auth function resolves JWT claims in the local stack.
 BEGIN;
