@@ -19,31 +19,31 @@ Legend: **D** = denied; **R** = select/read only; **S** = scoped select/insert/u
 
 | Tenant-owned table | Anonymous | Company A user (viewer) | Company B user against A | Field officer | Territory manager | Company A admin |
 |---|---|---|---|---|---|---|
-| companies | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | R/S/S/D |
+| companies | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | R/D/D/D |
 | company_memberships | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | R/T/T/T |
-| seasons | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| crops | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| hybrids | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| growers | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| fields | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| production_plans | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| target_allocations | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| parent_seed_lots | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| parent_seed_distributions | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| grower_upload_batches | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| grower_upload_rows | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| field_assignments | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
-| field_boundaries | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| form_definitions | D/D/D/D | R/D/D/D | D/D/D/D | S/D/D/D | S/D/D/D | A/A/A/D |
-| form_versions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/S/S/D |
+| seasons | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
+| crops | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
+| hybrids | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
+| growers | D/D/D/D | D/D/D/D | D/D/D/D | S/D/D/D | S/D/S/D | A/A/A/D |
+| fields | D/D/D/D | D/D/D/D | D/D/D/D | S/D/D/D | S/S/S/D | A/A/A/D |
+| production_plans | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | S/D/D/D | A/A/A/D |
+| target_allocations | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | S/S/S/D | A/A/A/D |
+| parent_seed_lots | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | A/A/A/D |
+| parent_seed_distributions | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | S/S/S/D | A/A/A/D |
+| grower_upload_batches | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | A/A/A/D |
+| grower_upload_rows | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | A/A/A/D |
+| field_assignments | D/D/D/D | D/D/D/D | D/D/D/D | S/D/D/D | S/S/S/D | A/A/A/D |
+| field_boundaries | D/D/D/D | D/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
+| form_definitions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
+| form_versions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/D/D/D |
 | form_sections | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
 | field_definitions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
 | field_options | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
 | form_role_rules | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
 | workflow_definitions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
-| form_submissions | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/S/S/D |
-| documents | D/D/D/D | R/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
-| audit_events | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | R/T/T/T |
+| form_submissions | D/D/D/D | D/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/S/S/D |
+| documents | D/D/D/D | D/D/D/D | D/D/D/D | S/S/D/D | S/S/D/D | A/A/A/D |
+| audit_events | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | D/D/D/D | R/D/D/D |
 
 Each cell lists **SELECT / INSERT / UPDATE / DELETE** in that order. Where the current schema's policies are broader than this expected contract, the implementation must be narrowed before the cell can be considered satisfied. In particular, membership administration and audit writes are trusted-only, and generic company-membership policies are not sufficient for field or territory scope.
 
