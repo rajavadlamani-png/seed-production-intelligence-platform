@@ -97,6 +97,9 @@ jobs:
       - name: Apply migration 0011
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0011_restrict_form_version_updates.sql
 
+      - name: Apply migration 0012
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0012_validated_submission_transitions.sql
+
       - name: Run synthetic tenant and field authorization tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
 
