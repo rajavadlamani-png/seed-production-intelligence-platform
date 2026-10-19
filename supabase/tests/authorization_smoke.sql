@@ -65,6 +65,11 @@ insert into public.form_submissions(id,company_id,form_definition_id,form_versio
  ('20000000-0000-0000-0000-000000000027','20000000-0000-0000-0000-000000000020','20000000-0000-0000-0000-000000000025','20000000-0000-0000-0000-000000000026','20000000-0000-0000-0000-000000000024','{"synthetic":"beta"}','draft')
 on conflict do nothing;
 
+-- A second draft version is reserved for the direct-publish permission test.
+insert into public.form_versions(id,company_id,form_definition_id,version,status,definition_snapshot) values
+ ('10000000-0000-0000-0000-000000000030','10000000-0000-0000-0000-000000000010','10000000-0000-0000-0000-000000000015',2,'draft','{}')
+on conflict do nothing;
+
 -- Cross-company relationship guard: a field in Alpha cannot reference Beta's grower.
 do $test$
 declare actual_error text;
@@ -87,6 +92,21 @@ end $test$;
 -- Field Officer Alpha must see its assigned Alpha field, never Beta's field or submission.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+
+-- Authenticated clients cannot publish a draft version by directly updating status.
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    update public.form_versions set status='published'
+    where id='10000000-0000-0000-0000-000000000030';
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: direct form-version publication was not blocked';
+  end if;
+end $test$;
 -- Relationship validation must still detect cross-company references under RLS.
 do $test$
 declare actual_error text;
