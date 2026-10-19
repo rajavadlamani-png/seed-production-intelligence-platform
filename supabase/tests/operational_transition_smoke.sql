@@ -182,6 +182,62 @@ BEGIN
 END $test$;
 
 
+
+-- Form publication requires a customer admin, a non-empty snapshot, fields and role rules.
+RESET ROLE;
+INSERT INTO public.form_definitions(id,company_id,form_key,name,business_area,status)
+VALUES ('10000000-0000-0000-0000-000000000118','10000000-0000-0000-0000-000000000110',
+        'publication-test','Publication Test','inspection','draft');
+INSERT INTO public.form_versions(id,company_id,form_definition_id,version,status,definition_snapshot)
+VALUES ('10000000-0000-0000-0000-000000000119','10000000-0000-0000-0000-000000000110',
+        '10000000-0000-0000-0000-000000000118',1,'draft','{"title":"Synthetic publication form"}'::jsonb);
+INSERT INTO public.field_definitions(id,company_id,form_version_id,field_key,label,value_type)
+VALUES ('10000000-0000-0000-0000-000000000120','10000000-0000-0000-0000-000000000110',
+        '10000000-0000-0000-0000-000000000119','observation','Observation','short_text');
+INSERT INTO public.form_role_rules(company_id,form_definition_id,role,can_view,can_create,can_edit,can_submit)
+VALUES ('10000000-0000-0000-0000-000000000110','10000000-0000-0000-0000-000000000118',
+        'field_officer',true,true,true,true);
+
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000102',true);
+DO $test$
+DECLARE denied boolean := false;
+BEGIN
+  BEGIN
+    PERFORM public.publish_form_version('10000000-0000-0000-0000-000000000119');
+  EXCEPTION WHEN others THEN
+    IF SQLERRM LIKE 'Only an active company admin can publish a form version%' THEN
+      denied := true;
+    ELSE RAISE;
+    END IF;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL: territory manager published a form'; END IF;
+END $test$;
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000103',true);
+SELECT public.publish_form_version('10000000-0000-0000-0000-000000000119');
+DO $test$
+DECLARE denied boolean := false;
+BEGIN
+  BEGIN
+    UPDATE public.form_versions SET definition_snapshot='{"tampered":true}'::jsonb
+     WHERE id='10000000-0000-0000-0000-000000000119';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL: published form version was directly editable'; END IF;
+END $test$;
+RESET ROLE;
+DO $test$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.form_versions
+                  WHERE id='10000000-0000-0000-0000-000000000119'
+                    AND status='published'::public.form_status
+                    AND published_by='10000000-0000-0000-0000-000000000103') THEN
+    RAISE EXCEPTION 'FAIL: validated form publication metadata was not persisted';
+  END IF;
+END $test$;
+
 -- Trusted onboarding works through service_role; ordinary authenticated users lack EXECUTE.
 SET LOCAL ROLE service_role;
 SELECT public.bootstrap_customer_company(
