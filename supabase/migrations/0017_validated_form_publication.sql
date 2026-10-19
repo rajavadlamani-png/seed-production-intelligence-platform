@@ -25,8 +25,8 @@ begin
    where m.company_id = v_version.company_id
      and m.user_id = v_user
      and m.is_active;
-  if v_role not in ('customer_admin'::public.member_role,
-                    'platform_admin'::public.member_role) then
+  if v_role is null or v_role not in ('customer_admin'::public.member_role,
+                                      'platform_admin'::public.member_role) then
     raise exception 'Only an active company admin can publish a form version';
   end if;
   if v_version.status <> 'draft'::public.form_status then
