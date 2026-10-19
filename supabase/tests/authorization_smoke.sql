@@ -81,7 +81,7 @@ begin
 end $$;
 
 -- Submission creation must honor form_role_rules.can_create/can_submit.
-do $
+do $$
 declare denied boolean := false;
 begin
   begin
