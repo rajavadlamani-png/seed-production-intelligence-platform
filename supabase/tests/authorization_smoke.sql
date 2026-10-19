@@ -65,7 +65,7 @@ insert into public.form_submissions(id,company_id,form_definition_id,form_versio
 on conflict do nothing;
 
 -- Cross-company relationship guard: a field in Alpha cannot reference Beta's grower.
-do $$
+do $test$
 declare rejected boolean := false;
 begin
   begin
@@ -81,12 +81,12 @@ begin
   if not rejected then
     raise exception 'FAIL: cross-company grower relationship was accepted';
   end if;
-end $$;
+end $test$;
 
 -- Field Officer Alpha must see its assigned Alpha field, never Beta's field or submission.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
-do $$
+do $test$
 declare n integer;
 begin
  select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000014';
@@ -97,10 +97,10 @@ begin
  if n <> 1 then raise exception 'FAIL: Alpha officer cannot see permitted Alpha submission'; end if;
  select count(*) into n from public.form_submissions where id='20000000-0000-0000-0000-000000000027';
  if n <> 0 then raise exception 'FAIL: Alpha officer can see Beta submission'; end if;
-end $$;
+end $test$;
 
 -- Submission creation must honor form_role_rules.can_create/can_submit.
-do $$
+do $test$
 declare denied boolean := false;
 begin
   begin
@@ -139,12 +139,12 @@ values ('10000000-0000-0000-0000-000000000019',
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
 reset role;
-do $$
+do $test$
 declare actual jsonb;
 begin
  select payload into actual from public.form_submissions where id='20000000-0000-0000-0000-000000000027';
  if actual is distinct from '{"synthetic":"beta"}'::jsonb then
    raise exception 'FAIL: cross-tenant update changed Beta submission';
  end if;
-end $$;
+end $test$;
 rollback;
