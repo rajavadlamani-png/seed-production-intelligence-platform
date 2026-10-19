@@ -109,10 +109,6 @@ begin
     if v_row.territory_manager_membership_id <> v_membership.id then
       raise exception 'Territory manager is not assigned to this allocation';
     end if;
-    if v_row.destination_territory_code is not null
-       and v_membership.territory_code is distinct from v_row.destination_territory_code then
-      raise exception 'Target allocation is outside the manager territory';
-    end if;
   end if;
 
   if v_row.status = 'draft'::public.record_status
