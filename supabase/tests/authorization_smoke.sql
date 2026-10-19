@@ -169,6 +169,18 @@ begin
   end if;
 end $test$;
 
+-- Authorized payload-only edits must remain possible.
+update public.form_submissions set payload='{"synthetic":"payload-updated"}'
+where id='10000000-0000-0000-0000-000000000019';
+do $test$
+declare actual jsonb;
+begin
+ select payload into actual from public.form_submissions where id='10000000-0000-0000-0000-000000000019';
+ if actual is distinct from '{"synthetic":"payload-updated"}'::jsonb then
+   raise exception 'FAIL: permitted payload update did not persist';
+ end if;
+end $test$;
+
 -- Field Officer Alpha cannot change an unassigned Beta submission, even by knowing its UUID.
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
