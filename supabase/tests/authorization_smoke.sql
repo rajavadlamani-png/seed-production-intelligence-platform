@@ -135,6 +135,21 @@ values ('10000000-0000-0000-0000-000000000019',
   '10000000-0000-0000-0000-000000000014',
   '{"synthetic":"permitted-create"}','draft');
 
+-- Field Officer Alpha cannot directly change lifecycle status; only payload updates are granted.
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    update public.form_submissions set status='submitted'
+    where id='10000000-0000-0000-0000-000000000019';
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: direct lifecycle status update was not blocked';
+  end if;
+end $test$;
+
 -- Field Officer Alpha cannot change an unassigned Beta submission, even by knowing its UUID.
 update public.form_submissions set payload='{"tampered":true}'
 where id='20000000-0000-0000-0000-000000000027';
