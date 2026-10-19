@@ -117,7 +117,7 @@ begin
   if not denied then
     raise exception 'FAIL: Field Officer created a submission without can_create/can_submit';
   end if;
-end $;
+end $test$;
 
 reset role;
 update public.form_role_rules
