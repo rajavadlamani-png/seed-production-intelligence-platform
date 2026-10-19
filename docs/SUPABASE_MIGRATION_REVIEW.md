@@ -68,3 +68,27 @@ Do **not** execute migrations 0001–0003 yet. Correct the blockers, prepare a t
 - This is a compatibility-harness result only. It is not a live test against the actual Supabase project and does not certify production readiness.
 - Next required stage: expand tests to cover relationship triggers while authenticated under RLS, field assignment/boundary scoping, direct edits to sensitive submission lifecycle columns, and immutable published form versions. Then validate the migration sequence in a clean disposable Supabase project before touching the intended project.
 - Production remains blocked pending trusted onboarding, validated workflow-transition functions, private Storage policies, trusted audit writes, and live Supabase staging validation.
+
+
+## Follow-up hardening added on 19 October 2026
+
+The repository now includes supplemental migrations 0008–0011. These are still **not approved for production execution**; successful disposable tests do not establish live Supabase readiness.
+
+- **0008 — submission update grants:** removes broad direct update privileges on form_submissions and grants authenticated users update access to payload only. Workflow status transitions need validated server-side functions.
+- **0009 — RLS-safe relationship trigger:** replaces the relationship trigger function with a SECURITY DEFINER implementation using an empty search path and revokes direct execute grants. It must be validated against the real Supabase role and RLS behavior.
+- **0010 — published form immutability:** prevents editing/deleting published form versions and prevents insert/update/delete of sections, field definitions, and field options attached to published versions. New changes must use a new draft version.
+- **0011 — direct publication restriction:** removes broad update grants on form versions and permits authenticated clients to update only the draft snapshot column. Direct status changes such as publishing are blocked until a validated publishing RPC is implemented.
+
+The synthetic authorization test suite now checks cross-company relationships while authenticated, submission payload-only updates, direct lifecycle status rejection, published form version immutability, and direct publication rejection. Check the current GitHub Actions run before treating these latest changes as test-passing:
+https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions
+
+## Remaining production blockers
+
+1. Implement and test validated RPCs for form publication, submission transitions, production-plan/target-allocation approval and release, and upload-batch commit.
+2. Complete field/territory authorization tests and review authorization for growers, production plans, parent-seed records, imports, documents, and other tenant-owned tables.
+3. Add trusted first-customer onboarding and membership administration; do not expose membership creation to ordinary clients.
+4. Configure private Supabase Storage buckets and object-level tenant policies; test upload/download authorization.
+5. Implement trusted audit-event insertion and verify audit coverage for sensitive operations.
+6. Run migrations and the full test suite in a dedicated Supabase staging project, review actual grants/RLS/function ownership, and test using separate customer accounts before any production rollout.
+
+**Current gate:** disposable PostgreSQL/PostGIS compatibility tests only. No live Supabase staging validation has been completed. Do not enter real grower or customer data in the public demo.
