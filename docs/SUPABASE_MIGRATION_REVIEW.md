@@ -72,12 +72,13 @@ Do **not** execute migrations 0001–0003 yet. Correct the blockers, prepare a t
 
 ## Follow-up hardening added on 19 October 2026
 
-The repository now includes supplemental migrations 0008–0011. These are still **not approved for production execution**; successful disposable tests do not establish live Supabase readiness.
+The repository now includes supplemental migrations 0008–0012. These are still **not approved for production execution**; successful disposable tests do not establish live Supabase readiness.
 
 - **0008 — submission update grants:** removes broad direct update privileges on form_submissions and grants authenticated users update access to payload only. Workflow status transitions need validated server-side functions.
 - **0009 — RLS-safe relationship trigger:** replaces the relationship trigger function with a SECURITY DEFINER implementation using an empty search path and revokes direct execute grants. It must be validated against the real Supabase role and RLS behavior.
 - **0010 — published form immutability:** prevents editing/deleting published form versions and prevents insert/update/delete of sections, field definitions, and field options attached to published versions. New changes must use a new draft version.
 - **0011 — direct publication restriction:** removes broad update grants on form versions and permits authenticated clients to update only the draft snapshot column. Direct status changes such as publishing are blocked until a validated publishing RPC is implemented.
+- **0012 — submission lifecycle RPC:** adds `transition_form_submission`, which checks active company membership, field access and form-role permissions; allows only defined status transitions; and writes an audit event. This is an initial submission workflow, not a complete workflow engine. It still needs full role-matrix tests and real Supabase staging validation.
 
 The synthetic authorization test suite now checks cross-company relationships while authenticated, submission payload-only updates, direct lifecycle status rejection, published form version immutability, and direct publication rejection. Check the current GitHub Actions run before treating these latest changes as test-passing:
 https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions
