@@ -1,6 +1,6 @@
-# Supabase Migration Review — Pre-Execution Gate
+# Supabase Migration Review — Staging and Production Readiness Gate
 
-Status: **NOT APPROVED FOR EXECUTION**
+Status: **NOT APPROVED FOR PRODUCTION OR LIVE CUSTOMER EXECUTION**
 
 Reviewed files:
 - `supabase/migrations/0001_core_customer_config.sql`
@@ -9,7 +9,7 @@ Reviewed files:
 - `supabase/migrations/0004_tenant_identity_hardening.sql` (draft)
 - `supabase/migrations/0005_scoped_field_access.sql` (draft)
 
-This review is a static source review only. The migrations have not been executed against PostgreSQL/Supabase, and no automated database security tests have been run.
+The current repository migrations 0001–0012 have been applied in the disposable PostgreSQL/PostGIS compatibility workflow, and the synthetic authorization smoke test passed on commit `4fc94c5a1041f8165b3879825b45211b794c3db6` ([run](https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39223144978)). This is not a live Supabase test: the environment uses a minimal authentication shim and does not reproduce every Supabase grant, Storage, Auth, or deployment setting. Production execution remains blocked pending the remaining items below and dedicated Supabase staging validation.
 
 ## Blocking findings
 
