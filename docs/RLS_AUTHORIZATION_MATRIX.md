@@ -35,7 +35,7 @@ Legend: **D** = denied; **R** = select/read only; **S** = scoped select/insert/u
 | field_assignments | D/D/D/D | D/D/D/D | D/D/D/D | S/D/D/D | S/S/S/D | A/A/A/D |
 | field_boundaries | D/D/D/D | D/D/D/D | D/D/D/D | S/S/S/D | S/S/S/D | A/A/A/D |
 | form_definitions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
-| form_versions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/D/D/D |
+| form_versions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/S/D/D |
 | form_sections | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
 | field_definitions | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
 | field_options | D/D/D/D | R/D/D/D | D/D/D/D | R/D/D/D | R/D/D/D | A/A/A/D |
