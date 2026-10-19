@@ -27,7 +27,7 @@ In the GitHub repository `rajavadlamani-png/seed-production-intelligence-platfor
 
 ## C. Apply migrations safely through GitHub Actions
 
-The repository must first have a passing Supabase CLI local-stack workflow and a separately reviewed staging-deploy workflow. Until those exist and are tested, **do not manually run a remote deploy command just to make the pipeline pass**.
+The repository now contains a manual-only workflow at `.github/workflows/supabase-staging-migration.yml`. Use it only after the Supabase CLI local-stack workflow passes on the latest commit, you have created a separate empty staging project, and the three repository secrets above are configured. The staging workflow checks that your typed project reference matches the configured staging secret, previews pending migrations, and then applies them. It is not yet verified against a hosted project.
 
 When the staging workflow is available:
 
