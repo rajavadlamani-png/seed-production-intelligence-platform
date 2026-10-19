@@ -66,7 +66,7 @@ on conflict do nothing;
 
 -- Cross-company relationship guard: a field in Alpha cannot reference Beta's grower.
 do $test$
-declare rejected boolean := false;
+declare actual_error text;
 begin
   begin
     insert into public.fields(id,company_id,season_id,grower_id,field_code,territory_code)
@@ -76,10 +76,10 @@ begin
       '20000000-0000-0000-0000-000000000023',
       'CROSS-TENANT-GROWER','T1');
   exception when others then
-    rejected := true;
+    get stacked diagnostics actual_error = message_text;
   end;
-  if not rejected then
-    raise exception 'FAIL: cross-company grower relationship was accepted';
+  if actual_error is distinct from 'Related record must exist and belong to the same company' then
+    raise exception 'FAIL: cross-company grower relationship failed for an unexpected reason: %', coalesce(actual_error, 'no error');
   end if;
 end $test$;
 
