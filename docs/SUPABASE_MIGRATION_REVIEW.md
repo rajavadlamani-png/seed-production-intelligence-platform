@@ -9,7 +9,7 @@ Reviewed files:
 - `supabase/migrations/0004_tenant_identity_hardening.sql` (draft)
 - `supabase/migrations/0005_scoped_field_access.sql` (draft)
 
-The current repository migrations 0001–0012 have been applied in the disposable PostgreSQL/PostGIS compatibility workflow, and the synthetic authorization smoke test passed on commit `4fc94c5a1041f8165b3879825b45211b794c3db6` ([run](https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39223144978)). This is not a live Supabase test: the environment uses a minimal authentication shim and does not reproduce every Supabase grant, Storage, Auth, or deployment setting. Production execution remains blocked pending the remaining items below and dedicated Supabase staging validation.
+The repository now has two distinct CI layers. The disposable PostgreSQL/PostGIS compatibility test passed for migrations 0001–0013 ([run](https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39232322542)). The actual Supabase CLI local stack also successfully started, applied the repository migrations, and passed the current schema/security-helper/Auth contract checks ([run](https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39232322533)). The local-stack result verifies real local Supabase Auth roles/functions and migration application, but it does **not** yet prove the full role/action matrix, Storage object authorization, or hosted staging settings. Production remains blocked.
 
 ## Blocking findings
 
@@ -23,7 +23,7 @@ The current repository migrations 0001–0012 have been applied in the disposabl
 
 5. **The relationship trigger functions need a security review.** `assert_related_company` and `assert_same_company_relationships` are `SECURITY INVOKER`; visibility under RLS can affect what the trigger can see. Test both valid same-company references and invalid cross-company references under authenticated roles. Any switch to `SECURITY DEFINER` must use a locked-down search path, fully qualified names, restricted execute permissions, and a narrow, fixed set of table names.
 
-6. **Workflow transitions are not yet enforced.** Role policies allow operational updates to status fields. Approval/release, upload-batch commit, form publication, and immutable published form versions should be performed through validated server-side functions or database functions with explicit transition rules.
+6. **Workflow enforcement is partial.** Migrations 0012–0013 add validated RPCs for form submissions, production plans, target allocations and upload-batch review states. Upload-batch `committed` is intentionally rejected until a trusted atomic importer exists. Form publication still requires a validated RPC. The new RPCs have passed migration application in the local Supabase stack, but their full role/transition matrix is not yet tested.
 
 7. **Customer onboarding is incomplete by design.** There is no public company bootstrap and no client membership-write policy. This is safer than exposing arbitrary membership creation, but a trusted owner-only onboarding procedure must be prepared and tested before the first user can access a company.
 
@@ -93,3 +93,25 @@ https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actio
 6. Run migrations and the full test suite in a dedicated Supabase staging project, review actual grants/RLS/function ownership, and test using separate customer accounts before any production rollout.
 
 **Current gate:** disposable PostgreSQL/PostGIS compatibility tests only. No live Supabase staging validation has been completed. Do not enter real grower or customer data in the public demo.
+
+
+## Verified local-stack milestone (19 October 2026)
+
+- **VERIFIED:** Supabase CLI local stack starts in GitHub Actions and `supabase db reset` applies the repository migration sequence through 0013. The contract test checks RLS is enabled on all listed tenant tables, checks that selected security helpers are SECURITY DEFINER with a pinned search path, and confirms the actual local Supabase `auth.uid()` resolves a synthetic JWT subject. Run: https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39232322533
+- **VERIFIED:** the disposable compatibility workflow also passes migrations 0001–0013: https://github.com/rajavadlamani-png/seed-production-intelligence-platform/actions/runs/39232322542
+- **IMPLEMENTED:** `docs/RLS_AUTHORIZATION_MATRIX.md` defines the expected SELECT/INSERT/UPDATE/DELETE access contract for every tenant-owned table and requested role. Its individual cells are a specification, not a claim of passed tests.
+- **IMPLEMENTED:** `docs/SUPABASE_STAGING_SETUP.md` documents separate staging project creation and GitHub secrets without asking for credentials in chat.
+- **IMPLEMENTED:** migration 0013 adds SECURITY DEFINER transition RPCs for production plans, target allocations, and upload-batch review states. It explicitly refuses a client-callable `committed` transition until a trusted atomic importer is implemented.
+- **UNCONFIRMED:** the complete per-table/per-role action matrix, cross-territory authorization, trusted onboarding, private Storage object policies, and hosted Supabase staging have not been verified.
+
+## Remaining production blockers
+
+1. Convert the RLS matrix into executable tests and prove allowed and denied SELECT, INSERT, UPDATE, and DELETE for every listed table and role.
+2. Add and test territory/field scope for every relevant tenant-owned table, including related rows and UUID-known attacks.
+3. Implement trusted first-customer onboarding and membership administration.
+4. Configure private Supabase Storage buckets and object-level tenant policies; test upload/download authorization.
+5. Implement a trusted atomic upload importer before any batch can transition to committed; implement validated form publication.
+6. Ensure audit events are append-only for ordinary users and test audit coverage for sensitive workflow operations.
+7. Create the separate hosted staging project, store secrets in GitHub Actions settings, then run the reviewed staging migration workflow only after it exists and is guarded against targeting production.
+
+**Current gate:** local Supabase CLI migration application and limited contract checks are verified; full authorization matrix and hosted staging are not. Do not enter real grower or customer data in the public demo.
