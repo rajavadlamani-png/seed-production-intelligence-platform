@@ -317,7 +317,12 @@ insert into public.fields(id,company_id,season_id,grower_id,field_code,territory
   '10000000-0000-0000-0000-000000000010',
   '10000000-0000-0000-0000-000000000012',
   '10000000-0000-0000-0000-000000000013',
-  'ALPHA-T2-FIELD','T2')
+  'ALPHA-T2-FIELD','T2'),
+ ('10000000-0000-0000-0000-000000000034',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000012',
+  '10000000-0000-0000-0000-000000000013',
+  'ALPHA-T1-UNASSIGNED','T1')
 on conflict (id) do nothing;
 
 set local role authenticated;
@@ -326,7 +331,9 @@ do $test$
 declare n integer;
 begin
   select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000033';
-  if n <> 0 then raise exception 'FAIL: Field Officer read a same-company field without an active assignment'; end if;
+  if n <> 0 then raise exception 'FAIL: Field Officer read a field in another territory'; end if;
+  select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000034';
+  if n <> 0 then raise exception 'FAIL: Field Officer read an unassigned field in their own territory'; end if;
 end $test$;
 
 reset role;
