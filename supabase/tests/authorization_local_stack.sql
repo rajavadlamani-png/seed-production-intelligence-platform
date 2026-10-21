@@ -348,5 +348,72 @@ begin
   if n <> 0 then raise exception 'FAIL: Territory Manager read a field in another territory'; end if;
 end $test$;
 
+
+-- Upload batches must never be marked committed until a trusted atomic importer exists.
+reset role;
+insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+values ('10000000-0000-0000-0000-000000000040','authenticated','authenticated',
+        'alpha-production-manager@example.invalid','{}'::jsonb,'{}'::jsonb,now(),now())
+on conflict (id) do nothing;
+
+insert into public.company_memberships(id,company_id,user_id,role,territory_code,is_active)
+values ('10000000-0000-0000-0000-000000000041',
+        '10000000-0000-0000-0000-000000000010',
+        '10000000-0000-0000-0000-000000000040',
+        'production_manager',null,true)
+on conflict (id) do nothing;
+
+insert into public.grower_upload_batches(
+  id, company_id, season_id, original_filename, status, total_rows, valid_rows, invalid_rows
+) values (
+  '10000000-0000-0000-0000-000000000042',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000012',
+  'synthetic-upload.csv', 'uploaded', 2, 2, 0
+)
+on conflict (id) do nothing;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000040',true);
+select public.transition_grower_upload_batch(
+  '10000000-0000-0000-0000-000000000042', 'validating'
+);
+select public.transition_grower_upload_batch(
+  '10000000-0000-0000-0000-000000000042', 'preview_ready'
+);
+select public.transition_grower_upload_batch(
+  '10000000-0000-0000-0000-000000000042', 'approved'
+);
+
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    perform public.transition_grower_upload_batch(
+      '10000000-0000-0000-0000-000000000042', 'committed'
+    );
+  exception when others then
+    if sqlerrm = 'Commit requires the trusted atomic upload importer; direct status transition is prohibited' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: upload batch could be committed without the trusted atomic importer';
+  end if;
+end $test$;
+
+reset role;
+do $test$
+declare actual_status text;
+begin
+  select status into actual_status from public.grower_upload_batches
+   where id='10000000-0000-0000-0000-000000000042';
+  if actual_status is distinct from 'approved' then
+    raise exception 'FAIL: rejected commit attempt changed upload batch status';
+  end if;
+end $test$;
+
 reset role;
 rollback;
