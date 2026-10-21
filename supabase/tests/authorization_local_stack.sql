@@ -415,5 +415,69 @@ begin
   end if;
 end $test$;
 
+
+-- Production-plan lifecycle is role-gated and auditable: Field Officer denied, Production Manager allowed.
+reset role;
+insert into public.production_plans(
+  id, company_id, season_id, plan_reference, version, status, created_by
+) values (
+  '10000000-0000-0000-0000-000000000043',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000012',
+  'SYNTHETIC-PLAN-001', 1, 'draft',
+  '10000000-0000-0000-0000-000000000040'
+)
+on conflict (id) do nothing;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    perform public.transition_production_plan(
+      '10000000-0000-0000-0000-000000000043',
+      'submitted'::public.record_status
+    );
+  exception when others then
+    if sqlerrm like 'Production plan transition from draft to submitted is not permitted%' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: Field Officer transitioned a production plan';
+  end if;
+end $test$;
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000040',true);
+select public.transition_production_plan(
+  '10000000-0000-0000-0000-000000000043',
+  'submitted'::public.record_status
+);
+reset role;
+
+do $test$
+declare actual_status public.record_status; v_action text; v_details jsonb;
+begin
+  select status into actual_status from public.production_plans
+   where id='10000000-0000-0000-0000-000000000043';
+  if actual_status is distinct from 'submitted'::public.record_status then
+    raise exception 'FAIL: permitted Production Manager plan transition did not persist';
+  end if;
+  select action, details into v_action, v_details from public.audit_events
+   where record_type='production_plan'
+     and record_id='10000000-0000-0000-0000-000000000043'
+   order by occurred_at desc limit 1;
+  if v_action is distinct from 'production_plan_status_transition'
+     or v_details->>'from_status' is distinct from 'draft'
+     or v_details->>'to_status' is distinct from 'submitted' then
+    raise exception 'FAIL: production plan transition audit event missing or incorrect';
+  end if;
+end $test$;
+
 reset role;
 rollback;
