@@ -235,7 +235,11 @@ BEGIN
   BEGIN
     UPDATE public.form_versions SET definition_snapshot='{"tampered":true}'::jsonb
      WHERE id='10000000-0000-0000-0000-000000000119';
-  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  EXCEPTION WHEN others THEN
+    IF SQLERRM LIKE 'Published form versions are immutable%' THEN
+      denied := true;
+    ELSE RAISE;
+    END IF;
   END;
   IF NOT denied THEN RAISE EXCEPTION 'FAIL: published form version was directly editable'; END IF;
 END $test$;
