@@ -553,5 +553,78 @@ begin
   end if;
 end $test$;
 
+
+-- Form publication is admin-only, requires a configured draft, and emits an audit event.
+reset role;
+insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+values ('10000000-0000-0000-0000-000000000050','authenticated','authenticated',
+        'alpha-customer-admin@example.invalid','{}'::jsonb,'{}'::jsonb,now(),now())
+on conflict (id) do nothing;
+
+insert into public.company_memberships(id,company_id,user_id,role,territory_code,is_active)
+values ('10000000-0000-0000-0000-000000000051',
+        '10000000-0000-0000-0000-000000000010',
+        '10000000-0000-0000-0000-000000000050',
+        'customer_admin',null,true)
+on conflict (id) do nothing;
+
+insert into public.field_definitions(
+  id, company_id, form_version_id, field_key, label, value_type, is_required
+) values (
+  '10000000-0000-0000-0000-000000000052',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000030',
+  'synthetic_observation', 'Synthetic Observation',
+  'short_text', true
+)
+on conflict (id) do nothing;
+
+update public.form_versions
+   set definition_snapshot='{"title":"Synthetic Draft","fields":["synthetic_observation"]}'::jsonb
+ where id='10000000-0000-0000-0000-000000000030';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    perform public.publish_form_version('10000000-0000-0000-0000-000000000030');
+  exception when others then
+    if sqlerrm = 'Only an active company admin can publish a form version' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: Field Officer published a form version';
+  end if;
+end $test$;
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000050',true);
+select public.publish_form_version('10000000-0000-0000-0000-000000000030');
+reset role;
+
+do $test$
+declare actual_status public.form_status; v_action text; v_record uuid;
+begin
+  select status into actual_status from public.form_versions
+   where id='10000000-0000-0000-0000-000000000030';
+  if actual_status is distinct from 'published'::public.form_status then
+    raise exception 'FAIL: customer admin could not publish a valid draft form';
+  end if;
+  select action, record_id into v_action, v_record from public.audit_events
+   where record_type='form_version'
+     and record_id='10000000-0000-0000-0000-000000000030'
+   order by occurred_at desc limit 1;
+  if v_action is distinct from 'form_version_published'
+     or v_record is distinct from '10000000-0000-0000-0000-000000000030'::uuid then
+    raise exception 'FAIL: form publication audit event missing or incorrect';
+  end if;
+end $test$;
+
 reset role;
 rollback;
