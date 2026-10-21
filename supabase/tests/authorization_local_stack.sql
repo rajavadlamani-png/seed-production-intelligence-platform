@@ -479,5 +479,79 @@ begin
   end if;
 end $test$;
 
+
+-- Target allocation transitions must be limited to the assigned Territory Manager and audited.
+reset role;
+insert into public.production_plans(
+  id, company_id, season_id, plan_reference, version, status
+) values (
+  '10000000-0000-0000-0000-000000000044',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000012',
+  'SYNTHETIC-PLAN-ALLOC-001', 1, 'draft'
+)
+on conflict (id) do nothing;
+
+insert into public.target_allocations(
+  id, company_id, production_plan_id, territory_manager_membership_id, status
+) values (
+  '10000000-0000-0000-0000-000000000045',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000044',
+  '10000000-0000-0000-0000-000000000032',
+  'draft'
+)
+on conflict (id) do nothing;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    perform public.transition_target_allocation(
+      '10000000-0000-0000-0000-000000000045',
+      'submitted'::public.record_status
+    );
+  exception when others then
+    if sqlerrm like 'Target allocation transition from draft to submitted is not permitted%' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: Field Officer transitioned a target allocation';
+  end if;
+end $test$;
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000031',true);
+select public.transition_target_allocation(
+  '10000000-0000-0000-0000-000000000045',
+  'submitted'::public.record_status
+);
+reset role;
+
+do $test$
+declare actual_status public.record_status; v_action text; v_details jsonb;
+begin
+  select status into actual_status from public.target_allocations
+   where id='10000000-0000-0000-0000-000000000045';
+  if actual_status is distinct from 'submitted'::public.record_status then
+    raise exception 'FAIL: assigned Territory Manager target-allocation transition did not persist';
+  end if;
+  select action, details into v_action, v_details from public.audit_events
+   where record_type='target_allocation'
+     and record_id='10000000-0000-0000-0000-000000000045'
+   order by occurred_at desc limit 1;
+  if v_action is distinct from 'target_allocation_status_transition'
+     or v_details->>'from_status' is distinct from 'draft'
+     or v_details->>'to_status' is distinct from 'submitted' then
+    raise exception 'FAIL: target allocation transition audit event missing or incorrect';
+  end if;
+end $test$;
+
 reset role;
 rollback;
