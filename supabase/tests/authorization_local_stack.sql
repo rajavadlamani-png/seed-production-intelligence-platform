@@ -297,4 +297,49 @@ begin
    raise exception 'FAIL: cross-tenant update changed Beta submission';
  end if;
 end $test$;
+-- Territory boundary tests: a Field Officer needs an active assignment; a Territory Manager
+-- sees only fields matching their own active territory, even within the same company.
+reset role;
+insert into auth.users(id, aud, role, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+values ('10000000-0000-0000-0000-000000000031','authenticated','authenticated',
+        'alpha-territory-manager@example.invalid','{}'::jsonb,'{}'::jsonb,now(),now())
+on conflict (id) do nothing;
+
+insert into public.company_memberships(id,company_id,user_id,role,territory_code,is_active)
+values ('10000000-0000-0000-0000-000000000032',
+        '10000000-0000-0000-0000-000000000010',
+        '10000000-0000-0000-0000-000000000031',
+        'territory_manager','T1',true)
+on conflict (id) do nothing;
+
+insert into public.fields(id,company_id,season_id,grower_id,field_code,territory_code) values
+ ('10000000-0000-0000-0000-000000000033',
+  '10000000-0000-0000-0000-000000000010',
+  '10000000-0000-0000-0000-000000000012',
+  '10000000-0000-0000-0000-000000000013',
+  'ALPHA-T2-FIELD','T2')
+on conflict (id) do nothing;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare n integer;
+begin
+  select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000033';
+  if n <> 0 then raise exception 'FAIL: Field Officer read a same-company field without an active assignment'; end if;
+end $test$;
+
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000031',true);
+do $test$
+declare n integer;
+begin
+  select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000014';
+  if n <> 1 then raise exception 'FAIL: Territory Manager cannot read a field in their territory'; end if;
+  select count(*) into n from public.fields where id='10000000-0000-0000-0000-000000000033';
+  if n <> 0 then raise exception 'FAIL: Territory Manager read a field in another territory'; end if;
+end $test$;
+
+reset role;
 rollback;
