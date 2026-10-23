@@ -73,12 +73,33 @@ END $$;
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id='seed-documents' AND public = false) THEN
-    RAISE EXCEPTION 'seed-documents bucket must exist and be private';
+  IF NOT EXISTS (
+    SELECT 1 FROM storage.buckets
+     WHERE id='seed-documents'
+       AND public = false
+       AND file_size_limit = 52428800
+       AND allowed_mime_types @> ARRAY[
+         'application/pdf','image/jpeg','image/png','text/csv',
+         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+       ]::text[]
+  ) THEN
+    RAISE EXCEPTION 'seed-documents bucket must be private with the 50 MB limit and approved MIME allowlist';
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
                  AND policyname='seed_documents_select_member') THEN
     RAISE EXCEPTION 'Storage tenant SELECT policy is missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
+                 AND policyname='seed_documents_insert_member') THEN
+    RAISE EXCEPTION 'Storage tenant INSERT policy is missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
+                 AND policyname='seed_documents_update_owner_or_admin') THEN
+    RAISE EXCEPTION 'Storage tenant UPDATE policy is missing';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='storage' AND tablename='objects'
+                 AND policyname='seed_documents_delete_admin') THEN
+    RAISE EXCEPTION 'Storage admin DELETE policy is missing';
   END IF;
   IF has_table_privilege('authenticated','public.audit_events','INSERT')
      OR has_table_privilege('authenticated','public.audit_events','UPDATE')
