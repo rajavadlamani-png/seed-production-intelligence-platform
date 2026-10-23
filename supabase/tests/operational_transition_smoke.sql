@@ -172,6 +172,29 @@ DO $test$
 DECLARE denied boolean := false;
 BEGIN
   BEGIN
+    INSERT INTO storage.objects(bucket_id,name,owner_id,metadata)
+    VALUES ('seed-documents','not-a-company-uuid/fields/forged.pdf',
+            '10000000-0000-0000-0000-000000000102','{}'::jsonb);
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL: malformed company path was accepted for upload'; END IF;
+END $test$;
+DO $test$
+DECLARE denied boolean := false;
+BEGIN
+  BEGIN
+    UPDATE storage.objects
+       SET name='20000000-0000-0000-0000-000000000210/fields/moved.pdf'
+     WHERE bucket_id='seed-documents'
+       AND name='10000000-0000-0000-0000-000000000110/fields/synthetic-a.pdf';
+  EXCEPTION WHEN insufficient_privilege THEN denied := true;
+  END;
+  IF NOT denied THEN RAISE EXCEPTION 'FAIL: field officer moved an object into another company path'; END IF;
+END $test$;
+DO $test$
+DECLARE denied boolean := false;
+BEGIN
+  BEGIN
     DELETE FROM storage.objects
      WHERE bucket_id='seed-documents'
        AND name='10000000-0000-0000-0000-000000000110/fields/synthetic-a.pdf';
