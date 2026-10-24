@@ -9,6 +9,8 @@ DB_URL=os.environ.get("SUPABASE_URL","").rstrip("/")
 DB_KEY=os.environ.get("SUPABASE_SERVICE_ROLE_KEY","")
 CLIENT=os.environ.get("CDSE_CLIENT_ID","")
 SECRET=os.environ.get("CDSE_CLIENT_SECRET","")
+WORKER_URL=os.environ.get("COPERNICUS_EO_WORKER_URL","https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1").rstrip("/")
+WORKER_STAT_URL="https://sh.dataspace.copernicus.eu/statistics/v1"
 TOKEN_URL="https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 STAT_URL="https://sh.dataspace.copernicus.eu/api/v1/statistics"
 CATALOG_URL="https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search"
@@ -36,7 +38,7 @@ def token():
  with urllib.request.urlopen(urllib.request.Request(TOKEN_URL,data=form,headers={"Content-Type":"application/x-www-form-urlencoded"}),timeout=45) as r:return json.loads(r.read().decode())["access_token"]
 def catalog_products(access,collection,start,interval_end,polygon):
  """Return actual catalogue acquisition dates and product IDs for the requested field/time window."""
- payload={"collections":[collection],"datetime":start.isoformat()+"T00:00:00Z/"+end.isoformat()+"T23:59:59Z","intersects":polygon,"limit":100}
+ payload={"collections":[collection],"datetime":start.isoformat()+"T00:00:00Z/"+interval_end.isoformat()+"T23:59:59Z","intersects":polygon,"limit":100}
  _,result,raw=req(CATALOG_URL,"POST",payload,{"Authorization":"Bearer "+access})
  features=result.get("features") or []
  dates=set();ids=[];cloud=[]
@@ -50,6 +52,38 @@ def catalog_products(access,collection,start,interval_end,polygon):
   value=props.get("eo:cloud_cover")
   if isinstance(value,(int,float)):cloud.append(float(value))
  return sorted(dates),ids,(round(sum(cloud)/len(cloud),2) if cloud else None),hashlib.sha256(raw).hexdigest()
+
+def polygon_bbox(polygon):
+ """Return a bbox for connector provenance only; statistics use the actual polygon geometry."""
+ points=[]
+ def walk(value):
+  if isinstance(value,(list,tuple)):
+   if len(value)>=2 and isinstance(value[0],(int,float)) and isinstance(value[1],(int,float)):
+    points.append((float(value[0]),float(value[1])))
+   else:
+    for item in value:walk(item)
+ walk(polygon.get("coordinates",polygon) if isinstance(polygon,dict) else polygon)
+ if not points:raise ValueError("Field polygon has no valid coordinate pairs")
+ xs=[p[0] for p in points];ys=[p[1] for p in points]
+ return [min(xs),min(ys),max(xs),max(ys)]
+def worker_statistics(polygon,start,interval_end):
+ """Use the existing ANVORA Cloudflare Worker for authenticated Sentinel-1 statistics."""
+ from_ts=start.isoformat()+"T00:00:00Z"
+ to_ts=interval_end.isoformat()+"T23:59:59Z"
+ provider_request={"input":{"bounds":{"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":"sentinel-1-grd","dataFilter":{},"processing":{"orthorectify":True,"backCoeff":"GAMMA0_TERRAIN"}}]},"aggregation":{"timeRange":{"from":from_ts,"to":to_ts},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":20,"resy":20,"evalscript":S1},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
+ envelope={"operation":"sentinel1-statistics","request":provider_request,"providerEndpoint":WORKER_STAT_URL,"acquisition":{"plotId":None,"acquisitionId":None,"acquisitionDateTime":None,"requestedBbox":polygon_bbox(polygon)},"requestedAt":datetime.now(timezone.utc).isoformat(),"clientVersion":"SeedProductionSatelliteAudit/1.0"}
+ status,data,raw=req(WORKER_URL,"POST",envelope,{"Accept":"application/json"})
+ if not isinstance(data,dict):raise ValueError("Cloudflare Worker returned a non-object response")
+ if status<200 or status>=300 or str(data.get("status","")).upper() not in ("OK","SUCCESS"):
+  raise ValueError("Cloudflare Worker did not confirm success: "+json.dumps(data)[:1000])
+ candidates=[data.get("statistics"),data.get("result"),data.get("data")]
+ result=next((x for x in candidates if isinstance(x,dict) and isinstance(x.get("data"),list)),None)
+ if result is None:
+  result=next(({"data":x} for x in candidates if isinstance(x,list)),None)
+ if result is None:
+  raise ValueError("Worker response has no recognised Statistical API interval array; inspect connector contract before treating it as measured")
+ return result,raw,data
+
 def explain(collection,stats,valid_pct):
  notes=[]
  def mean(k):
@@ -74,11 +108,13 @@ def explain(collection,stats,valid_pct):
    if v is not None:notes.append({"indicator":key,"value":round(v,4),"level":"informational","message":msg})
  return {"language":"en","method":"heuristics-v1; explanatory only, not diagnosis or calibrated yield","notes":notes}
 def main():
- if not all([DB_URL,DB_KEY,CLIENT,SECRET]):print("ERROR: database and CDSE secrets are required.",file=sys.stderr);return 2
+ if not all([DB_URL,DB_KEY]):print("ERROR: database URL and service-role key are required.",file=sys.stderr);return 2
+ direct_available=bool(CLIENT and SECRET)
+ if not direct_available and not WORKER_URL:print("ERROR: configure the Cloudflare EO Worker or CDSE credentials.",file=sys.stderr);return 2
  cutoff=date.today()-timedelta(days=1)
  fields="id,company_id,crop_season_id,farmer_id,field_id,field_code,village,district,state,crop,hybrid,latitude,longitude,field_boundary_geojson,crop_start_date,expected_harvest_date,planting_date,active"
  q=urllib.parse.urlencode({"select":fields,"active":"eq.true","order":"id.asc"})
- try:_,locations,_=db("seed_weather_locations?"+q);access=token()
+ try:_,locations,_=db("seed_weather_locations?"+q);access=token() if direct_available else None
  except Exception as e:print("ERROR setup or field registry: "+str(e),file=sys.stderr);return 2
  errors=0;saved=0
  for loc in locations:
@@ -105,19 +141,26 @@ def main():
      if done:continue
     except Exception as check_error:
      print("WARN cannot check prior successful run: "+str(check_error),file=sys.stderr)
-    started=datetime.now(timezone.utc);run_id=None;url=STAT_URL
+    started=datetime.now(timezone.utc);run_id=None
+    use_worker=(collection=="sentinel-1-grd" and bool(WORKER_URL))
+    url=WORKER_URL if use_worker else STAT_URL
     try:
      polygon=loc.get("field_boundary_geojson")
      if not polygon:raise ValueError("Verified field polygon missing; field statistics cannot be computed from a centroid alone")
      if isinstance(polygon,str):polygon=json.loads(polygon)
      evalscript=S2 if collection=="sentinel-2-l2a" else S1
      payload={"input":{"bounds":{"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":collection,"dataFilter":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":interval_end.isoformat()+"T23:59:59Z"}}}]},"aggregation":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":interval_end.isoformat()+"T23:59:59Z"},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":10 if collection=="sentinel-2-l2a" else 20,"resy":10 if collection=="sentinel-2-l2a" else 20,"evalscript":evalscript},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
-     run={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"status":"running","request_started_at":started.isoformat(),"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL}}
+     run={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"status":"running","request_started_at":started.isoformat(),"request_parameters":{"cadence_days":CADENCE,"provider":("ANVORA Cloudflare Worker / Copernicus Sentinel Hub" if use_worker else PROVIDER),"catalog_url":CATALOG_URL}}
      _,created,_=db("seed_satellite_ingestion_runs","POST",run,"return=representation");run_id=created[0]["id"]
-     _,result,raw=req(url,"POST",payload,{"Authorization":"Bearer "+access});digest=hashlib.sha256(raw).hexdigest()
+     if use_worker:
+      result,raw,worker_meta=worker_statistics(polygon,start,interval_end)
+     else:
+      if not access:raise ValueError("Direct Copernicus credentials are required for "+collection+"; Sentinel-2 is not exposed by the current ANVORA Worker contract")
+      _,result,raw=req(url,"POST",payload,{"Authorization":"Bearer "+access})
+     digest=hashlib.sha256(raw).hexdigest()
      acquisition_dates=[];product_ids=[];scene_cloud_pct=None;catalog_sha=None
      try:
-      acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,interval_end,polygon)
+      if access:acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,interval_end,polygon)
      except Exception as catalog_error:
       print("WARN catalogue lookup failed for field="+str(loc.get("field_id"))+" collection="+collection+": "+str(catalog_error),file=sys.stderr)
      intervals=result.get("data") or []
@@ -139,10 +182,10 @@ def main():
        if isinstance(band,dict) and band.get("stats") is not None:stats[name]=band["stats"]
       mask_band=mask_bands.get("B0",mask_bands.get("0",{}));mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {};mask=mask_stats.get("mean");valid=round(float(mask)*100,2) if mask is not None else None
       indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
-      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"acquisition_dates":acquisition_dates,"provider_product_ids":product_ids,"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"cloud_coverage_pct":None,"metrics":{"band_statistics":bands,"channel_statistics":stats,"catalog_scene_cloud_cover_pct":scene_cloud_pct,"catalog_response_sha256":catalog_sha},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":PROVIDER,"source_payload":{"statistics":result,"catalog_lookup_sha256":catalog_sha},"source_sha256":digest,"ingestion_run_id":run_id}
+      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"acquisition_dates":acquisition_dates,"provider_product_ids":product_ids,"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"cloud_coverage_pct":None,"metrics":{"band_statistics":bands,"channel_statistics":stats,"catalog_scene_cloud_cover_pct":scene_cloud_pct,"catalog_response_sha256":catalog_sha},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":("ANVORA Cloudflare Worker / Copernicus Data Space" if use_worker else PROVIDER),"source_payload":{"statistics":result,"catalog_lookup_sha256":catalog_sha,"worker_metadata":worker_meta if use_worker else None},"source_sha256":digest,"ingestion_run_id":run_id}
       db("seed_satellite_observations","POST",row,"resolution=ignore-duplicates,return=minimal");saved+=1
      db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"success","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal")
-     print("OK field="+loc["field_id"]+" collection="+collection+" "+start.isoformat()+".."+end.isoformat())
+     print("OK field="+str(loc["field_id"])+" collection="+collection+" "+start.isoformat()+".."+interval_end.isoformat()+" provider="+("cloudflare-worker" if use_worker else "direct-cdse"))
     except Exception as e:
      errors+=1
      try:
