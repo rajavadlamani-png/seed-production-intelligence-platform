@@ -14,7 +14,7 @@ The existing `template-config.js` explicitly marks the four business designation
 ## Canonical identity rules
 - Use internal UUID primary keys for companies, memberships, farmers, fields, seasons, and reports.
 - Keep external references (SAP farmer/field/lot numbers, seasonal field numbers, legacy codes) in separate text columns; never use them as authorization evidence.
-- Use UUID `company_id` foreign keys in all company-scoped records, including weather and satellite audit tables. Update those two existing migrations before first application; do not apply the current text-`company_id` versions and later guess a cast.
+- Use UUID `company_id` foreign keys in all company-scoped records, including the updated weather and satellite audit migrations. These draft migrations now enforce consistency between company, season, farmer, field, weather location and ingestion-run identifiers; do not apply an older version from Git history.
 - Link a membership to `auth.users(id)`; the user must have an active membership in the requested company.
 - Keep a unique stable field record per company and season assignment rules explicit. A farmer can have multiple fields and a field may have seasonal production records; don't overload one identifier for all three concepts.
 
