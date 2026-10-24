@@ -20,11 +20,16 @@ The migration adds:
 - seed_satellite_interpretation_reviews: separate human review/correction record.
 - field boundary and planting-date metadata to the field registry.
 
+## Existing Cloudflare connector reuse
+- Sentinel-1 extraction can call the existing ANVORA Cloudflare Worker at `https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1`. The worker keeps Copernicus credentials server-side; the request carries the verified field polygon as `bounds.geometry`, not only a bounding box.
+- Without `CDSE_CLIENT_ID` and `CDSE_CLIENT_SECRET`, the collector defaults to Sentinel-1 only. The current ANVORA Worker contract is Sentinel-1-specific; Sentinel-2 optical extraction still requires direct CDSE credentials until a Sentinel-2 operation is added and deployed to the Worker.
+- The Worker integration is implemented on this feature branch but has not yet passed a fresh authenticated end-to-end test from this collector. Do not treat the connector as validated for this pipeline until a real field request returns parseable Statistical API interval data.
+
 ## Deployment prerequisites
 1. Apply this migration after the weather audit migration.
 2. Populate the protected registry with real stable IDs, crop/season/hybrid, planting dates, verified polygon GeoJSON and field coordinates. Centroids alone are insufficient for field-level statistics. Never use synthetic demo farmers.
-3. Create Copernicus Data Space / Sentinel Hub OAuth client credentials with Statistical API access.
-4. Configure GitHub Actions secrets CDSE_CLIENT_ID, CDSE_CLIENT_SECRET, SEED_WEATHER_SUPABASE_URL and SEED_WEATHER_SUPABASE_SERVICE_ROLE_KEY.
+3. Configure `SEED_WEATHER_SUPABASE_URL` and `SEED_WEATHER_SUPABASE_SERVICE_ROLE_KEY` in GitHub Actions secrets for the dedicated approved database.
+4. For Sentinel-2, configure `CDSE_CLIENT_ID` and `CDSE_CLIENT_SECRET` as GitHub Actions secrets, or first extend and deploy a secure Sentinel-2 operation in the Cloudflare Worker so provider credentials need not be duplicated in GitHub.
 5. Test a small set of approved fields and validate provider response shape, channel mapping, interval semantics, pixel coverage and attribution before operational use.
 6. This workflow is branch-only. GitHub scheduled workflows execute from the default branch, so the daily schedule will not activate until approved and merged to the default branch. Do not merge or deploy without explicit approval.
 
