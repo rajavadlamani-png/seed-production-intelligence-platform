@@ -87,6 +87,28 @@ def worker_statistics(polygon,start,interval_end):
   raise ValueError("Worker response has no recognised Statistical API interval array; inspect connector contract before treating it as measured")
  return result,raw,data
 
+def parse_statistics_interval(collection,interval):
+ """Normalize Statistical API interval bands without interpreting agronomic meaning."""
+ outputs=interval.get("outputs") or {}
+ output_name="backscatter" if collection=="sentinel-1-grd" else "default"
+ output=outputs.get(output_name) or outputs.get("default") or outputs.get("backscatter") or {}
+ bands=output.get("bands") or {}
+ mask_output=outputs.get("dataMask") or {}
+ mask_bands=mask_output.get("bands") or {}
+ names=(["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","NDVI","NDRE","NDMI","NDWI","EVI","SAVI"]
+        if collection=="sentinel-2-l2a" else ["VV","VH","VV_MINUS_VH","VV_VH_RATIO"])
+ stats={}
+ for i,name in enumerate(names):
+  band=bands.get(str(i)) or bands.get("B"+str(i)) or bands.get(name) or {}
+  if isinstance(band,dict) and isinstance(band.get("stats"),dict):
+   stats[name]=band["stats"]
+ mask_band=mask_bands.get("B0") or mask_bands.get("0") or {}
+ mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {}
+ mask=mask_stats.get("mean")
+ valid=round(float(mask)*100,2) if isinstance(mask,(int,float)) else None
+ indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
+ return bands,stats,valid,indices
+
 def explain(collection,stats,valid_pct):
  notes=[]
  def mean(k):
@@ -177,14 +199,7 @@ def main():
        db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL,"catalog_products_found":0,"catalog_response_sha256":catalog_sha}},"return=minimal")
       continue
      for interval in intervals:
-      outputs=interval.get("outputs") or {};default=outputs.get("backscatter") or outputs.get("default") or {};bands=default.get("bands") or {};mask_output=outputs.get("dataMask") or {};mask_bands=mask_output.get("bands") or {}
-      names=["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","NDVI","NDRE","NDMI","NDWI","EVI","SAVI"] if collection=="sentinel-2-l2a" else ["VV","VH","VV_MINUS_VH","VV_VH_RATIO"]
-      stats={}
-      for i,name in enumerate(names):
-       band=bands.get(str(i),bands.get("B"+str(i),bands.get(name,{})))
-       if isinstance(band,dict) and band.get("stats") is not None:stats[name]=band["stats"]
-      mask_band=mask_bands.get("B0",mask_bands.get("0",{}));mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {};mask=mask_stats.get("mean");valid=round(float(mask)*100,2) if mask is not None else None
-      indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
+      bands,stats,valid,indices=parse_statistics_interval(collection,interval)
       row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"acquisition_dates":acquisition_dates,"provider_product_ids":product_ids,"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"cloud_coverage_pct":None,"metrics":{"band_statistics":bands,"channel_statistics":stats,"catalog_scene_cloud_cover_pct":scene_cloud_pct,"catalog_response_sha256":catalog_sha},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":("ANVORA Cloudflare Worker / Copernicus Data Space" if use_worker else PROVIDER),"source_payload":{"statistics":result,"catalog_lookup_sha256":catalog_sha,"worker_metadata":worker_meta if use_worker else None},"source_sha256":digest,"ingestion_run_id":run_id}
       db("seed_satellite_observations","POST",row,"resolution=ignore-duplicates,return=minimal");saved+=1
      db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"success","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal")

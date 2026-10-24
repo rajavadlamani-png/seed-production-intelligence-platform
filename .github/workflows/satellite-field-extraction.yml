@@ -25,6 +25,8 @@ jobs:
           python-version: "3.12"
       - name: Validate extraction script syntax
         run: python -m py_compile scripts/extract_satellite_field_metrics.py
+      - name: Test satellite response channel mapping
+        run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Live smoke test existing ANVORA Worker (synthetic polygon; no database writes)
         if: github.event_name == 'push'
         env:
