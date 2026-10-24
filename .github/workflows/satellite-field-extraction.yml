@@ -26,6 +26,7 @@ jobs:
       - name: Validate extraction script syntax
         run: python -m py_compile scripts/extract_satellite_field_metrics.py
       - name: Extract Sentinel optical and radar metrics
+        if: github.event_name != 'push'
         env:
           SUPABASE_URL: ${{ secrets.SEED_WEATHER_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SEED_WEATHER_SUPABASE_SERVICE_ROLE_KEY }}
