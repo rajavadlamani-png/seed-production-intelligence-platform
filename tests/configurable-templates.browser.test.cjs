@@ -92,6 +92,10 @@ const assert = require('node:assert/strict');
       'Weather must not silently use the selected farmer village');
     assert.deepEqual(pageErrors, [], 'No uncaught browser page errors should occur during GPS weather loading');
 
+    // Return to the manager workspace so the mobile overflow check still targets configuration.
+    await page.locator('[data-bottom="more"]').click();
+    await page.locator('#backManager').click();
+    await page.locator('.nav-item[data-view="configuration"]').click();
     await page.setViewportSize({ width: 390, height: 844 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, 'Configuration page should not create horizontal viewport overflow at mobile width');
