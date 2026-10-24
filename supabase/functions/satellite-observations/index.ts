@@ -98,31 +98,49 @@ Deno.serve(async (req) => {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const { data: assignments, error: assignmentError } = await admin
       .from("field_assignments")
-      .select("field_id")
+      .select("field_id, crop_season_id")
       .eq("company_id", companyId)
       .eq("field_officer_membership_id", membership.id)
       .eq("is_active", true)
       .lte("starts_on", today)
       .or(`ends_on.is.null,ends_on.gte.${today}`);
     if (assignmentError) return response({ error: "field_scope_lookup_failed" }, 500, origin, allowed);
-    const ids = [...new Set((assignments ?? []).map((x: { field_id: string }) => x.field_id).filter(Boolean))];
-    if (!ids.length) return response({ observations: [], count: 0, scope: "assigned_fields" }, 200, origin, allowed);
+    const assignmentRows = (assignments ?? []) as { field_id: string; crop_season_id: string | null }[];
+    const ids = [...new Set(assignmentRows.map((x) => x.field_id).filter(Boolean))];
+    if (!ids.length) return response({ observations: [], count: 0, scope: "assigned_fields_and_seasons" }, 200, origin, allowed);
     const { data: fields, error: fieldsError } = await admin
       .from("fields")
       .select("id, field_code")
       .eq("company_id", companyId)
       .in("id", ids);
     if (fieldsError) return response({ error: "field_scope_lookup_failed" }, 500, origin, allowed);
-    const codes = [...new Set((fields ?? []).map((x: { field_code: string | null }) => x.field_code).filter((x): x is string => !!x && identifier.test(x)))];
-    if (!codes.length) return response({ error: "field_scope_mapping_unavailable", message: "Assigned production fields cannot yet be matched to satellite field identifiers. No observations were returned." }, 409, origin, allowed);
-    const allowedFieldIdentifiers = new Set([...ids, ...codes]);
+    const codeById = new Map<string, string>();
+    for (const field of fields ?? []) {
+      if (field.field_code && identifier.test(field.field_code)) codeById.set(field.id, field.field_code);
+    }
+    const allowedFieldIdentifiers = new Set([...ids, ...codeById.values()]);
     if (fieldFilter && !allowedFieldIdentifiers.has(fieldFilter)) {
       return response({ error: "forbidden_field", message: "The requested field is not assigned to this user." }, 403, origin, allowed);
     }
-    if (!fieldFilter) {
-      const alternatives = [...allowedFieldIdentifiers];
-      query = query.or(`field_id.in.(${ids.join(",")}),field_code.in.(${codes.join(",")})`);
+
+    // A season-specific assignment must not grant access to the same physical
+    // field's observations from other seasons. A NULL season means an explicit
+    // all-season assignment. Build OR clauses from authoritative assignments.
+    const globalIds = [...new Set(assignmentRows.filter((x) => x.crop_season_id === null).map((x) => x.field_id))];
+    const globalCodes = globalIds.map((id) => codeById.get(id)).filter((x): x is string => !!x);
+    const scopeClauses: string[] = [];
+    if (globalIds.length) scopeClauses.push(`field_id.in.(${globalIds.join(",")})`);
+    if (globalCodes.length) scopeClauses.push(`field_code.in.(${globalCodes.join(",")})`);
+
+    const seasonIds = [...new Set(assignmentRows.map((x) => x.crop_season_id).filter((x): x is string => !!x))];
+    for (const seasonId of seasonIds) {
+      const seasonFieldIds = [...new Set(assignmentRows.filter((x) => x.crop_season_id === seasonId).map((x) => x.field_id))];
+      const seasonCodes = seasonFieldIds.map((id) => codeById.get(id)).filter((x): x is string => !!x);
+      if (seasonFieldIds.length) scopeClauses.push(`and(field_id.in.(${seasonFieldIds.join(",")}),crop_season_id.eq.${seasonId})`);
+      if (seasonCodes.length) scopeClauses.push(`and(field_code.in.(${seasonCodes.join(",")}),crop_season_id.eq.${seasonId})`);
     }
+    if (!scopeClauses.length) return response({ observations: [], count: 0, scope: "assigned_fields_and_seasons" }, 200, origin, allowed);
+    query = query.or(scopeClauses.join(","));
   } else if (membership.role === "territory_manager") {
     // The satellite ledger does not yet store a verified territory key, so do
     // not infer territory scope from a client-side role selector.
@@ -159,7 +177,7 @@ Deno.serve(async (req) => {
       review_status: reviewsById[String(row.id)] ?? "pending",
     })),
     count: rows.length,
-    scope: membership.role === "field_officer" ? "assigned_fields" : "company",
+    scope: membership.role === "field_officer" ? "assigned_fields_and_seasons" : "company",
     retrieved_at: new Date().toISOString(),
   }, 200, origin, allowed);
 });
