@@ -56,7 +56,7 @@ create index if not exists seed_weather_daily_village_date_idx on public.seed_we
 -- Enforce immutability at the database layer. Corrections should be separately
 -- reviewed and appended through a future versioned correction workflow.
 create or replace function public.prevent_seed_weather_daily_mutation()
-returns trigger language plpgsql as $
+returns trigger language plpgsql as $$
 begin
  raise exception 'seed_weather_daily is immutable; append a reviewed correction instead';
 end;
