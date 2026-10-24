@@ -100,7 +100,7 @@ const assert = require('node:assert/strict');
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ results: [{
-          id: 1, name: term === 'niphad' ? 'Niphad' : 'Nashik', latitude: 20.0833, longitude: 73.8,
+          id: 1, name: term === 'niphad' ? 'Niphad' : (term === 'yeola' ? 'Yeola' : 'Nashik'), latitude: term === 'yeola' ? 20.1 : 20.0833, longitude: term === 'yeola' ? 74.5 : 73.8,
           country: 'India', country_code: 'IN', admin1: 'Maharashtra'
         }] })
       });
@@ -109,6 +109,13 @@ const assert = require('node:assert/strict');
     await page.locator('#seedWeatherPanel').getByText('Niphad, Maharashtra, India · selected farmer/village').waitFor();
     assert.ok(weatherRequestUrl.includes('latitude=20.0833'), 'Selected farmer weather must use village latitude');
     assert.ok(weatherRequestUrl.includes('longitude=73.8'), 'Selected farmer weather must use village longitude');
+
+    // Choosing a different farmer should automatically switch the forecast to that village.
+    await page.locator('#assignedField').selectOption('2');
+    await page.locator('#seedWeatherPanel').getByText('Yeola, Maharashtra, India · selected farmer/village').waitFor();
+    assert.ok(weatherRequestUrl.includes('latitude=20.1'), 'Changing farmer should use the newly selected village latitude');
+    assert.ok(weatherRequestUrl.includes('longitude=74.5'), 'Changing farmer should use the newly selected village longitude');
+
     await page.locator('#seedWeatherPanel [data-weather-location="device"]').click();
     await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor();
     assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Switching back must restore device GPS weather');
