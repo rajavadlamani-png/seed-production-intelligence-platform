@@ -16,25 +16,25 @@ This is a review/planning note only. No database migration, data write, Edge Fun
 - The authenticated read-only function exists in source at `supabase/functions/satellite-observations/index.ts`; it is not deployed or end-to-end tested.
 - The browser prototype still uses simulated roles and has no verified Supabase sign-in/session flow.
 
-## Blocking schema/API mismatches
+## Remaining gaps after the draft changes
 
-1. **Company identifier type:** both audit migrations define `company_id text`; the API rejects anything except a UUID-shaped `company_id`. Decide the canonical company ID type before the first migration. Recommended: UUID primary key in a `companies` registry, and UUID foreign keys throughout company-scoped tables. Do not silently cast production identifiers.
-2. **Membership table absent:** the API expects `company_memberships(id, company_id, user_id, role, is_active)`. The project currently has no such table. `user_id` should reference `auth.users(id)`; membership should have a unique company/user pair and a constrained platform role.
-3. **Field registry absent:** the API expects `fields(id, company_id, field_code)`, but no migration defines it. The weather/satellite ledgers store `field_id text`, whereas the function treats assignment `field_id` as the `fields.id` value. This needs an explicit mapping, not an implicit assumption.
-4. **Assignment registry absent:** the API expects `field_assignments(company_id, field_officer_membership_id, field_id)`. The migration must enforce that the membership and field belong to the same company, assignments are active/current, and duplicate assignments are prevented.
-5. **Field-officer filter ambiguity:** the function accepts a field ID or field code, but its query combines `field_id` and `field_code`. A stable canonical field key and a safe query strategy are required; user-supplied identifiers must not be treated as SQL filter syntax.
-6. **Territory manager intentionally blocked:** the function returns HTTP 409 for `territory_manager` until a verified territory-to-field mapping exists. Keep this fail-closed behavior until the assignment model is designed and tested.
-7. **Review status scope:** review records reference observations but do not themselves carry `company_id`. The function currently fetches review statuses by observation IDs from an already company-filtered result, which is acceptable only while the observation IDs are trusted and the service-role query remains server-side. Prefer an explicit unique/latest-review rule and add tests for multiple reviews.
-8. **No authenticated UI integration:** do not set the frontend API URL until real Supabase Auth sign-in, company selection, bearer-token handling, and logout/session expiry are implemented. The current simulated role selector is not security.
+1. **Territory manager scope remains intentionally blocked.** The API returns HTTP 409 for `territory_manager` until a verified territory-to-field mapping is designed and implemented.
+2. **The frontend is not authenticated.** The GitHub Pages prototype still uses simulated roles. Do not configure its satellite API URL until real Supabase Auth sign-in, company selection, bearer-token handling, logout and session-expiry behavior are implemented.
+3. **Inspection persistence is not implemented end to end.** The foundation migration defines report/template tables, but there is no deployed API that validates answers, enforces the six-stage sequence, or handles submit/review/return transitions. Database schema alone does not enforce the stage order.
+4. **Field boundary provenance needs a final policy.** The draft has a verified/unverified boundary status and verifier metadata, but the team still needs a reviewed procedure for polygon validation, versioning, changes and audit retention.
+5. **Review history needs acceptance tests.** The API returns the most recent review status by `created_at`; test equal timestamps, multiple review records, and observation/company isolation before calling this production-ready.
+6. **Pilot registry and role mapping are not approved.** No real field registry has been loaded. TFA, Field Officer, Production Officer and TPL remain business designations, not automatic platform roles.
+7. **SQL validation is pending.** A disposable PostgreSQL 17 workflow has been added, but the connector has not returned a CI status. Do not describe the migrations as tested until a successful run is visible and reviewed.
 
-## Recommended migration sequence (proposal; not applied)
+## Recommended next sequence
 
-1. **Foundation:** `companies`, `company_memberships`, `crop_seasons`, `fields`, and the minimal farmer/production registry required by the six-stage Paddy pilot. Reference `auth.users` for membership; constrain roles; use UUID internal primary keys and retain external/SAP field or farmer references in separate text columns.
-2. **Assignments and scope:** `field_assignments` plus territory-to-field / territory-to-officer mapping only after the business hierarchy is confirmed. Add same-company integrity checks and active date/status fields. Do not infer platform role from TFA, Field Officer, Production Officer, or TPL designation.
-3. **Weather audit:** adapt `20261024_0002_weather_audit_trail.sql` to the canonical IDs and apply RLS/revokes/grants consistently.
-4. **Satellite audit:** adapt `20261024_0003_satellite_audit_trail.sql` to the same IDs, preserve append-only evidence and review history, and define a clear field-boundary provenance/version policy.
-5. **Read API:** update the function to the final schema, add automated tests for authentication, company isolation, field assignment isolation, invalid identifiers, CORS, and review selection. Deploy only after explicit approval and configuration review.
-6. **UI integration:** add a real authentication/session flow and replace demo-only role checks with server-enforced access. Keep sample data visibly labelled as synthetic until real approved field data is ingested and checked.
+1. Review the three ordered migration drafts: `20261024_0001_foundation_paddy_pilot.sql`, `20261024_0002_weather_audit_trail.sql`, and `20261024_0003_satellite_audit_trail.sql`.
+2. Confirm the data dictionary, company/farmer/field identity rules, business designation mapping and report approval responsibilities.
+3. Obtain a successful disposable-PostgreSQL migration CI run; resolve any SQL errors and review RLS, grants/revokes and immutable audit behavior.
+4. Only after explicit approval, apply the reviewed migrations to the isolated Seed Production Intelligence Supabase project; do not touch ANVORA Beta Access or `main`.
+5. Populate a small, verified pilot registry and test authentication, company isolation, current field assignments and API responses.
+6. Implement the real sign-in flow and server-enforced six-stage inspection persistence before entering operational reports.
+7. Deploy the read API only after the schema, secret configuration, CORS origins and acceptance tests are approved.
 
 ## Required acceptance checks before a pilot is called operational
 - A signed-in user cannot read another company’s records even by changing URL parameters.
