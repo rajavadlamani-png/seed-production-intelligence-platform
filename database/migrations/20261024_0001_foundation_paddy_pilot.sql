@@ -11,7 +11,7 @@ create table if not exists public.companies (
   name text not null,
   status text not null default 'active' check (status in ('active','suspended','closed')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.company_memberships (
