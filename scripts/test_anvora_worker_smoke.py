@@ -57,6 +57,7 @@ def main():
     envelope = {
         "operation": "sentinel1-statistics",
         "request": provider_request,
+        **provider_request,
         "providerEndpoint": "https://sh.dataspace.copernicus.eu/statistics/v1",
         "acquisition": {
             "plotId": None,
