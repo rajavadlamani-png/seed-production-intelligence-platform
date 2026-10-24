@@ -83,6 +83,7 @@ create table if not exists public.fields (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (company_id, id),
+  unique (company_id, id, farmer_id),
   unique (company_id, field_code),
   foreign key (company_id, farmer_id) references public.farmers(company_id, id) on delete restrict,
   check ((boundary_status <> 'verified') or (boundary_geojson is not null and boundary_verified_at is not null and boundary_verified_by is not null))
@@ -111,8 +112,7 @@ create table if not exists public.seasonal_field_records (
   unique (company_id, id, crop_season_id),
   unique (crop_season_id, seasonal_field_number),
   foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
-  foreign key (company_id, field_id) references public.fields(company_id, id) on delete restrict,
-  foreign key (company_id, farmer_id) references public.farmers(company_id, id) on delete restrict,
+  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
   check (expected_harvest_date is null or planting_date is null or expected_harvest_date >= planting_date)
 );
 create index if not exists seasonal_field_records_season_idx
