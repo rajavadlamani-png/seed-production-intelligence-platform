@@ -6,8 +6,12 @@ const assert = require('node:assert/strict');
   const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
+  // The prototype does not need optional QR/spreadsheet CDN scripts for these UI checks.
+  await page.route('https://cdn.jsdelivr.net/**', route => route.abort());
+  await page.route('https://cdn.sheetjs.com/**', route => route.abort());
   try {
-    await page.goto('http://127.0.0.1:4173/', { waitUntil: 'networkidle' });
+    await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
+    await page.locator('#demoLoginForm').waitFor();
     assert.match(await page.title(), /Seed Production Monitor/);
     await page.locator('#demoUsername').fill('manager');
     await page.locator('#demoPassword').fill('demo123');
