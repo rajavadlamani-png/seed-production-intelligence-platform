@@ -53,9 +53,8 @@ The actual observation rows come only from `public.seed_satellite_observations`.
 ## Required prerequisites before deployment
 
 1. Confirm the exact isolated pilot Supabase project reference. Do not use a production or ANVORA Beta Access project by assumption.
-2. Apply the required migrations to that isolated project, including the weather and satellite audit-trail migrations, only after explicit approval.
-3. Verify that `company_memberships`, `fields`, `field_assignments`, `seed_weather_locations`, and the satellite audit tables are present and that their identifiers can be mapped for the pilot.
-4. Confirm that the foundation, weather and satellite migrations are applied in numeric order (`20261024_0001`, `_0002`, `_0003`) in the isolated pilot database, and that the expected schema/UUID contract matches the function.
+2. Review and, only after explicit approval, apply the foundation, weather and satellite audit-trail migrations to that isolated project in numeric order.
+3. Verify that `companies`, `company_memberships`, `farmers`, `crop_seasons`, `fields`, `seasonal_field_records`, `field_assignments`, `seed_weather_locations`, and the satellite audit tables are present and that their UUID identifiers can be mapped for the pilot.
 5. Configure `ALLOWED_ORIGINS` to the exact approved application origin(s). Do not use `*` when credentials are used.
 6. Configure Supabase Edge Function environment variables securely: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Use the project-generated values in the Supabase dashboard/CLI; never paste them into chat or commit them.
 7. Confirm the application's authentication flow issues a Supabase access token and that the client can pass it in the Authorization header. The current static prototype uses simulated roles and does not yet provide a verified sign-in/session flow; the API is not yet wired to the page.
