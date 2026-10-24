@@ -42,7 +42,7 @@ create table if not exists public.farmers (
   updated_at timestamptz not null default now(),
   unique (company_id, id),
   unique (company_id, farmer_reference),
-  check (mobile_e164 is null or mobile_e164 ~ '^\\+[1-9][0-9]{7,14}$')
+  check (mobile_e164 is null or mobile_e164 ~ '^[+][1-9][0-9]{7,14}$')
 );
 create index if not exists farmers_location_idx on public.farmers(company_id, state, district, village);
 
