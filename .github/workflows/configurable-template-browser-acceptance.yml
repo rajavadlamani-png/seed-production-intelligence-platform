@@ -1,0 +1,60 @@
+name: Configurable template browser acceptance
+
+on:
+  push:
+    branches:
+      - feature/configurable-paddy-templates
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/configurable-paddy-templates
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate JavaScript syntax
+        run: |
+          node --check app.js
+          node --check template-config.js
+          node --check tests/configurable-templates.browser.test.cjs
+
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start local static server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/seed-monitor-http.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/seed-monitor-http.log
+          exit 1
+
+      - name: Run browser acceptance checks
+        run: node tests/configurable-templates.browser.test.cjs
+
+      - name: Upload server log if the job fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-acceptance-debug
+          path: /tmp/seed-monitor-http.log
+          if-no-files-found: ignore
+          retention-days: 5
