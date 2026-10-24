@@ -6,7 +6,8 @@ This is a review/planning note only. No database migration, data write, Edge Fun
 ## Migration draft status
 - `database/migrations/20261024_0001_foundation_paddy_pilot.sql` defines the tenant, membership, farmer, season, field, seasonal field, field assignment, versioned inspection template, inspection report and audit-event foundation.
 - Weather and satellite migrations are ordered as `20261024_0002_weather_audit_trail.sql` and `20261024_0003_satellite_audit_trail.sql` and now use UUID company/season/farmer/field identifiers.
-- These files are still review drafts; they have not been applied or validated by executing SQL against a database.
+- A GitHub Actions workflow, `.github/workflows/pilot-schema-migration-check.yml`, now applies the three migrations in order to a disposable PostgreSQL 17 service with a minimal Supabase-auth scaffold. This validates SQL execution without touching the pilot project. Its CI result is not yet available in the connector status response.
+- These files are still review drafts; they have not been applied to the Supabase pilot database.
 
 ## Verified current state
 - The dedicated Supabase project reference is `xjtzvhtoeormizrhozoy`; prior read-only connector checks reported it `ACTIVE_HEALTHY`.
