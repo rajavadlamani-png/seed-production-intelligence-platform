@@ -34,7 +34,7 @@ def db(path,method="GET",payload=None,prefer=None):
 def token():
  form=urllib.parse.urlencode({"grant_type":"client_credentials","client_id":CLIENT,"client_secret":SECRET}).encode()
  with urllib.request.urlopen(urllib.request.Request(TOKEN_URL,data=form,headers={"Content-Type":"application/x-www-form-urlencoded"}),timeout=45) as r:return json.loads(r.read().decode())["access_token"]
-def catalog_products(access,collection,start,end,polygon):
+def catalog_products(access,collection,start,interval_end,polygon):
  """Return actual catalogue acquisition dates and product IDs for the requested field/time window."""
  payload={"collections":[collection],"datetime":start.isoformat()+"T00:00:00Z/"+end.isoformat()+"T23:59:59Z","intersects":polygon,"limit":100}
  _,result,raw=req(CATALOG_URL,"POST",payload,{"Authorization":"Bearer "+access})
@@ -75,7 +75,7 @@ def explain(collection,stats,valid_pct):
  return {"language":"en","method":"heuristics-v1; explanatory only, not diagnosis or calibrated yield","notes":notes}
 def main():
  if not all([DB_URL,DB_KEY,CLIENT,SECRET]):print("ERROR: database and CDSE secrets are required.",file=sys.stderr);return 2
- end=date.today()-timedelta(days=1)
+ cutoff=date.today()-timedelta(days=1)
  fields="id,company_id,crop_season_id,farmer_id,field_id,field_code,village,district,state,crop,hybrid,latitude,longitude,field_boundary_geojson,crop_start_date,expected_harvest_date,planting_date,active"
  q=urllib.parse.urlencode({"select":fields,"active":"eq.true","order":"id.asc"})
  try:_,locations,_=db("seed_weather_locations?"+q);access=token()
@@ -87,10 +87,9 @@ def main():
    print("SKIP field="+str(loc.get("field_id"))+": crop start / planting date required; no interval can be assigned to an auditable extraction attempt",file=sys.stderr)
    continue
   anchor=date.fromisoformat(anchor_text[:10])
-  complete_blocks=max(0,((end-anchor).days+1)//CADENCE)
+  complete_blocks=max(0,((cutoff-anchor).days+1)//CADENCE)
   if complete_blocks<1:continue
   # Backfill every completed crop interval; successful collection/interval runs are skipped below.
-  cutoff=end
   for block_index in range(complete_blocks):
    start=anchor+timedelta(days=block_index*CADENCE)
    interval_end=start+timedelta(days=CADENCE-1)
@@ -99,9 +98,8 @@ def main():
    if interval_end>cutoff: interval_end=cutoff
    if loc.get("expected_harvest_date") and interval_end>date.fromisoformat(loc["expected_harvest_date"][:10]):
     interval_end=date.fromisoformat(loc["expected_harvest_date"][:10])
-   end=interval_end
    for collection in ("sentinel-2-l2a","sentinel-1-grd"):
-    exists_q=urllib.parse.urlencode({"select":"id","company_id":"eq."+loc["company_id"],"crop_season_id":"eq."+loc["crop_season_id"],"field_id":"eq."+loc["field_id"],"collection":"eq."+collection,"interval_start":"eq."+start.isoformat(),"interval_end":"eq."+end.isoformat(),"status":"eq.success","limit":"1"})
+    exists_q=urllib.parse.urlencode({"select":"id","company_id":"eq."+loc["company_id"],"crop_season_id":"eq."+loc["crop_season_id"],"field_id":"eq."+loc["field_id"],"collection":"eq."+collection,"interval_start":"eq."+start.isoformat(),"interval_end":"eq."+interval_end.isoformat(),"status":"eq.success","limit":"1"})
     try:
      _,done,_=db("seed_satellite_ingestion_runs?"+exists_q)
      if done:continue
@@ -113,13 +111,13 @@ def main():
      if not polygon:raise ValueError("Verified field polygon missing; field statistics cannot be computed from a centroid alone")
      if isinstance(polygon,str):polygon=json.loads(polygon)
      evalscript=S2 if collection=="sentinel-2-l2a" else S1
-     payload={"input":{"bounds":{"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":collection,"dataFilter":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":end.isoformat()+"T23:59:59Z"}}}]},"aggregation":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":end.isoformat()+"T23:59:59Z"},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":10 if collection=="sentinel-2-l2a" else 20,"resy":10 if collection=="sentinel-2-l2a" else 20,"evalscript":evalscript},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
-     run={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"status":"running","request_started_at":started.isoformat(),"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL}}
+     payload={"input":{"bounds":{"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":collection,"dataFilter":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":interval_end.isoformat()+"T23:59:59Z"}}}]},"aggregation":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":interval_end.isoformat()+"T23:59:59Z"},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":10 if collection=="sentinel-2-l2a" else 20,"resy":10 if collection=="sentinel-2-l2a" else 20,"evalscript":evalscript},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
+     run={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"status":"running","request_started_at":started.isoformat(),"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL}}
      _,created,_=db("seed_satellite_ingestion_runs","POST",run,"return=representation");run_id=created[0]["id"]
      _,result,raw=req(url,"POST",payload,{"Authorization":"Bearer "+access});digest=hashlib.sha256(raw).hexdigest()
      acquisition_dates=[];product_ids=[];scene_cloud_pct=None;catalog_sha=None
      try:
-      acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,end,polygon)
+      acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,interval_end,polygon)
      except Exception as catalog_error:
       print("WARN catalogue lookup failed for field="+str(loc.get("field_id"))+" collection="+collection+": "+str(catalog_error),file=sys.stderr)
      intervals=result.get("data") or []
@@ -141,7 +139,7 @@ def main():
        if isinstance(band,dict) and band.get("stats") is not None:stats[name]=band["stats"]
       mask_band=mask_bands.get("B0",mask_bands.get("0",{}));mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {};mask=mask_stats.get("mean");valid=round(float(mask)*100,2) if mask is not None else None
       indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
-      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"acquisition_dates":acquisition_dates,"provider_product_ids":product_ids,"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"cloud_coverage_pct":None,"metrics":{"band_statistics":bands,"channel_statistics":stats,"catalog_scene_cloud_cover_pct":scene_cloud_pct,"catalog_response_sha256":catalog_sha},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":PROVIDER,"source_payload":{"statistics":result,"catalog_lookup_sha256":catalog_sha},"source_sha256":digest,"ingestion_run_id":run_id}
+      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"acquisition_dates":acquisition_dates,"provider_product_ids":product_ids,"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"cloud_coverage_pct":None,"metrics":{"band_statistics":bands,"channel_statistics":stats,"catalog_scene_cloud_cover_pct":scene_cloud_pct,"catalog_response_sha256":catalog_sha},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":PROVIDER,"source_payload":{"statistics":result,"catalog_lookup_sha256":catalog_sha},"source_sha256":digest,"ingestion_run_id":run_id}
       db("seed_satellite_observations","POST",row,"resolution=ignore-duplicates,return=minimal");saved+=1
      db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"success","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal")
      print("OK field="+loc["field_id"]+" collection="+collection+" "+start.isoformat()+".."+end.isoformat())
@@ -150,7 +148,7 @@ def main():
      try:
       audit={"status":"failed","request_completed_at":datetime.now(timezone.utc).isoformat(),"error_code":type(e).__name__,"error_message":str(e)[:1500]}
       if run_id:db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",audit,"return=minimal")
-      else:db("seed_satellite_ingestion_runs","POST",{"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"status":"failed","request_started_at":started.isoformat(),"request_completed_at":datetime.now(timezone.utc).isoformat(),"error_code":type(e).__name__,"error_message":str(e)[:1500]},"return=minimal")
+      else:db("seed_satellite_ingestion_runs","POST",{"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":interval_end.isoformat(),"status":"failed","request_started_at":started.isoformat(),"request_completed_at":datetime.now(timezone.utc).isoformat(),"error_code":type(e).__name__,"error_message":str(e)[:1500]},"return=minimal")
      except Exception as audit:print("CRITICAL audit write failed: "+str(audit),file=sys.stderr)
      print("ERROR field="+loc["field_id"]+" collection="+collection+": "+str(e),file=sys.stderr)
     time.sleep(.2)
