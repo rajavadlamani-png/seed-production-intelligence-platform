@@ -11,8 +11,8 @@ WORKER_URL = os.environ.get(
     "https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1",
 )
 EVALSCRIPT = """//VERSION=3
-function setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"default",bands:4,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
-function evaluatePixel(s){return {default:[s.VV,s.VH,s.VV-s.VH,(s.VH!==0?s.VV/s.VH:0)],dataMask:[s.dataMask]};}"""
+function setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:4,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
+function evaluatePixel(s){return {backscatter:[s.VV,s.VH,s.VV-s.VH,(s.VH!==0?s.VV/s.VH:0)],dataMask:[s.dataMask]};}"""
 
 
 def main():
