@@ -84,7 +84,7 @@ const assert = require('node:assert/strict');
         })
       });
     });
-    await page.locator('[data-mode="field"]').click();
+    await page.locator('#openFieldApp').click();
     await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor();
     assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Weather request must use device latitude');
     assert.ok(weatherRequestUrl.includes('longitude=78.4867'), 'Weather request must use device longitude');
