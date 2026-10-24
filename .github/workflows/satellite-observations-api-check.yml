@@ -1,0 +1,30 @@
+name: Satellite observations API static check
+
+on:
+  push:
+    branches:
+      - feature/configurable-paddy-templates
+    paths:
+      - "supabase/functions/satellite-observations/**"
+      - ".github/workflows/satellite-observations-api-check.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/satellite-observations/**"
+      - ".github/workflows/satellite-observations-api-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deno-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Edge Function
+        run: deno check supabase/functions/satellite-observations/index.ts
