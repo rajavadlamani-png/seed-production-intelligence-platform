@@ -1,0 +1,32 @@
+name: Satellite field extraction audit
+on:
+  # Daily discovery; collect available observations in rolling five-day windows.
+  schedule:
+    - cron: "45 2 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: satellite-field-extraction
+  cancel-in-progress: false
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/configurable-paddy-templates
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate extraction script syntax
+        run: python -m py_compile scripts/extract_satellite_field_metrics.py
+      - name: Extract Sentinel optical and radar metrics
+        env:
+          SUPABASE_URL: ${{ secrets.SEED_WEATHER_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SEED_WEATHER_SUPABASE_SERVICE_ROLE_KEY }}
+          CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
+          CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+          SATELLITE_CADENCE_DAYS: "5"
+        run: python scripts/extract_satellite_field_metrics.py
