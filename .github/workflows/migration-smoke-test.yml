@@ -128,6 +128,41 @@ jobs:
       - name: Apply migration 0017
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0017_validated_form_publication.sql
 
+      - name: Apply migration 0018
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0018_restrict_direct_client_deletes.sql
+
+      - name: Check client delete and schema privileges
+        run: |
+          psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          DO $
+          DECLARE
+            t text;
+            role_name text;
+            privilege_name text;
+            violations text[] := ARRAY[]::text[];
+          BEGIN
+            FOREACH t IN ARRAY ARRAY[
+              'companies','company_memberships','seasons','crops','hybrids','growers',
+              'fields','production_plans','target_allocations','parent_seed_lots',
+              'parent_seed_distributions','grower_upload_batches','grower_upload_rows',
+              'field_assignments','field_boundaries','form_definitions','form_versions',
+              'form_sections','field_definitions','field_options','form_role_rules',
+              'workflow_definitions','form_submissions','documents','audit_events'
+            ] LOOP
+              FOREACH role_name IN ARRAY ARRAY['anon','authenticated'] LOOP
+                FOREACH privilege_name IN ARRAY ARRAY['DELETE','TRUNCATE','REFERENCES','TRIGGER'] LOOP
+                  IF has_table_privilege(role_name, format('public.%I', t), privilege_name) THEN
+                    violations := array_append(violations, role_name || ':' || t || ':' || privilege_name);
+                  END IF;
+                END LOOP;
+              END LOOP;
+            END LOOP;
+            IF cardinality(violations) > 0 THEN
+              RAISE EXCEPTION 'Unexpected direct table privileges remain: %', array_to_string(violations, ', ');
+            END IF;
+          END $;
+          SQL
+
       - name: Run synthetic tenant and field authorization tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
 

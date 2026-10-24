@@ -2,14 +2,14 @@
 
 Status: **TEST PLAN ONLY — no database tests have been executed**
 
-This plan is the gate before applying migrations to the intended Supabase project. The repository's current migration smoke workflow applies migrations 0001–0017; keep this plan synchronized with that workflow. Use a separate disposable Supabase project. Do not use real grower, employee, production, or customer data.
+This plan is the gate before applying migrations to the intended Supabase project. The repository's current migration smoke workflow applies migrations 0001–0018; keep this plan synchronized with that workflow. Use a separate disposable Supabase project. Do not use real grower, employee, production, or customer data.
 
 ## A. Preconditions
 
 - Create a separate disposable Supabase project, not the intended production project and not the ANVORA project.
 - Confirm the project is empty and its PostgreSQL version/extensions support the scripts.
 - Keep service-role credentials server-side only. Never paste secrets into chat, commit them, or put them in browser JavaScript.
-- Apply migrations in order only in the disposable project: 0001 through 0017, in numeric order. The automated workflow's exact list is documented in `.github/workflows/migration-smoke-test.yml`.
+- Apply migrations in order only in the disposable project: 0001 through 0018, in numeric order. The automated workflow's exact list is documented in `.github/workflows/migration-smoke-test.yml`.
 - Stop at the first error. Record the exact migration, statement, and error. Do not continue by skipping failed statements.
 
 ## B. Static SQL checks before execution
@@ -78,7 +78,7 @@ For each test, capture expected result, actual result, and pass/fail.
 ## F. Completion gate
 
 Do not apply the migrations to the intended project until:
-- all migrations 0001–0017 apply cleanly to the disposable project;
+- all migrations 0001–0018 apply cleanly to the disposable project;
 - all tests above pass;
 - remaining table scopes and workflow transitions are implemented;
 - a second review confirms no broad policy overrides a scoped policy;
@@ -88,12 +88,12 @@ A successful SQL execution alone is not a security pass.
 
 ## G. Automated migration smoke test
 
-A GitHub Actions workflow was added at `.github/workflows/migration-smoke-test.yml`. It starts a disposable PostgreSQL/PostGIS service, creates a minimal compatibility shim for the Supabase Auth objects used by these migrations, applies migrations 0001–0017 in order, runs `supabase/tests/authorization_smoke.sql`, and checks that RLS is enabled on the expected tenant tables.
+A GitHub Actions workflow was added at `.github/workflows/migration-smoke-test.yml`. It starts a disposable PostgreSQL/PostGIS service, creates a minimal compatibility shim for the Supabase Auth objects used by these migrations, applies migrations 0001–0018 in order, runs `supabase/tests/authorization_smoke.sql`, and checks that RLS is enabled on the expected tenant tables and verifies direct DELETE, TRUNCATE, REFERENCES and TRIGGER privileges are revoked from `anon` and `authenticated` for tenant-owned tables.
 
 Important limitations:
 - This is a PostgreSQL syntax/application smoke test, not a full Supabase environment.
 - The Auth schema shim does not reproduce all Supabase Auth behavior, default grants, Storage policies, API roles, or dashboard configuration.
-- The workflow's authorization SQL provides a limited synthetic smoke test, but it does not replace the full adversarial matrix in section D. The RLS check confirms RLS is enabled, not that every policy is correct.
+- The workflow's authorization SQL and privilege checks provide limited synthetic smoke tests, but they do not replace the full adversarial matrix in section D. The RLS check confirms RLS is enabled, not that every policy is correct.
 - The workflow must actually run and pass in GitHub Actions before its result can be reported. No successful run is claimed by this document.
 - The adversarial role/tenant tests in sections C–F remain required; passing the smoke test alone is not authorization approval.
 
@@ -109,3 +109,5 @@ The scheduled/manual satellite extraction workflow writes to Supabase, so it is 
 The Python extractor independently checks the same gate before any database request. Missing or mismatched configuration exits before reading field records or writing anything. Custom Supabase domains are intentionally rejected by this initial gate. Push-triggered checks run unit tests and the synthetic Worker smoke test only; they do not run database extraction.
 
 Do not enable these secrets until the dedicated pilot project is confirmed and contains only approved synthetic/verified pilot field data. Never configure the production project for this workflow.
+
+Migration 0018 (`supabase/migrations/0018_restrict_direct_client_deletes.sql`) explicitly revokes direct DELETE, TRUNCATE, REFERENCES and TRIGGER privileges from `anon` and `authenticated` on tenant-owned tables. The disposable workflow applies it and checks those privileges before running the authorization smoke SQL. This remains a grant-level check in a compatibility database, not proof of the full hosted Supabase authorization model.

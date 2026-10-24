@@ -1,5 +1,5 @@
 -- Authorization smoke tests using synthetic data only.
--- Run after migrations 0001-0005 in the disposable PostgreSQL compatibility environment.
+-- Run after migrations 0001-0018 in the disposable PostgreSQL compatibility environment.
 \set ON_ERROR_STOP on
 begin;
 
