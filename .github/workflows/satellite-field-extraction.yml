@@ -32,5 +32,6 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SEED_WEATHER_SUPABASE_SERVICE_ROLE_KEY }}
           CDSE_CLIENT_ID: ${{ secrets.CDSE_CLIENT_ID }}
           CDSE_CLIENT_SECRET: ${{ secrets.CDSE_CLIENT_SECRET }}
+          COPERNICUS_EO_WORKER_URL: https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1
           SATELLITE_CADENCE_DAYS: "5"
         run: python scripts/extract_satellite_field_metrics.py
