@@ -60,7 +60,7 @@ returns trigger language plpgsql as $
 begin
  raise exception 'seed_weather_daily is immutable; append a reviewed correction instead';
 end;
-$;
+$$;
 drop trigger if exists seed_weather_daily_immutable on public.seed_weather_daily;
 create trigger seed_weather_daily_immutable
  before update or delete on public.seed_weather_daily
