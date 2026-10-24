@@ -11,6 +11,7 @@ CLIENT=os.environ.get("CDSE_CLIENT_ID","")
 SECRET=os.environ.get("CDSE_CLIENT_SECRET","")
 TOKEN_URL="https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 STAT_URL="https://sh.dataspace.copernicus.eu/api/v1/statistics"
+CATALOG_URL="https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search"
 PROVIDER="Copernicus Data Space / Sentinel Hub"
 CADENCE=max(1,int(os.environ.get("SATELLITE_CADENCE_DAYS","5")))
 S2="""//VERSION=3
@@ -33,6 +34,22 @@ def db(path,method="GET",payload=None,prefer=None):
 def token():
  form=urllib.parse.urlencode({"grant_type":"client_credentials","client_id":CLIENT,"client_secret":SECRET}).encode()
  with urllib.request.urlopen(urllib.request.Request(TOKEN_URL,data=form,headers={"Content-Type":"application/x-www-form-urlencoded"}),timeout=45) as r:return json.loads(r.read().decode())["access_token"]
+def catalog_products(access,collection,start,end,polygon):
+ """Return actual catalogue acquisition dates and product IDs for the requested field/time window."""
+ payload={"collections":[collection],"datetime":start.isoformat()+"T00:00:00Z/"+end.isoformat()+"T23:59:59Z","intersects":polygon,"limit":100}
+ _,result,raw=req(CATALOG_URL,"POST",payload,{"Authorization":"Bearer "+access})
+ features=result.get("features") or []
+ dates=set();ids=[];cloud=[]
+ for feature in features:
+  props=feature.get("properties") or {}
+  acquired=props.get("datetime") or props.get("start_datetime")
+  if acquired:
+   try:dates.add(datetime.fromisoformat(acquired.replace("Z","+00:00")).date().isoformat())
+   except ValueError:pass
+  if feature.get("id"):ids.append(feature["id"])
+  value=props.get("eo:cloud_cover")
+  if isinstance(value,(int,float)):cloud.append(float(value))
+ return sorted(dates),ids,(round(sum(cloud)/len(cloud),2) if cloud else None),hashlib.sha256(raw).hexdigest()
 def explain(collection,stats,valid_pct):
  notes=[]
  def mean(k):
@@ -97,9 +114,14 @@ def main():
      if isinstance(polygon,str):polygon=json.loads(polygon)
      evalscript=S2 if collection=="sentinel-2-l2a" else S1
      payload={"input":{"bounds":{"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":collection,"dataFilter":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":end.isoformat()+"T23:59:59Z"}}}]},"aggregation":{"timeRange":{"from":start.isoformat()+"T00:00:00Z","to":end.isoformat()+"T23:59:59Z"},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":10 if collection=="sentinel-2-l2a" else 20,"resy":10 if collection=="sentinel-2-l2a" else 20,"evalscript":evalscript},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
-     run={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"status":"running","request_started_at":started.isoformat(),"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER}}
+     run={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"status":"running","request_started_at":started.isoformat(),"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL}}
      _,created,_=db("seed_satellite_ingestion_runs","POST",run,"return=representation");run_id=created[0]["id"]
      _,result,raw=req(url,"POST",payload,{"Authorization":"Bearer "+access});digest=hashlib.sha256(raw).hexdigest()
+     acquisition_dates=[];product_ids=[];scene_cloud_pct=None;catalog_sha=None
+     try:
+      acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,end,polygon)
+     except Exception as catalog_error:
+      print("WARN catalogue lookup failed for field="+str(loc.get("field_id"))+" collection="+collection+": "+str(catalog_error),file=sys.stderr)
      intervals=result.get("data") or []
      if not intervals:
       db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal");continue
@@ -112,7 +134,7 @@ def main():
        if isinstance(band,dict) and band.get("stats") is not None:stats[name]=band["stats"]
       mask_band=mask_bands.get("B0",mask_bands.get("0",{}));mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {};mask=mask_stats.get("mean");valid=round(float(mask)*100,2) if mask is not None else None
       indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
-      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"acquisition_dates":[],"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"metrics":{"band_statistics":bands,"channel_statistics":stats},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":PROVIDER,"source_payload":result,"source_sha256":digest,"ingestion_run_id":run_id}
+      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"acquisition_dates":acquisition_dates,"provider_product_ids":product_ids,"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"cloud_coverage_pct":scene_cloud_pct,"metrics":{"band_statistics":bands,"channel_statistics":stats},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":PROVIDER,"source_payload":{"statistics":result,"catalog_lookup_sha256":catalog_sha},"source_sha256":digest,"ingestion_run_id":run_id}
       db("seed_satellite_observations","POST",row,"resolution=ignore-duplicates,return=minimal");saved+=1
      db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"success","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal")
      print("OK field="+loc["field_id"]+" collection="+collection+" "+start.isoformat()+".."+end.isoformat())
