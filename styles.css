@@ -527,3 +527,16 @@ body.demo-authenticated .mobile-switch{display:none!important}
 .satellite-capability-grid article b{font-size:.9rem;color:var(--ink,#173b2d)}
 .satellite-capability-grid article span{font-size:.82rem;line-height:1.5;color:var(--muted,#5d6d64)}
 @media(max-width:560px){.satellite-capability-grid{grid-template-columns:minmax(0,1fr)}}
+
+
+/* Satellite monitoring page — status-first until authenticated field observations are available */
+.satellite-status-banner{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;background:#fff8eb;border:1px solid #f0dfbd;border-radius:10px;margin:16px 0;color:#6e5a35}
+.satellite-status-dot{width:10px;height:10px;flex:none;border-radius:50%;background:#c18a31;margin-top:4px}
+.satellite-status-banner b{font-size:12px;line-height:1.45}.satellite-status-banner p{font-size:10px;line-height:1.55;margin:5px 0 0;color:#82704f}
+.satellite-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}
+.satellite-metric{background:#fff;border:1px solid var(--line);border-radius:10px;padding:15px;min-width:0}
+.satellite-metric small,.satellite-metric b,.satellite-metric span{display:block}.satellite-metric small{font-size:9px;color:#829087;text-transform:uppercase;letter-spacing:.5px}.satellite-metric b{font-size:12px;color:var(--forest);margin:9px 0 6px;line-height:1.35}.satellite-metric span{font-size:9px;color:#7d8b82;line-height:1.5}
+.satellite-panel{margin-top:14px;padding:18px}.satellite-empty{display:flex;flex-direction:column;align-items:center;text-align:center;max-width:570px;margin:18px auto 24px;padding:20px 12px}.satellite-empty>span{display:grid;place-items:center;width:44px;height:44px;border-radius:14px;background:#edf4ef;color:var(--forest);font-size:24px}.satellite-empty b{font-size:13px;color:var(--forest);margin-top:13px}.satellite-empty p{font-size:10px;line-height:1.65;color:#7d8b82;margin:8px 0 0}
+.satellite-checklist{display:grid;gap:0}.satellite-checklist>div{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:start;padding:13px 0;border-bottom:1px solid #eef1ee}.satellite-checklist>div:last-child{border-bottom:0}.satellite-checklist>div>span{display:grid;place-items:center;width:26px;height:26px;background:#f0f4f0;color:#597361;border-radius:8px;font-size:9px;font-weight:700}.satellite-checklist section b,.satellite-checklist section small{display:block}.satellite-checklist section b{font-size:10px;color:#344a3a}.satellite-checklist section small{font-size:9px;line-height:1.55;color:#7e8d83;margin-top:4px}.satellite-checklist strong{font-size:8px;letter-spacing:.5px;text-transform:uppercase;color:#a2762c;background:#fff5e4;border-radius:5px;padding:5px 7px}.satellite-footnote{font-size:9px;line-height:1.6;color:#7b897f;padding:10px 2px}
+@media(max-width:900px){.satellite-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.satellite-metric-grid{grid-template-columns:1fr 1fr;gap:8px}.satellite-metric{padding:11px}.satellite-metric b{font-size:10px}.satellite-checklist>div{grid-template-columns:26px minmax(0,1fr);gap:9px}.satellite-checklist strong{grid-column:2;justify-self:start}.satellite-panel{padding:13px}.satellite-status-banner{padding:13px}}

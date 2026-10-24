@@ -35,3 +35,8 @@ The migration adds:
 
 ## Validation status
 Backfill and catalogue provenance handling are implemented in the feature branch and pass script-syntax validation. This remains an unverified operational integration: authenticated responses must confirm catalogue collection IDs, acquisition-date fields, Statistical API response shape, evalscript channel mapping, valid-pixel coverage, interval semantics and provider quotas. A catalogue/statistics mismatch is recorded as a failed attempt rather than falsely labelled as no observation. Until an approved authenticated integration test passes, stored output is pilot evidence only, not an agronomic decision.
+
+
+## Frontend status panel
+
+The feature-branch application now includes a status-first Satellite Monitoring page. It deliberately reports the integration as **not connected to the app** and does not render synthetic metrics as real observations. The page documents the outstanding prerequisites and the intended observation fields. It is not a live API client: no authenticated field-observation read endpoint or pilot database has been confirmed. Do not label the feature live until a role-scoped read endpoint is configured and tested with approved pilot records.
