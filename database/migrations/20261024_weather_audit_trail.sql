@@ -2,8 +2,11 @@
 -- Apply to a dedicated pilot PostgreSQL/Supabase database before enabling collection.
 create extension if not exists pgcrypto;
 create table if not exists public.seed_weather_locations (
- id uuid primary key default gen_random_uuid(), company_id text not null, crop_season_id text not null,
- farmer_id text not null, field_id text not null, field_code text, farmer_reference text,
+ id uuid primary key default gen_random_uuid(), company_id uuid not null references public.companies(id), crop_season_id uuid not null,
+ farmer_id uuid not null, field_id uuid not null, field_code text, farmer_reference text,
+ foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
+ foreign key (company_id, farmer_id) references public.farmers(company_id, id) on delete restrict,
+ foreign key (company_id, field_id) references public.fields(company_id, id) on delete restrict,
  village text not null, district text not null, state text not null, crop text not null default 'Paddy',
  hybrid text, latitude double precision not null check(latitude between -90 and 90),
  longitude double precision not null check(longitude between -180 and 180),
@@ -14,7 +17,11 @@ create table if not exists public.seed_weather_locations (
 create index if not exists seed_weather_locations_active_idx on public.seed_weather_locations(active,state,district,village);
 create table if not exists public.seed_weather_ingestion_runs (
  id uuid primary key default gen_random_uuid(), location_id uuid references public.seed_weather_locations(id),
- company_id text not null, crop_season_id text not null, farmer_id text not null, field_id text not null,
+ company_id uuid not null references public.companies(id), crop_season_id uuid not null,
+ farmer_id uuid not null, field_id uuid not null,
+ foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
+ foreign key (company_id, farmer_id) references public.farmers(company_id, id) on delete restrict,
+ foreign key (company_id, field_id) references public.fields(company_id, id) on delete restrict,
  target_date date not null, status text not null check(status in ('success','failed','skipped')),
  source text not null default 'Open-Meteo Archive API', source_url text,
  requested_latitude double precision, requested_longitude double precision,
