@@ -92,6 +92,27 @@ const assert = require('node:assert/strict');
       'Weather must not silently use the selected farmer village');
     assert.deepEqual(pageErrors, [], 'No uncaught browser page errors should occur during GPS weather loading');
 
+    // Switching to a selected farmer must use the village coordinates, not the device GPS.
+    await page.route('https://geocoding-api.open-meteo.com/v1/search?**', async route => {
+      const url = new URL(route.request().url());
+      const term = (url.searchParams.get('name') || '').toLowerCase();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ results: [{
+          id: 1, name: term === 'niphad' ? 'Niphad' : 'Nashik', latitude: 20.0833, longitude: 73.8,
+          country: 'India', country_code: 'IN', admin1: 'Maharashtra'
+        }] })
+      });
+    });
+    await page.locator('#seedWeatherPanel [data-weather-location="field"]').click();
+    await page.locator('#seedWeatherPanel').getByText('Niphad, Maharashtra, India · selected farmer/village').waitFor();
+    assert.ok(weatherRequestUrl.includes('latitude=20.0833'), 'Selected farmer weather must use village latitude');
+    assert.ok(weatherRequestUrl.includes('longitude=73.8'), 'Selected farmer weather must use village longitude');
+    await page.locator('#seedWeatherPanel [data-weather-location="device"]').click();
+    await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor();
+    assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Switching back must restore device GPS weather');
+
     // Return to the manager workspace so the mobile overflow check still targets configuration.
     await page.locator('[data-bottom="more"]').click();
     await page.locator('#backManager').click();
@@ -100,7 +121,7 @@ const assert = require('node:assert/strict');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, 'Configuration page should not create horizontal viewport overflow at mobile width');
     assert.deepEqual(pageErrors, [], 'No uncaught browser page errors should occur');
-    console.log('PASS: login, configuration route, pilot scope, six stages, rename, hide/show, add field, preview layouts, designations, roster/inspection navigation, GPS-first weather coordinates, mobile overflow, browser console');
+    console.log('PASS: login, configuration route, pilot scope, six stages, rename, hide/show, add field, preview layouts, designations, roster/inspection navigation, device GPS and selected-village weather coordinates, mobile overflow, browser console');
   } catch (error) {
     console.error('FAIL:', error.stack || error);
     process.exitCode = 1;
