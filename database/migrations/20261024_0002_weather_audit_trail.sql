@@ -11,15 +11,16 @@ create table if not exists public.seed_weather_locations (
  longitude double precision not null check(longitude between -180 and 180),
  boundary_centroid boolean not null default false, active boolean not null default true,
  crop_start_date date, expected_harvest_date date, created_at timestamptz not null default now(),
- updated_at timestamptz not null default now(), unique(company_id,crop_season_id,field_id)
+ updated_at timestamptz not null default now(), unique(company_id,crop_season_id,field_id), unique(id,company_id,crop_season_id,field_id)
 );
 create index if not exists seed_weather_locations_active_idx on public.seed_weather_locations(active,state,district,village);
 create table if not exists public.seed_weather_ingestion_runs (
- id uuid primary key default gen_random_uuid(), location_id uuid references public.seed_weather_locations(id),
+ id uuid primary key default gen_random_uuid(), location_id uuid,
  company_id uuid not null references public.companies(id), crop_season_id uuid not null,
  farmer_id uuid not null, field_id uuid not null,
  foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
+ foreign key (location_id, company_id, crop_season_id, field_id) references public.seed_weather_locations(id, company_id, crop_season_id, field_id) on delete restrict,
  target_date date not null, status text not null check(status in ('success','failed','skipped')),
  source text not null default 'Open-Meteo Archive API', source_url text,
  requested_latitude double precision, requested_longitude double precision,
@@ -28,11 +29,12 @@ create table if not exists public.seed_weather_ingestion_runs (
 );
 create index if not exists seed_weather_ingestion_runs_field_date_idx on public.seed_weather_ingestion_runs(company_id,crop_season_id,field_id,target_date desc);
 create table if not exists public.seed_weather_daily (
- id uuid primary key default gen_random_uuid(), location_id uuid not null references public.seed_weather_locations(id),
+ id uuid primary key default gen_random_uuid(), location_id uuid not null,
  company_id uuid not null references public.companies(id), crop_season_id uuid not null,
  farmer_id uuid not null, field_id uuid not null,
  foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
+ foreign key (location_id, company_id, crop_season_id, field_id) references public.seed_weather_locations(id, company_id, crop_season_id, field_id) on delete restrict,
  field_code text, village text not null, district text not null, state text not null, crop text not null, hybrid text,
  observation_date date not null, timezone text not null default 'Asia/Kolkata',
  latitude double precision not null, longitude double precision not null,
