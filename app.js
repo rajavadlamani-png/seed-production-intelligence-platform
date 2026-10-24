@@ -257,28 +257,36 @@ function fieldScreen(){
 }
 function findNearestAssignedField(){if(!navigator.geolocation){nearbyMessage='Location is unavailable. Choose a farmer or field from your assigned list.';fieldScreen();return}nearbyMessage='Checking your location…';fieldScreen();navigator.geolocation.getCurrentPosition(pos=>{const list=records.filter(r=>r.officer===selectedOfficer&&r.boundaryPoints?.length>=3);if(!list.length){nearbyMessage='No assigned field boundaries have been saved yet, so nearby matching is not available. Choose your field from the list.';fieldScreen();return}const here={lat:pos.coords.latitude,lon:pos.coords.longitude};list.sort((a,b)=>distanceMeters(here,centroid(a.boundaryPoints))-distanceMeters(here,centroid(b.boundaryPoints)));selectedFieldId=list[0].id;nearbyMessage=`Nearest saved assigned boundary selected: ${list[0].fieldNo} · ${Math.round(distanceMeters(here,centroid(list[0].boundaryPoints)))} m away.`;fieldScreen()},()=>{nearbyMessage='Could not access your location. Allow location access or choose from your assignments.';fieldScreen()},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})}
 function centroid(points){return points.reduce((c,p)=>({lat:c.lat+p.lat/points.length,lon:c.lon+p.lon/points.length}),{lat:0,lon:0})}
-async function loadSeedWeather(fieldRecord){
+async function loadSeedWeather(fieldRecord,locationMode='device'){
   const host=document.getElementById('seedWeatherPanel');if(!host||!fieldRecord)return;
   host.innerHTML='<section class="weather-panel"><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Loading field weather…</h2><p class="muted">Retrieving current conditions and a 7-day forecast.</p></section>';
   try{
-    let placeLabel=[fieldRecord.village,fieldRecord.district,fieldRecord.state].filter(Boolean).join(', ');
-    let lat,lon,locationLabel=placeLabel;
-    if(Array.isArray(fieldRecord.boundaryPoints)&&fieldRecord.boundaryPoints.length>=3){
-      const center=centroid(fieldRecord.boundaryPoints);lat=center.lat;lon=center.lon;locationLabel+=' · field GPS boundary';
-    }else{
-      const searchTerms=[fieldRecord.village,fieldRecord.district].filter(Boolean);
-      let hit=null;
-      for(const term of searchTerms){
-        const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(term)+'&count=10&language=en&format=json');
-        if(!geo.ok)continue;
-        const gd=await geo.json();const results=gd.results||[];
-        hit=results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.admin1||'').toLowerCase().includes(String(fieldRecord.state||'').toLowerCase()))||
-            results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.name||'').toLowerCase()===String(term).toLowerCase())||
-            results.find(x=>String(x.country_code||'').toUpperCase()==='IN');
-        if(hit)break;
+    let lat,lon,locationLabel='';
+    if(locationMode==='field'){
+      const placeLabel=[fieldRecord.village,fieldRecord.district,fieldRecord.state].filter(Boolean).join(', ');
+      locationLabel=placeLabel+' · selected field fallback';
+      if(Array.isArray(fieldRecord.boundaryPoints)&&fieldRecord.boundaryPoints.length>=3){
+        const center=centroid(fieldRecord.boundaryPoints);lat=center.lat;lon=center.lon;locationLabel+=' · saved field GPS boundary';
+      }else{
+        const searchTerms=[fieldRecord.village,fieldRecord.district].filter(Boolean);
+        let hit=null;
+        for(const term of searchTerms){
+          const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(term)+'&count=10&language=en&format=json');
+          if(!geo.ok)continue;
+          const gd=await geo.json();const results=gd.results||[];
+          hit=results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.admin1||'').toLowerCase().includes(String(fieldRecord.state||'').toLowerCase()))||
+              results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.name||'').toLowerCase()===String(term).toLowerCase())||
+              results.find(x=>String(x.country_code||'').toUpperCase()==='IN');
+          if(hit)break;
+        }
+        if(!hit)throw new Error('Could not locate this sample field. Check the village and district.');
+        lat=hit.latitude;lon=hit.longitude;locationLabel=[hit.name,hit.admin1,hit.country].filter(Boolean).join(', ')+' · selected field fallback';
       }
-      if(!hit)throw new Error('Could not locate this sample field. Capture its GPS boundary or check the village and district.');
-      lat=hit.latitude;lon=hit.longitude;locationLabel=[hit.name,hit.admin1,hit.country].filter(Boolean).join(', ');
+    }else{
+      if(!navigator.geolocation)throw new Error('Device GPS is unavailable in this browser. You can use the selected field location as a clearly labelled fallback.');
+      const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:12000,maximumAge:300000}));
+      lat=position.coords.latitude;lon=position.coords.longitude;
+      locationLabel='Device GPS location · '+lat.toFixed(4)+', '+lon.toFixed(4);
     }
     const params=new URLSearchParams({latitude:String(lat),longitude:String(lon),timezone:'auto',forecast_days:'7',
       current:'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
@@ -302,8 +310,9 @@ async function loadSeedWeather(fieldRecord){
     host.innerHTML='<section class="weather-panel"><div class="weather-panel-head"><div><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Field weather watch</h2><p class="muted">'+escape(locationLabel)+'</p></div><button type="button" class="outline weather-refresh" id="refreshSeedWeather">Refresh</button></div><div class="weather-current"><div><small>CURRENT TEMPERATURE</small><strong>'+fmt(data.current.temperature_2m)+'°C</strong><span>'+escape(wmo(data.current.weather_code))+'</span></div><div class="weather-current-grid"><span><small>Feels like</small><b>'+fmt(data.current.apparent_temperature)+'°C</b></span><span><small>Humidity</small><b>'+fmt(data.current.relative_humidity_2m)+'%</b></span><span><small>Wind</small><b>'+fmt(data.current.wind_speed_10m)+' km/h</b></span><span><small>Gusts</small><b>'+fmt(data.current.wind_gusts_10m)+' km/h</b></span></div></div><div class="weather-alerts"><h3>Today’s production watches</h3>'+alertHtml+'</div><div class="weather-forecast-head"><div><h3>Today + next 6 days</h3><p class="muted">Daily forecast · local time</p></div></div><div class="weather-days">'+daily+'</div><div class="weather-detail-grid"><div><small>Today sunrise</small><b>'+clock(d.sunrise?.[0])+'</b></div><div><small>Sunset</small><b>'+clock(d.sunset?.[0])+'</b></div><div><small>Daylight period</small><b>'+hours(d.daylight_duration?.[0])+'</b></div><div><small>Sunshine forecast</small><b>'+hours(d.sunshine_duration?.[0])+'</b></div><div><small>Rain forecast</small><b>'+fmt(d.precipitation_sum?.[0],1)+' mm</b></div><div><small>Reference ET₀</small><b>'+fmt(d.et0_fao_evapotranspiration?.[0],1)+' mm</b></div></div><p class="weather-disclaimer">Forecasts are model estimates, not field measurements or official warnings. Alert rules are preliminary and must be reviewed by crop, hybrid, growth stage and local agronomists. Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</p></section>';
     document.getElementById('refreshSeedWeather')?.addEventListener('click',()=>loadSeedWeather(fieldRecord));
   }catch(error){
-    host.innerHTML='<section class="weather-panel"><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Weather forecast unavailable</h2><p class="muted">'+escape(error?.message||'Could not load weather data.')+'</p><p class="weather-disclaimer">No weather values or alerts have been invented. Try Refresh when connectivity returns.</p><button type="button" class="outline" id="refreshSeedWeather">Retry weather</button></section>';
-    document.getElementById('refreshSeedWeather')?.addEventListener('click',()=>loadSeedWeather(fieldRecord));
+    host.innerHTML='<section class="weather-panel"><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Weather forecast unavailable</h2><p class="muted">'+escape(error?.message||'Could not load weather data.')+'</p><p class="weather-disclaimer">No weather values or alerts have been invented. Allow device location or retry when connectivity returns.</p><button type="button" class="outline" id="refreshSeedWeather">Retry device GPS</button>'+(locationMode==='field'?'':' <button type="button" class="outline" id="useFieldWeatherFallback">Use selected field location instead</button>')+'</section>';
+    document.getElementById('refreshSeedWeather')?.addEventListener('click',()=>loadSeedWeather(fieldRecord,'device'));
+    document.getElementById('useFieldWeatherFallback')?.addEventListener('click',()=>loadSeedWeather(fieldRecord,'field'));
   }
 }
 function distanceMeters(a,b){const rad=n=>n*Math.PI/180,lat1=rad(a.lat),lat2=rad(b.lat),dlat=lat2-lat1,dlon=rad(b.lon-a.lon),h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;return 6371008.8*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))}
