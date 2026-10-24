@@ -16,6 +16,8 @@ STAT_URL="https://sh.dataspace.copernicus.eu/api/v1/statistics"
 CATALOG_URL="https://sh.dataspace.copernicus.eu/api/v1/catalog/1.0.0/search"
 PROVIDER="Copernicus Data Space / Sentinel Hub"
 CADENCE=max(1,int(os.environ.get("SATELLITE_CADENCE_DAYS","5")))
+DEFAULT_COLLECTIONS="sentinel-2-l2a,sentinel-1-grd" if CLIENT and SECRET else "sentinel-1-grd"
+COLLECTIONS=[x.strip() for x in os.environ.get("SATELLITE_COLLECTIONS",DEFAULT_COLLECTIONS).split(",") if x.strip()]
 S2="""//VERSION=3
 function setup(){return {input:[{bands:["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL","dataMask"]}],output:[{id:"default",bands:16,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
 function evaluatePixel(s){let mask=s.dataMask*( [3,8,9,10,11].indexOf(s.SCL)===-1?1:0 );let ndvi=(s.B08+s.B04)!==0?(s.B08-s.B04)/(s.B08+s.B04):0;let ndre=(s.B8A+s.B05)!==0?(s.B8A-s.B05)/(s.B8A+s.B05):0;let ndmi=(s.B8A+s.B11)!==0?(s.B8A-s.B11)/(s.B8A+s.B11):0;let ndwi=(s.B03+s.B08)!==0?(s.B03-s.B08)/(s.B03+s.B08):0;let evi=(s.B08+6*s.B04-7.5*s.B02+1)!==0?2.5*(s.B08-s.B04)/(s.B08+6*s.B04-7.5*s.B02+1):0;let savi=(s.B08+s.B04+0.5)!==0?1.5*(s.B08-s.B04)/(s.B08+s.B04+0.5):0;return {default:[s.B02,s.B03,s.B04,s.B05,s.B06,s.B07,s.B08,s.B8A,s.B11,s.B12,ndvi,ndre,ndmi,ndwi,evi,savi],dataMask:[mask]};}"""
@@ -134,7 +136,7 @@ def main():
    if interval_end>cutoff: interval_end=cutoff
    if loc.get("expected_harvest_date") and interval_end>date.fromisoformat(loc["expected_harvest_date"][:10]):
     interval_end=date.fromisoformat(loc["expected_harvest_date"][:10])
-   for collection in ("sentinel-2-l2a","sentinel-1-grd"):
+   for collection in COLLECTIONS:
     exists_q=urllib.parse.urlencode({"select":"id","company_id":"eq."+loc["company_id"],"crop_season_id":"eq."+loc["crop_season_id"],"field_id":"eq."+loc["field_id"],"collection":"eq."+collection,"interval_start":"eq."+start.isoformat(),"interval_end":"eq."+interval_end.isoformat(),"status":"eq.success","limit":"1"})
     try:
      _,done,_=db("seed_satellite_ingestion_runs?"+exists_q)
