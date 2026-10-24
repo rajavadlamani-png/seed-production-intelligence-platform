@@ -134,7 +134,7 @@ jobs:
       - name: Check client delete and schema privileges
         run: |
           psql -v ON_ERROR_STOP=1 -At <<'SQL'
-          DO $
+          DO $$
           DECLARE
             t text;
             role_name text;
@@ -160,7 +160,7 @@ jobs:
             IF cardinality(violations) > 0 THEN
               RAISE EXCEPTION 'Unexpected direct table privileges remain: %', array_to_string(violations, ', ');
             END IF;
-          END $;
+          END $$;
           SQL
 
       - name: Run synthetic tenant and field authorization tests
