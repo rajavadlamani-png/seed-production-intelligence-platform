@@ -92,10 +92,10 @@ Deno.serve(async (req) => {
     .order("interval_start", { ascending: false })
     .limit(500);
 
-  // Enforce field-level scope for field officers. The satellite ledger uses
-  // text field identifiers; resolve them through the authoritative fields table.
+  // Enforce field-level scope for field officers. Resolve canonical UUIDs and
+  // field codes through the authoritative registry before filtering observations.
   if (membership.role === "field_officer") {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const { data: assignments, error: assignmentError } = await admin
       .from("field_assignments")
       .select("field_id")
