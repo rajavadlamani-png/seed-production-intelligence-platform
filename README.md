@@ -46,3 +46,8 @@ The project-specific Codex skill is in `.agents/skills/sageharvest-seed-monitor/
 ## Next stage
 
 Confirm crop-specific isolation rules, seasonal acreage and production targets, and crop/hybrid yield assumptions with the production team before adding compliance or predictive forecasts. The six Paddy inspection report forms are the current baseline. Other crops should use separately confirmed, configurable field definitions. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
+
+
+## Sentinel field monitoring and audit trail (backend setup required)
+
+The feature branch includes a protected schema and an initial Sentinel Hub Statistical API extraction scaffold for Sentinel-2 optical indices and Sentinel-1 SAR metrics, plus versioned plain-language notes and attempt-level audit logging. It targets five-day intervals but checks daily for available acquisitions; a usable Sentinel-2 observation is not guaranteed every five days because of clouds and coverage. It requires verified field polygons, Copernicus Data Space credentials and a dedicated database. See the Sentinel audit setup guide at docs/SENTINEL_FIELD_AUDIT_V1.md. The extraction scaffold has not yet been validated against authenticated provider responses and must pass the documented acceptance test before operational use. Numeric yield prediction is not enabled.
