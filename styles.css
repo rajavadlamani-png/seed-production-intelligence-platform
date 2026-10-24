@@ -499,3 +499,17 @@ body.demo-authenticated .mobile-switch{display:none!important}
 .weather-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px 0 5px}.weather-disclaimer{font-size:9px;line-height:1.55;color:var(--muted);margin:12px 0 0}.weather-disclaimer a{color:var(--forest);text-decoration:underline}
 .satellite-today-card{margin-top:4px}
 @media(max-width:390px){.weather-panel{padding:12px}.weather-current{grid-template-columns:1fr;gap:14px}.weather-current-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.weather-current-grid b{font-size:10px}.weather-day{grid-template-columns:1fr .9fr .7fr .7fr}.weather-detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Timestamped GPS acreage record history */
+.gps-measurement-history{margin-top:14px;padding:12px;border:1px solid var(--line,#dce5df);border-radius:12px;background:var(--surface,#fff)}
+.gps-history-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:.86rem}
+.gps-history-heading span{font-size:.75rem;color:var(--muted,#68756d)}
+.gps-history-item{padding:10px 0;border-top:1px solid var(--line,#e3e9e5);display:grid;gap:5px}
+.gps-history-item>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gps-history-item>div>b{font-size:1.02rem;color:var(--ink,#173b2c)}
+.gps-history-item small{font-size:.76rem;color:var(--muted,#68756d);overflow-wrap:anywhere}
+.gps-record-type{font-size:.62rem;font-weight:800;letter-spacing:.05em;border-radius:999px;padding:4px 7px;background:#e4f2e9;color:#24583c}
+.gps-record-type.sample{background:#fff0d7;color:#80520d}
+.gps-history-empty,.gps-integrity-note{font-size:.76rem;color:var(--muted,#68756d);line-height:1.5;margin:8px 0 0}
+.gps-integrity-note{padding-top:8px;border-top:1px dashed var(--line,#dce5df)}
