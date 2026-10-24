@@ -46,6 +46,9 @@ These checks are a smoke/acceptance subset, not proof that every item in the man
 - [ ] Confirm all designation-to-role mappings remain **Unmapped** and no permissions are assigned automatically.
 
 ## Regression checks
+- [ ] Weather Watch requests device GPS and uses those coordinates for the Open-Meteo forecast; it must not silently use the selected farmer's village.
+- [ ] Denied/unavailable GPS displays a clear explanation and offers an explicit selected-field fallback.
+- [ ] Weather Refresh retries device GPS by default.
 - [ ] Demo login still opens the selected manager, territory, and field-officer views.
 - [ ] Overview and farmer/field roster still render.
 - [ ] Master-list import preview still opens and validates synthetic rows.
