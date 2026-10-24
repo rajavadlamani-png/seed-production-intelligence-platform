@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const companyId = (url.searchParams.get("company_id") ?? "").trim();
   const fieldFilter = (url.searchParams.get("field_id") ?? "").trim();
-  if (!companyId || !/^[0-9a-f-]{36}$/i.test(companyId)) {
+  if (!companyId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(companyId)) {
     return response({ error: "company_id_required", message: "Supply a valid company_id for the signed-in user's membership." }, 400, origin, allowed);
   }
   if (fieldFilter && !identifier.test(fieldFilter)) {
@@ -75,6 +75,16 @@ Deno.serve(async (req) => {
   if (membershipError) return response({ error: "membership_lookup_failed" }, 500, origin, allowed);
   if (!membership) return response({ error: "forbidden", message: "No active membership for this company." }, 403, origin, allowed);
 
+  const { data: company, error: companyError } = await admin
+    .from("companies")
+    .select("id, status")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (companyError) return response({ error: "company_status_lookup_failed" }, 500, origin, allowed);
+  if (!company || company.status !== "active") {
+    return response({ error: "company_inactive" }, 403, origin, allowed);
+  }
+
   let query = admin
     .from("seed_satellite_observations")
     .select("id, location_id, company_id, crop_season_id, farmer_id, field_id, field_code, village, district, state, crop, hybrid, planting_date, crop_stage, collection, interval_start, interval_end, acquisition_dates, field_area_coverage_pct, cloud_coverage_pct, valid_pixel_pct, metrics, indices, plain_language_interpretation, interpretation_version, provider, provider_product_ids, source_sha256, retrieved_at, created_at")
@@ -85,11 +95,15 @@ Deno.serve(async (req) => {
   // Enforce field-level scope for field officers. The satellite ledger uses
   // text field identifiers; resolve them through the authoritative fields table.
   if (membership.role === "field_officer") {
+    const today = new Date().toISOString().slice(0, 10);
     const { data: assignments, error: assignmentError } = await admin
       .from("field_assignments")
       .select("field_id")
       .eq("company_id", companyId)
-      .eq("field_officer_membership_id", membership.id);
+      .eq("field_officer_membership_id", membership.id)
+      .eq("is_active", true)
+      .lte("starts_on", today)
+      .or(`ends_on.is.null,ends_on.gte.${today}`);
     if (assignmentError) return response({ error: "field_scope_lookup_failed" }, 500, origin, allowed);
     const ids = [...new Set((assignments ?? []).map((x: { field_id: string }) => x.field_id).filter(Boolean))];
     if (!ids.length) return response({ observations: [], count: 0, scope: "assigned_fields" }, 200, origin, allowed);
