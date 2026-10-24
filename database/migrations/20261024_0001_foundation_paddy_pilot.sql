@@ -142,7 +142,7 @@ create index if not exists field_assignments_field_active_idx
   on public.field_assignments(company_id, field_id, is_active);
 
 create or replace function public.validate_seed_field_assignment()
-returns trigger language plpgsql as $
+returns trigger language plpgsql as $$
 declare member_role text; member_active boolean;
 begin
   select role, is_active into member_role, member_active
@@ -153,7 +153,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 drop trigger if exists field_assignment_membership_guard on public.field_assignments;
 create trigger field_assignment_membership_guard
   before insert or update
@@ -224,11 +224,11 @@ create index if not exists inspection_report_events_report_idx
   on public.inspection_report_events(company_id, report_id, occurred_at);
 
 create or replace function public.prevent_seed_inspection_event_mutation()
-returns trigger language plpgsql as $
+returns trigger language plpgsql as $$
 begin
   raise exception 'inspection_report_events is append-only';
 end;
-$;
+$$;
 drop trigger if exists inspection_report_events_immutable on public.inspection_report_events;
 create trigger inspection_report_events_immutable
   before update or delete on public.inspection_report_events
