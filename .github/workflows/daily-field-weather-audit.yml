@@ -1,0 +1,31 @@
+name: Daily field weather audit
+on:
+  # 07:00 India time (01:30 UTC); collect the previous local calendar day.
+  schedule:
+    - cron: "30 1 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: daily-field-weather-audit
+  cancel-in-progress: false
+jobs:
+  collect-daily-weather:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/configurable-paddy-templates
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate collector syntax
+        run: python -m py_compile scripts/collect_daily_field_weather.py
+      - name: Collect and append previous day's field weather
+        env:
+          SUPABASE_URL: ${{ secrets.SEED_WEATHER_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SEED_WEATHER_SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/collect_daily_field_weather.py
