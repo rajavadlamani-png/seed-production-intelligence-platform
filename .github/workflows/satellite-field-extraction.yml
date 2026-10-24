@@ -1,5 +1,8 @@
 name: Satellite field extraction audit
 on:
+  push:
+    branches:
+      - feature/configurable-paddy-templates
   # Daily discovery; collect available observations in rolling five-day windows.
   schedule:
     - cron: "45 2 * * *"
