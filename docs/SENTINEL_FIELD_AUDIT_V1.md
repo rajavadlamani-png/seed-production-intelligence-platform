@@ -2,10 +2,10 @@
 
 ## Intended behaviour
 - Process active fields with verified polygons and stable company, farmer, field and crop-season IDs.
-- Check daily and process the most recently completed fixed five-day interval anchored to each field's crop-start or planting date. A previously successful interval is not repeatedly overwritten; failed or no-observation intervals are retried. Five days is a target interval, not a guarantee of a clear optical pass every five days. Field records without a crop-start or planting date are skipped and must be completed in the field registry.
+- Check daily and backfill every completed fixed five-day interval anchored to each field's crop-start or planting date. A previously successful interval is skipped; failed or no-observation intervals are retried. Five days is a target interval, not a guarantee of a clear optical pass every five days. Field records without a crop-start or planting date are logged and skipped because no auditable crop interval can be assigned.
 - Sentinel-2 L2A: retain visible, NIR, red-edge and SWIR band statistics; derive NDVI, NDRE, NDMI, NDWI, EVI and SAVI when valid.
 - Sentinel-1 GRD: retain VV and VH radar statistics and VV−VH / VV:VH features. Consider orbit geometry when comparing time series.
-- Save provider payload, interval, field boundary, source hash, retrieval timestamp, indices, interpretation version and attempt-level logs.
+- Query the Sentinel Hub catalogue for products intersecting the field polygon and interval; record acquisition dates, product IDs and a separate catalogue-response hash when available. Save statistical API payload, interval, field boundary, source hash, retrieval timestamp, indices, interpretation version and attempt-level logs. Scene-level cloud cover, when supplied by the catalogue, is stored separately from field valid-pixel coverage; it must not be presented as field-level cloud coverage.
 - Give plain-language notes with data-quality caveats and a human-review state. Never automatically diagnose disease or declare yield.
 
 ## Scientific scope and limits
@@ -29,4 +29,4 @@ The migration adds:
 6. This workflow is branch-only. GitHub scheduled workflows execute from the default branch, so the daily schedule will not activate until approved and merged to the default branch. Do not merge or deploy without explicit approval.
 
 ## Validation status
-This is an initial extraction scaffold, not a verified operational integration. Statistical API response shape, evalscript channel mapping, valid-pixel/cloud quality, interval semantics and provider quotas must be checked against authenticated responses. Until then, stored output is pilot evidence only, not an agronomic decision.
+Backfill and catalogue provenance handling are implemented in the feature branch and pass script-syntax validation. This remains an unverified operational integration: authenticated responses must confirm catalogue collection IDs, acquisition-date fields, Statistical API response shape, evalscript channel mapping, valid-pixel coverage, interval semantics and provider quotas. A catalogue/statistics mismatch is recorded as a failed attempt rather than falsely labelled as no observation. Until an approved authenticated integration test passes, stored output is pilot evidence only, not an agronomic decision.
