@@ -60,11 +60,43 @@ const assert = require('node:assert/strict');
     assert.ok((await page.locator('#registryPage').innerText()).toLowerCase().includes('inspection'));
 
     await page.locator('.nav-item[data-view="configuration"]').click();
+
+    // Weather must use the device's GPS coordinates, not the selected farmer's village.
+    await page.context().grantPermissions(['geolocation']);
+    await page.context().setGeolocation({ latitude: 17.3850, longitude: 78.4867 });
+    let weatherRequestUrl = '';
+    await page.route('https://api.open-meteo.com/v1/forecast?**', async route => {
+      weatherRequestUrl = route.request().url();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          current: {
+            temperature_2m: 30, relative_humidity_2m: 45, apparent_temperature: 32,
+            precipitation: 0, weather_code: 2, wind_speed_10m: 6, wind_direction_10m: 180, wind_gusts_10m: 16
+          },
+          daily: {
+            time: ['2026-10-24'], weather_code: [2], temperature_2m_max: [31], temperature_2m_min: [23],
+            precipitation_probability_max: [20], precipitation_sum: [0.3], wind_speed_10m_max: [10],
+            wind_gusts_10m_max: [16], sunrise: ['2026-10-24T06:31'], sunset: ['2026-10-24T18:03'],
+            daylight_duration: [41520], sunshine_duration: [39180], et0_fao_evapotranspiration: [4.2]
+          }
+        })
+      });
+    });
+    await page.locator('#openFieldApp').click();
+    await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor();
+    assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Weather request must use device latitude');
+    assert.ok(weatherRequestUrl.includes('longitude=78.4867'), 'Weather request must use device longitude');
+    assert.ok(!(await page.locator('#seedWeatherPanel').innerText()).includes('Niphād, Maharashtra'),
+      'Weather must not silently use the selected farmer village');
+    assert.deepEqual(pageErrors, [], 'No uncaught browser page errors should occur during GPS weather loading');
+
     await page.setViewportSize({ width: 390, height: 844 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, 'Configuration page should not create horizontal viewport overflow at mobile width');
     assert.deepEqual(pageErrors, [], 'No uncaught browser page errors should occur');
-    console.log('PASS: login, configuration route, pilot scope, six stages, rename, hide/show, add field, preview layouts, designations, roster/inspection navigation, mobile overflow, browser console');
+    console.log('PASS: login, configuration route, pilot scope, six stages, rename, hide/show, add field, preview layouts, designations, roster/inspection navigation, GPS-first weather coordinates, mobile overflow, browser console');
   } catch (error) {
     console.error('FAIL:', error.stack || error);
     process.exitCode = 1;
