@@ -81,7 +81,7 @@ jobs:
               ('60000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002', 'FIELD-002', 'Village A', 'Karimnagar', 'Telangana');
           INSERT INTO public.field_assignments (company_id, field_officer_membership_id, field_id, crop_season_id)
             VALUES ('20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001');
-          DO $
+          DO $$
           BEGIN
             BEGIN
               INSERT INTO public.field_assignments (company_id, field_officer_membership_id, field_id, crop_season_id)
@@ -97,7 +97,7 @@ jobs:
             EXCEPTION WHEN foreign_key_violation THEN
               NULL;
             END;
-          END $;
+          END $$;
           SQL
       - name: Confirm expected tables exist
         run: |
