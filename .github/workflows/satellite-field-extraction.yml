@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - feature/configurable-paddy-templates
-  # Daily discovery; collect available observations in rolling five-day windows.
+  # Daily check; collect the latest completed fixed five-day crop interval.
   schedule:
     - cron: "45 2 * * *"
   workflow_dispatch:
