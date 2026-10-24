@@ -3,10 +3,15 @@
 ## Decision
 This is a review/planning note only. No database migration, data write, Edge Function deployment, or production-branch change is authorized by this note.
 
+## Migration draft status
+- `database/migrations/20261024_0001_foundation_paddy_pilot.sql` defines the tenant, membership, farmer, season, field, seasonal field, field assignment, versioned inspection template, inspection report and audit-event foundation.
+- Weather and satellite migrations are ordered as `20261024_0002_weather_audit_trail.sql` and `20261024_0003_satellite_audit_trail.sql` and now use UUID company/season/farmer/field identifiers.
+- These files are still review drafts; they have not been applied or validated by executing SQL against a database.
+
 ## Verified current state
 - The dedicated Supabase project reference is `xjtzvhtoeormizrhozoy`; prior read-only connector checks reported it `ACTIVE_HEALTHY`.
 - The project currently has no public tables, no recorded migrations, and no deployed Edge Functions.
-- The two audit migrations on this feature branch are `20261024_weather_audit_trail.sql` and `20261024_satellite_audit_trail.sql`.
+- The two audit migrations on this feature branch are `20261024_0002_weather_audit_trail.sql` and `20261024_0003_satellite_audit_trail.sql`.
 - The authenticated read-only function exists in source at `supabase/functions/satellite-observations/index.ts`; it is not deployed or end-to-end tested.
 - The browser prototype still uses simulated roles and has no verified Supabase sign-in/session flow.
 
@@ -25,8 +30,8 @@ This is a review/planning note only. No database migration, data write, Edge Fun
 
 1. **Foundation:** `companies`, `company_memberships`, `crop_seasons`, `fields`, and the minimal farmer/production registry required by the six-stage Paddy pilot. Reference `auth.users` for membership; constrain roles; use UUID internal primary keys and retain external/SAP field or farmer references in separate text columns.
 2. **Assignments and scope:** `field_assignments` plus territory-to-field / territory-to-officer mapping only after the business hierarchy is confirmed. Add same-company integrity checks and active date/status fields. Do not infer platform role from TFA, Field Officer, Production Officer, or TPL designation.
-3. **Weather audit:** adapt `20261024_weather_audit_trail.sql` to the canonical IDs and apply RLS/revokes/grants consistently.
-4. **Satellite audit:** adapt `20261024_satellite_audit_trail.sql` to the same IDs, preserve append-only evidence and review history, and define a clear field-boundary provenance/version policy.
+3. **Weather audit:** adapt `20261024_0002_weather_audit_trail.sql` to the canonical IDs and apply RLS/revokes/grants consistently.
+4. **Satellite audit:** adapt `20261024_0003_satellite_audit_trail.sql` to the same IDs, preserve append-only evidence and review history, and define a clear field-boundary provenance/version policy.
 5. **Read API:** update the function to the final schema, add automated tests for authentication, company isolation, field assignment isolation, invalid identifiers, CORS, and review selection. Deploy only after explicit approval and configuration review.
 6. **UI integration:** add a real authentication/session flow and replace demo-only role checks with server-enforced access. Keep sample data visibly labelled as synthetic until real approved field data is ingested and checked.
 
