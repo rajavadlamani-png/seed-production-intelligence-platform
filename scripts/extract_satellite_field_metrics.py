@@ -58,16 +58,34 @@ def explain(collection,stats,valid_pct):
  return {"language":"en","method":"heuristics-v1; explanatory only, not diagnosis or calibrated yield","notes":notes}
 def main():
  if not all([DB_URL,DB_KEY,CLIENT,SECRET]):print("ERROR: database and CDSE secrets are required.",file=sys.stderr);return 2
- end=date.today()-timedelta(days=1);start=end-timedelta(days=CADENCE-1)
+ end=date.today()-timedelta(days=1)
  fields="id,company_id,crop_season_id,farmer_id,field_id,field_code,village,district,state,crop,hybrid,latitude,longitude,field_boundary_geojson,crop_start_date,expected_harvest_date,planting_date,active"
  q=urllib.parse.urlencode({"select":fields,"active":"eq.true","order":"id.asc"})
  try:_,locations,_=db("seed_weather_locations?"+q);access=token()
  except Exception as e:print("ERROR setup or field registry: "+str(e),file=sys.stderr);return 2
  errors=0;saved=0
  for loc in locations:
-  if loc.get("crop_start_date") and end.isoformat()<loc["crop_start_date"]:continue
+  anchor_text=loc.get("crop_start_date") or loc.get("planting_date")
+  if not anchor_text:
+   print("SKIP field="+str(loc.get("field_id"))+": crop start / planting date required to anchor five-day intervals",file=sys.stderr)
+   continue
+  anchor=date.fromisoformat(anchor_text[:10])
+  complete_blocks=max(0,((end-anchor).days+1)//CADENCE)
+  if complete_blocks<1:continue
+  # Retry the most recently completed fixed five-day crop interval until it succeeds.
+  start=anchor+timedelta(days=(complete_blocks-1)*CADENCE)
+  interval_end=start+timedelta(days=CADENCE-1)
   if loc.get("expected_harvest_date") and start.isoformat()>loc["expected_harvest_date"]:continue
+  if loc.get("expected_harvest_date") and interval_end>date.fromisoformat(loc["expected_harvest_date"][:10]):
+   interval_end=date.fromisoformat(loc["expected_harvest_date"][:10])
+  end=interval_end
   for collection in ("sentinel-2-l2a","sentinel-1-grd"):
+   exists_q=urllib.parse.urlencode({"select":"id","company_id":"eq."+loc["company_id"],"crop_season_id":"eq."+loc["crop_season_id"],"field_id":"eq."+loc["field_id"],"collection":"eq."+collection,"interval_start":"eq."+start.isoformat(),"interval_end":"eq."+end.isoformat(),"status":"eq.success","limit":"1"})
+   try:
+    _,done,_=db("seed_satellite_ingestion_runs?"+exists_q)
+    if done:continue
+   except Exception as check_error:
+    print("WARN cannot check prior successful run: "+str(check_error),file=sys.stderr)
    started=datetime.now(timezone.utc);run_id=None;url=STAT_URL
    try:
     polygon=loc.get("field_boundary_geojson")
