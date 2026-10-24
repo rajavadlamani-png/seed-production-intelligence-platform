@@ -81,7 +81,15 @@ jobs:
               ('60000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002', 'FIELD-002', 'Village A', 'Karimnagar', 'Telangana');
           INSERT INTO public.field_assignments (company_id, field_officer_membership_id, field_id, crop_season_id)
             VALUES ('20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001');
-          DO $$
+          INSERT INTO public.seasonal_field_records (id, company_id, crop_season_id, field_id, farmer_id, seasonal_field_number, crop, hybrid)
+            VALUES ('70000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000001', 'SEASONAL-001', 'Paddy', 'CI Hybrid');
+          INSERT INTO public.inspection_template_versions (id, company_id, crop, stage_key, version_number, schema_json)
+            VALUES ('80000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'Paddy', 'first-inspection', 1, '{}'::jsonb);
+          INSERT INTO public.inspection_reports (id, company_id, crop_season_id, seasonal_field_record_id, stage_key, template_version_id)
+            VALUES ('90000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', '70000000-0000-4000-8000-000000000001', 'first-inspection', '80000000-0000-4000-8000-000000000001');
+          INSERT INTO public.inspection_report_events (id, company_id, report_id, event_type)
+            VALUES ('a0000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '90000000-0000-4000-8000-000000000001', 'created');
+          DO $
           BEGIN
             BEGIN
               INSERT INTO public.field_assignments (company_id, field_officer_membership_id, field_id, crop_season_id)
@@ -96,6 +104,14 @@ jobs:
               RAISE EXCEPTION 'Expected field/farmer mismatch to be rejected';
             EXCEPTION WHEN foreign_key_violation THEN
               NULL;
+            END;
+            BEGIN
+              UPDATE public.inspection_report_events
+                SET event_payload = '{"tampered":true}'::jsonb
+                WHERE id = 'a0000000-0000-4000-8000-000000000001';
+              RAISE EXCEPTION 'Expected inspection audit event mutation to be rejected';
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM = 'Expected inspection audit event mutation to be rejected' THEN RAISE; END IF;
             END;
           END $$;
           SQL
