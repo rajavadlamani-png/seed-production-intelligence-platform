@@ -101,8 +101,14 @@ Deno.serve(async (req) => {
     if (fieldsError) return response({ error: "field_scope_lookup_failed" }, 500, origin, allowed);
     const codes = [...new Set((fields ?? []).map((x: { field_code: string | null }) => x.field_code).filter((x): x is string => !!x && identifier.test(x)))];
     if (!codes.length) return response({ error: "field_scope_mapping_unavailable", message: "Assigned production fields cannot yet be matched to satellite field identifiers. No observations were returned." }, 409, origin, allowed);
-    const alternatives = [...ids, ...codes].map((x) => x.replace(/[^A-Za-z0-9_-]/g, ""));
-    query = query.or(`field_id.in.(${alternatives.join(",")}),field_code.in.(${codes.join(",")})`);
+    const allowedFieldIdentifiers = new Set([...ids, ...codes]);
+    if (fieldFilter && !allowedFieldIdentifiers.has(fieldFilter)) {
+      return response({ error: "forbidden_field", message: "The requested field is not assigned to this user." }, 403, origin, allowed);
+    }
+    if (!fieldFilter) {
+      const alternatives = [...allowedFieldIdentifiers];
+      query = query.or(`field_id.in.(${alternatives.join(",")}),field_code.in.(${codes.join(",")})`);
+    }
   } else if (membership.role === "territory_manager") {
     // The satellite ledger does not yet store a verified territory key, so do
     // not infer territory scope from a client-side role selector.
