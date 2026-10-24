@@ -177,11 +177,11 @@ def main():
        db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL,"catalog_products_found":0,"catalog_response_sha256":catalog_sha}},"return=minimal")
       continue
      for interval in intervals:
-      outputs=interval.get("outputs") or {};default=outputs.get("default") or {};bands=default.get("bands") or {};mask_output=outputs.get("dataMask") or {};mask_bands=mask_output.get("bands") or {}
+      outputs=interval.get("outputs") or {};default=outputs.get("backscatter") or outputs.get("default") or {};bands=default.get("bands") or {};mask_output=outputs.get("dataMask") or {};mask_bands=mask_output.get("bands") or {}
       names=["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","NDVI","NDRE","NDMI","NDWI","EVI","SAVI"] if collection=="sentinel-2-l2a" else ["VV","VH","VV_MINUS_VH","VV_VH_RATIO"]
       stats={}
       for i,name in enumerate(names):
-       band=bands.get(str(i),bands.get(name,{}))
+       band=bands.get(str(i),bands.get("B"+str(i),bands.get(name,{})))
        if isinstance(band,dict) and band.get("stats") is not None:stats[name]=band["stats"]
       mask_band=mask_bands.get("B0",mask_bands.get("0",{}));mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {};mask=mask_stats.get("mean");valid=round(float(mask)*100,2) if mask is not None else None
       indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
