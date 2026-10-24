@@ -1,5 +1,6 @@
 -- Seed Production Intelligence Platform: immutable daily weather audit trail.
 -- Apply to a dedicated pilot PostgreSQL/Supabase database before enabling collection.
+begin;
 create extension if not exists pgcrypto;
 create table if not exists public.seed_weather_locations (
  id uuid primary key default gen_random_uuid(), company_id uuid not null references public.companies(id), crop_season_id uuid not null,
@@ -78,3 +79,4 @@ grant all on public.seed_weather_ingestion_runs to service_role;
 grant all on public.seed_weather_daily to service_role;
 comment on table public.seed_weather_daily is 'Append-only daily field weather per crop season; forecasts are not observed rainfall.';
 comment on table public.seed_weather_ingestion_runs is 'Attempt-level audit log, including failures, so missing weather days are explainable.';
+commit;
