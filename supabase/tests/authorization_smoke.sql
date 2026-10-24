@@ -1,5 +1,6 @@
 -- Authorization smoke tests using synthetic data only.
 -- Run after migrations 0001-0018 in the disposable PostgreSQL compatibility environment.
+-- The workflow separately verifies direct DELETE/TRUNCATE/REFERENCES/TRIGGER revocations.
 \set ON_ERROR_STOP on
 begin;
 
