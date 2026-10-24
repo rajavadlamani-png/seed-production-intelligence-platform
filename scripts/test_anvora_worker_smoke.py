@@ -104,13 +104,22 @@ def main():
     result = next((x for x in candidates if isinstance(x, dict) and isinstance(x.get("data"), list)), None)
     if result is None:
         result = next(({"data": x} for x in candidates if isinstance(x, list)), None)
-    intervals = len(result["data"]) if result else 0
+    interval_rows = result["data"] if result else []
+    intervals = len(interval_rows)
     top_keys = sorted(data.keys())
+    first = interval_rows[0] if interval_rows and isinstance(interval_rows[0], dict) else {}
+    outputs = first.get("outputs") or {}
+    output_shapes = {}
+    for output_name, output_value in outputs.items():
+        bands = output_value.get("bands") if isinstance(output_value, dict) else None
+        output_shapes[output_name] = sorted(bands.keys()) if isinstance(bands, dict) else type(output_value).__name__
     print(
         "WORKER_SMOKE_RESULT "
         f"http_status={http_status} worker_status={status or 'missing'} "
-        f"top_level_keys={top_keys} interval_count={intervals} "
-        f"body_bytes={len(raw)} date_range={start.isoformat()}..{end.isoformat()}"
+        f"upstream_http_status={data.get('upstreamHttpStatus')} top_level_keys={top_keys} "
+        f"interval_count={intervals} first_interval_keys={sorted(first.keys())} "
+        f"output_band_shapes={output_shapes} body_bytes={len(raw)} "
+        f"date_range={start.isoformat()}..{end.isoformat()}"
     )
     if not (200 <= http_status < 300 and status in ("OK", "SUCCESS") and intervals > 0):
         print("WORKER_SMOKE_FAIL: Worker did not return a successful, non-empty statistics interval array.")
