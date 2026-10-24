@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
     }
     if (!fieldFilter) {
       const alternatives = [...allowedFieldIdentifiers];
-      query = query.or(`field_id.in.(${alternatives.join(",")}),field_code.in.(${codes.join(",")})`);
+      query = query.or(`field_id.in.(${ids.join(",")}),field_code.in.(${codes.join(",")})`);
     }
   } else if (membership.role === "territory_manager") {
     // The satellite ledger does not yet store a verified territory key, so do
@@ -132,7 +132,8 @@ Deno.serve(async (req) => {
   }
 
   if (fieldFilter) {
-    query = query.or(`field_id.eq.${fieldFilter},field_code.eq.${fieldFilter}`);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fieldFilter);
+    query = isUuid ? query.eq("field_id", fieldFilter) : query.eq("field_code", fieldFilter);
   }
   const { data: observations, error: readError } = await query;
   if (readError) return response({ error: "observations_read_failed" }, 500, origin, allowed);
