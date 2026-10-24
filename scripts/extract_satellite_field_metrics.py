@@ -72,7 +72,8 @@ def worker_statistics(polygon,start,interval_end):
  """Use the existing ANVORA Cloudflare Worker for authenticated Sentinel-1 statistics."""
  from_ts=start.isoformat()+"T00:00:00Z"
  to_ts=interval_end.isoformat()+"T23:59:59Z"
- provider_request={"input":{"bounds":{"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":"sentinel-1-grd","dataFilter":{},"processing":{"orthorectify":True,"backCoeff":"GAMMA0_TERRAIN"}}]},"aggregation":{"timeRange":{"from":from_ts,"to":to_ts},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":20,"resy":20,"evalscript":S1},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
+ bbox=polygon_bbox(polygon)
+ provider_request={"input":{"bounds":{"bbox":bbox,"geometry":polygon,"properties":{"crs":"http://www.opengis.net/def/crs/EPSG/0/4326"}},"data":[{"type":"sentinel-1-grd","dataFilter":{},"processing":{"orthorectify":True,"backCoeff":"GAMMA0_TERRAIN"}}]},"aggregation":{"timeRange":{"from":from_ts,"to":to_ts},"aggregationInterval":{"of":"P"+str(CADENCE)+"D"},"resx":20,"resy":20,"evalscript":S1},"calculations":{"default":{"statistics":{"default":{"percentiles":{"k":[10,50,90]}}}}}}
  envelope={"operation":"sentinel1-statistics","request":provider_request,"providerEndpoint":WORKER_STAT_URL,"acquisition":{"plotId":None,"acquisitionId":None,"acquisitionDateTime":None,"requestedBbox":polygon_bbox(polygon)},"requestedAt":datetime.now(timezone.utc).isoformat(),"clientVersion":"SeedProductionSatelliteAudit/1.0"}
  status,data,raw=req(WORKER_URL,"POST",envelope,{"Accept":"application/json"})
  if not isinstance(data,dict):raise ValueError("Cloudflare Worker returned a non-object response")
