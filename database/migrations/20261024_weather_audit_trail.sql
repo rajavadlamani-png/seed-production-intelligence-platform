@@ -41,6 +41,19 @@ create table if not exists public.seed_weather_daily (
 create index if not exists seed_weather_daily_season_date_idx on public.seed_weather_daily(company_id,crop_season_id,observation_date desc);
 create index if not exists seed_weather_daily_farmer_date_idx on public.seed_weather_daily(company_id,crop_season_id,farmer_id,observation_date desc);
 create index if not exists seed_weather_daily_village_date_idx on public.seed_weather_daily(company_id,crop_season_id,state,district,village,observation_date desc);
+
+-- Enforce immutability at the database layer. Corrections should be separately
+-- reviewed and appended through a future versioned correction workflow.
+create or replace function public.prevent_seed_weather_daily_mutation()
+returns trigger language plpgsql as $
+begin
+ raise exception 'seed_weather_daily is immutable; append a reviewed correction instead';
+end;
+$;
+drop trigger if exists seed_weather_daily_immutable on public.seed_weather_daily;
+create trigger seed_weather_daily_immutable
+ before update or delete on public.seed_weather_daily
+ for each row execute function public.prevent_seed_weather_daily_mutation();
 alter table public.seed_weather_locations enable row level security;
 alter table public.seed_weather_ingestion_runs enable row level security;
 alter table public.seed_weather_daily enable row level security;
