@@ -44,7 +44,7 @@ The actual observation rows come only from `public.seed_satellite_observations`.
 - Verifies the caller's Supabase access token using Supabase Auth.
 - Requires an active `company_memberships` record and an active `companies.status` for the requested company.
 - Uses the service-role key only inside the Edge Function; it must never be placed in GitHub Pages or browser code.
-- Limits field officers to currently active, date-valid `field_assignments`, resolving field codes from `fields`. If identifiers cannot be reconciled, it fails closed.
+- Limits field officers to currently active, date-valid `field_assignments`, resolving field codes from `fields`. A season-specific assignment grants access only to that crop season; a `NULL` `crop_season_id` is treated as an explicit all-season assignment. If identifiers cannot be reconciled, it fails closed.
 - Rejects `territory_manager` requests with HTTP 409 until a verified territory-to-field mapping is implemented. Do not relax this guard based on the client-side role selector.
 - Restricts CORS to the comma-separated `ALLOWED_ORIGINS` environment variable.
 - Allows only GET and OPTIONS and returns `Cache-Control: no-store`.
@@ -72,7 +72,9 @@ From a trusted development environment with the Supabase CLI authenticated to th
    - expired/invalid token → 401;
    - valid token without active company membership → 403;
    - valid company member → only that company's rows;
-   - field officer → only assigned field rows;
+   - field officer → only rows for assigned field/season combinations;
+   - season-specific assignment → observations from other seasons for that field are excluded;
+   - `NULL`-season assignment → all-season access only when explicitly configured;
    - field officer requesting an unassigned field → 403;
    - territory manager without verified scope mapping → 409;
    - unsupported origin → 403;
