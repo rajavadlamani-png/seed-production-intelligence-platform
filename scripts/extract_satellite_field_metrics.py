@@ -4,6 +4,7 @@ Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CDSE_CLIENT_ID and CDSE_CLIENT
 Only verified field polygons are processed. Satellite indices are not direct yield measurements.
 """
 import hashlib,json,os,sys,time,urllib.parse,urllib.request
+from urllib.parse import urlparse
 from datetime import date,datetime,timedelta,timezone
 DB_URL=os.environ.get("SUPABASE_URL","").rstrip("/")
 DB_KEY=os.environ.get("SUPABASE_SERVICE_ROLE_KEY","")
@@ -96,6 +97,16 @@ def classify_empty_statistics(catalog_verified,product_ids):
  return "failed","UnverifiedNoObservation","Statistical API returned no intervals and catalogue absence was not verified."
 
 
+def validate_database_write_target(db_url,allow_writes,expected_project_ref):
+    """Fail closed unless writes are explicitly enabled for the expected Supabase project."""
+    if str(allow_writes).strip().lower() != "true":
+        return False, "Database writes are disabled; set ALLOW_SATELLITE_DB_WRITES=true only for an approved pilot."
+    hostname = urlparse(db_url or "").hostname
+    expected_host = (str(expected_project_ref).strip() + ".supabase.co") if expected_project_ref else ""
+    if not expected_host or not hostname or hostname.lower() != expected_host.lower():
+        return False, "Supabase URL does not match EXPECTED_PILOT_SUPABASE_PROJECT_REF; refusing database writes."
+    return True, None
+
 def parse_statistics_interval(collection,interval):
  """Normalize Statistical API interval bands without interpreting agronomic meaning."""
  outputs=interval.get("outputs") or {}
@@ -142,6 +153,8 @@ def explain(collection,stats,valid_pct):
    if v is not None:notes.append({"indicator":key,"value":round(v,4),"level":"informational","message":msg})
  return {"language":"en","method":"heuristics-v1; explanatory only, not diagnosis or calibrated yield","notes":notes}
 def main():
+ allowed,reason=validate_database_write_target(DB_URL,os.environ.get("ALLOW_SATELLITE_DB_WRITES","false"),os.environ.get("EXPECTED_PILOT_SUPABASE_PROJECT_REF",""))
+ if not allowed:print("ERROR: "+reason,file=sys.stderr);return 2
  if not all([DB_URL,DB_KEY]):print("ERROR: database URL and service-role key are required.",file=sys.stderr);return 2
  direct_available=bool(CLIENT and SECRET)
  if not direct_available and not WORKER_URL:print("ERROR: configure the Cloudflare EO Worker or CDSE credentials.",file=sys.stderr);return 2

@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.extract_satellite_field_metrics import parse_statistics_interval
+from scripts.extract_satellite_field_metrics import parse_statistics_interval, validate_database_write_target
 
 
 def band(mean):
@@ -73,3 +73,22 @@ class EmptyStatisticsClassificationTests(unittest.TestCase):
 
     def test_verified_zero_catalogue_products_is_no_observation(self):
         self.assertEqual(classify_empty_statistics(True, []), ("no_observation", None, None))
+
+
+class DatabaseWriteSafetyGateTests(unittest.TestCase):
+    def test_writes_disabled_by_default(self):
+        ok, reason = validate_database_write_target("https://pilot123.supabase.co", "false", "pilot123")
+        self.assertFalse(ok)
+        self.assertIn("disabled", reason)
+
+    def test_matching_explicit_pilot_target_is_allowed(self):
+        self.assertEqual(validate_database_write_target("https://pilot123.supabase.co", "true", "pilot123"), (True, None))
+
+    def test_mismatched_project_is_blocked(self):
+        ok, reason = validate_database_write_target("https://production999.supabase.co", "true", "pilot123")
+        self.assertFalse(ok)
+        self.assertIn("does not match", reason)
+
+    def test_custom_domain_is_blocked(self):
+        ok, _ = validate_database_write_target("https://supabase.example.com", "true", "pilot123")
+        self.assertFalse(ok)

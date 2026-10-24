@@ -32,6 +32,25 @@ jobs:
         env:
           COPERNICUS_EO_WORKER_URL: https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1
         run: python scripts/test_anvora_worker_smoke.py
+      - name: Verify explicit pilot database write gate
+        if: github.event_name != 'push'
+        env:
+          ALLOW_SATELLITE_DB_WRITES: ${{ secrets.ALLOW_SATELLITE_DB_WRITES }}
+          EXPECTED_PILOT_SUPABASE_PROJECT_REF: ${{ secrets.EXPECTED_PILOT_SUPABASE_PROJECT_REF }}
+          SUPABASE_URL: ${{ secrets.SEED_WEATHER_SUPABASE_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+          allowed = os.environ.get("ALLOW_SATELLITE_DB_WRITES", "").strip().lower() == "true"
+          expected = os.environ.get("EXPECTED_PILOT_SUPABASE_PROJECT_REF", "").strip()
+          hostname = urlparse(os.environ.get("SUPABASE_URL", "")).hostname or ""
+          if not allowed:
+              raise SystemExit("Blocked: ALLOW_SATELLITE_DB_WRITES must be explicitly set to true.")
+          if not expected or hostname.lower() != (expected + ".supabase.co").lower():
+              raise SystemExit("Blocked: SUPABASE_URL host does not match EXPECTED_PILOT_SUPABASE_PROJECT_REF.")
+          print("Write gate passed for the explicitly configured pilot project.")
+          PY
       - name: Extract Sentinel optical and radar metrics
         if: github.event_name != 'push'
         env:
