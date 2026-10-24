@@ -87,6 +87,15 @@ def worker_statistics(polygon,start,interval_end):
   raise ValueError("Worker response has no recognised Statistical API interval array; inspect connector contract before treating it as measured")
  return result,raw,data
 
+def classify_empty_statistics(catalog_verified,product_ids):
+ """Fail closed unless a successful catalogue query confirms zero matching products."""
+ if product_ids:
+  return "failed","CatalogStatisticsMismatch","Catalogue returned products but the Statistical API returned no interval data."
+ if catalog_verified:
+  return "no_observation",None,None
+ return "failed","UnverifiedNoObservation","Statistical API returned no intervals and catalogue absence was not verified."
+
+
 def parse_statistics_interval(collection,interval):
  """Normalize Statistical API interval bands without interpreting agronomic meaning."""
  outputs=interval.get("outputs") or {}
@@ -183,18 +192,21 @@ def main():
       if not access:raise ValueError("Direct Copernicus credentials are required for "+collection+"; Sentinel-2 is not exposed by the current ANVORA Worker contract")
       _,result,raw=req(url,"POST",payload,{"Authorization":"Bearer "+access})
      digest=hashlib.sha256(raw).hexdigest()
-     acquisition_dates=[];product_ids=[];scene_cloud_pct=None;catalog_sha=None
+     acquisition_dates=[];product_ids=[];scene_cloud_pct=None;catalog_sha=None;catalog_verified=False
      try:
-      if access:acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,interval_end,polygon)
+      if access:
+       acquisition_dates,product_ids,scene_cloud_pct,catalog_sha=catalog_products(access,collection,start,interval_end,polygon)
+       catalog_verified=True
      except Exception as catalog_error:
       print("WARN catalogue lookup failed for field="+str(loc.get("field_id"))+" collection="+collection+": "+str(catalog_error),file=sys.stderr)
      intervals=result.get("data") or []
      if not intervals:
-      if product_ids:
+      empty_status,error_code,error_message=classify_empty_statistics(catalog_verified,product_ids)
+      if empty_status=="failed":
        errors+=1
-       audit={"status":"failed","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"error_code":"CatalogStatisticsMismatch","error_message":"Catalogue returned "+str(len(product_ids))+" products but the Statistical API returned no interval data."}
+       audit={"status":"failed","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"error_code":error_code,"error_message":error_message}
        db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",audit,"return=minimal")
-       print("ERROR catalogue/statistics mismatch for field="+str(loc.get("field_id"))+" collection="+collection,file=sys.stderr)
+       print("ERROR "+str(error_code)+" for field="+str(loc.get("field_id"))+" collection="+collection,file=sys.stderr)
       else:
        db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL,"catalog_products_found":0,"catalog_response_sha256":catalog_sha}},"return=minimal")
       continue

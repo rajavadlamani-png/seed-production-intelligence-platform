@@ -53,3 +53,23 @@ class Sentinel1ResponseMappingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+from scripts.extract_satellite_field_metrics import classify_empty_statistics
+
+
+class EmptyStatisticsClassificationTests(unittest.TestCase):
+    def test_no_intervals_without_catalogue_verification_is_failure(self):
+        self.assertEqual(
+            classify_empty_statistics(False, []),
+            ("failed", "UnverifiedNoObservation", "Statistical API returned no intervals and catalogue absence was not verified."),
+        )
+
+    def test_catalogue_products_without_statistics_is_failure(self):
+        status, code, message = classify_empty_statistics(True, ["scene-1"])
+        self.assertEqual(status, "failed")
+        self.assertEqual(code, "CatalogStatisticsMismatch")
+        self.assertIn("Catalogue returned products", message)
+
+    def test_verified_zero_catalogue_products_is_no_observation(self):
+        self.assertEqual(classify_empty_statistics(True, []), ("no_observation", None, None))
