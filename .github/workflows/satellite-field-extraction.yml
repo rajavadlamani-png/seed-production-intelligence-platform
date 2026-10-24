@@ -25,6 +25,11 @@ jobs:
           python-version: "3.12"
       - name: Validate extraction script syntax
         run: python -m py_compile scripts/extract_satellite_field_metrics.py
+      - name: Live smoke test existing ANVORA Worker (synthetic polygon; no database writes)
+        if: github.event_name == 'push'
+        env:
+          COPERNICUS_EO_WORKER_URL: https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1
+        run: python scripts/test_anvora_worker_smoke.py
       - name: Extract Sentinel optical and radar metrics
         if: github.event_name != 'push'
         env:
