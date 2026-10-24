@@ -2,7 +2,7 @@
 
 ## Intended behaviour
 - Process active fields with verified polygons and stable company, farmer, field and crop-season IDs.
-- Check daily for available data and aggregate over rolling five-day intervals. Five days is a target interval, not a guarantee of a clear optical pass every five days.
+- Check daily and process the most recently completed fixed five-day interval anchored to each field's crop-start or planting date. A previously successful interval is not repeatedly overwritten; failed or no-observation intervals are retried. Five days is a target interval, not a guarantee of a clear optical pass every five days. Field records without a crop-start or planting date are skipped and must be completed in the field registry.
 - Sentinel-2 L2A: retain visible, NIR, red-edge and SWIR band statistics; derive NDVI, NDRE, NDMI, NDWI, EVI and SAVI when valid.
 - Sentinel-1 GRD: retain VV and VH radar statistics and VV−VH / VV:VH features. Consider orbit geometry when comparing time series.
 - Save provider payload, interval, field boundary, source hash, retrieval timestamp, indices, interpretation version and attempt-level logs.
