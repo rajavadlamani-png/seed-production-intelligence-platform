@@ -238,10 +238,17 @@ async function loadSeedWeather(fieldRecord){
     if(Array.isArray(fieldRecord.boundaryPoints)&&fieldRecord.boundaryPoints.length>=3){
       const center=centroid(fieldRecord.boundaryPoints);lat=center.lat;lon=center.lon;locationLabel+=' · field GPS boundary';
     }else{
-      const query=[fieldRecord.village,fieldRecord.district,fieldRecord.state,'India'].filter(Boolean).join(', ');
-      const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(query)+'&count=5&language=en&format=json');
-      if(!geo.ok)throw new Error('Location lookup unavailable');
-      const gd=await geo.json();let hit=(gd.results||[]).find(x=>String(x.country_code||'').toUpperCase()==='IN')||(gd.results||[])[0];
+      const searchTerms=[fieldRecord.village,fieldRecord.district].filter(Boolean);
+      let hit=null;
+      for(const term of searchTerms){
+        const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(term)+'&count=10&language=en&format=json');
+        if(!geo.ok)continue;
+        const gd=await geo.json();const results=gd.results||[];
+        hit=results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.admin1||'').toLowerCase().includes(String(fieldRecord.state||'').toLowerCase()))||
+            results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.name||'').toLowerCase()===String(term).toLowerCase())||
+            results.find(x=>String(x.country_code||'').toUpperCase()==='IN');
+        if(hit)break;
+      }
       if(!hit)throw new Error('Could not locate this sample field. Capture its GPS boundary or check the village and district.');
       lat=hit.latitude;lon=hit.longitude;locationLabel=[hit.name,hit.admin1,hit.country].filter(Boolean).join(', ');
     }
