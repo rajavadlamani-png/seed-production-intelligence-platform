@@ -55,8 +55,8 @@ const assert = require('node:assert/strict');
     await page.locator('.nav-item[data-view="inspections"]').click();
     assert.ok((await page.locator('#registryPage').innerText()).toLowerCase().includes('inspection'));
 
-    await page.setViewportSize({ width: 390, height: 844 });
     await page.locator('.nav-item[data-view="configuration"]').click();
+    await page.setViewportSize({ width: 390, height: 844 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.equal(overflow, false, 'Configuration page should not create horizontal viewport overflow at mobile width');
     assert.deepEqual(pageErrors, [], 'No uncaught browser page errors should occur');
