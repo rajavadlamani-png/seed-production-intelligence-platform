@@ -156,7 +156,7 @@ end;
 $;
 drop trigger if exists field_assignment_membership_guard on public.field_assignments;
 create trigger field_assignment_membership_guard
-  before insert or update of company_id, field_officer_membership_id
+  before insert or update
   on public.field_assignments
   for each row execute function public.validate_seed_field_assignment();
 
