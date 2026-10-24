@@ -49,3 +49,10 @@ The feature-branch Satellite Monitoring page now has a client adapter that can r
 Expected response: either a JSON array or `{ "observations": [] }`. Each row may include `field_id`, `field_code`, `village`, `district`, `state`, `collection`, `interval_start`, `interval_end`, `valid_pixel_pct`, `acquisition_dates`, `indices`, `plain_language_interpretation`, `provider`, `retrieved_at`, and `review_status`. A 401/403, network failure, malformed payload or empty array is displayed explicitly; an empty response is not presented as healthy crop status.
 
 This adapter is a client-side integration seam, not proof that a deployed API exists. No endpoint URL is configured by default, and it will not make a request until one is supplied.
+
+
+## Read API implementation status (2026-10-24)
+
+A read-only Supabase Edge Function has now been added at `supabase/functions/satellite-observations/index.ts` on the feature branch. It validates the caller's Supabase Auth token, requires active company membership, restricts field officers to assigned fields where identifiers can be reconciled, and fails closed for territory managers until a verified territory-to-field mapping exists. It uses the service-role key only server-side and returns observations from the satellite audit tables without writing data.
+
+The endpoint is not deployed. The static frontend still has simulated roles and does not yet supply a verified Supabase access token or company context. Follow `docs/SATELLITE_OBSERVATIONS_API_DEPLOYMENT.md` for the deployment gates and acceptance tests. A Deno type-check workflow was added; its GitHub Actions result must be inspected before treating the function as validated. No pilot database migration, secret configuration, Worker deployment, or production deployment was performed.
