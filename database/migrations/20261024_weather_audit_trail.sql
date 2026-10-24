@@ -31,7 +31,11 @@ create table if not exists public.seed_weather_ingestion_runs (
 create index if not exists seed_weather_ingestion_runs_field_date_idx on public.seed_weather_ingestion_runs(company_id,crop_season_id,field_id,target_date desc);
 create table if not exists public.seed_weather_daily (
  id uuid primary key default gen_random_uuid(), location_id uuid not null references public.seed_weather_locations(id),
- company_id text not null, crop_season_id text not null, farmer_id text not null, field_id text not null,
+ company_id uuid not null references public.companies(id), crop_season_id uuid not null,
+ farmer_id uuid not null, field_id uuid not null,
+ foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
+ foreign key (company_id, farmer_id) references public.farmers(company_id, id) on delete restrict,
+ foreign key (company_id, field_id) references public.fields(company_id, id) on delete restrict,
  field_code text, village text not null, district text not null, state text not null, crop text not null, hybrid text,
  observation_date date not null, timezone text not null default 'Asia/Kolkata',
  latitude double precision not null, longitude double precision not null,
