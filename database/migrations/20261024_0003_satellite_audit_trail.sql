@@ -16,7 +16,8 @@ create table if not exists public.seed_satellite_ingestion_runs (
  interval_start date not null, interval_end date not null,
  status text not null check(status in ('running','success','partial','failed','no_observation')),
  request_started_at timestamptz not null default now(), request_completed_at timestamptz,
- request_parameters jsonb, response_sha256 text, error_code text, error_message text, created_at timestamptz not null default now()
+ request_parameters jsonb, response_sha256 text, error_code text, error_message text, created_at timestamptz not null default now(),
+ unique(id, company_id, crop_season_id, field_id, collection, interval_start, interval_end)
 );
 create index if not exists seed_satellite_runs_field_date_idx on public.seed_satellite_ingestion_runs(company_id,crop_season_id,field_id,interval_start desc);
 create table if not exists public.seed_satellite_observations (
@@ -26,6 +27,7 @@ create table if not exists public.seed_satellite_observations (
  foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
  foreign key (location_id, company_id, crop_season_id, field_id) references public.seed_weather_locations(id, company_id, crop_season_id, field_id) on delete restrict,
+ foreign key (ingestion_run_id, company_id, crop_season_id, field_id, collection, interval_start, interval_end) references public.seed_satellite_ingestion_runs(id, company_id, crop_season_id, field_id, collection, interval_start, interval_end) on delete restrict,
  field_code text, village text not null, district text not null, state text not null, crop text not null,
  hybrid text, planting_date date, crop_stage text,
  collection text not null check(collection in ('sentinel-2-l2a','sentinel-1-grd')),
@@ -35,7 +37,7 @@ create table if not exists public.seed_satellite_observations (
  plain_language_interpretation jsonb not null default '{}'::jsonb, interpretation_version text not null default 'heuristics-v1',
  provider text not null default 'Copernicus Data Space / Sentinel Hub', provider_product_ids jsonb not null default '[]'::jsonb,
  source_payload jsonb not null, source_sha256 text not null, retrieved_at timestamptz not null default now(),
- ingestion_run_id uuid references public.seed_satellite_ingestion_runs(id), created_at timestamptz not null default now(),
+ ingestion_run_id uuid, created_at timestamptz not null default now(),
  unique(company_id,crop_season_id,field_id,collection,interval_start,interval_end,source_sha256)
 );
 create index if not exists seed_satellite_obs_field_date_idx on public.seed_satellite_observations(company_id,crop_season_id,field_id,interval_start desc);
