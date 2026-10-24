@@ -73,12 +73,13 @@ def main():
   complete_blocks=max(0,((end-anchor).days+1)//CADENCE)
   if complete_blocks<1:continue
   # Backfill every completed crop interval; successful collection/interval runs are skipped below.
+  cutoff=end
   for block_index in range(complete_blocks):
    start=anchor+timedelta(days=block_index*CADENCE)
    interval_end=start+timedelta(days=CADENCE-1)
-   if start>end: break
+   if start>cutoff: break
    if loc.get("expected_harvest_date") and start>date.fromisoformat(loc["expected_harvest_date"][:10]): break
-   if interval_end>end: interval_end=end
+   if interval_end>cutoff: interval_end=cutoff
    if loc.get("expected_harvest_date") and interval_end>date.fromisoformat(loc["expected_harvest_date"][:10]):
     interval_end=date.fromisoformat(loc["expected_harvest_date"][:10])
    end=interval_end
