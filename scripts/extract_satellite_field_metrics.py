@@ -22,8 +22,8 @@ S2="""//VERSION=3
 function setup(){return {input:[{bands:["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL","dataMask"]}],output:[{id:"default",bands:16,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
 function evaluatePixel(s){let mask=s.dataMask*( [3,8,9,10,11].indexOf(s.SCL)===-1?1:0 );let ndvi=(s.B08+s.B04)!==0?(s.B08-s.B04)/(s.B08+s.B04):0;let ndre=(s.B8A+s.B05)!==0?(s.B8A-s.B05)/(s.B8A+s.B05):0;let ndmi=(s.B8A+s.B11)!==0?(s.B8A-s.B11)/(s.B8A+s.B11):0;let ndwi=(s.B03+s.B08)!==0?(s.B03-s.B08)/(s.B03+s.B08):0;let evi=(s.B08+6*s.B04-7.5*s.B02+1)!==0?2.5*(s.B08-s.B04)/(s.B08+6*s.B04-7.5*s.B02+1):0;let savi=(s.B08+s.B04+0.5)!==0?1.5*(s.B08-s.B04)/(s.B08+s.B04+0.5):0;return {default:[s.B02,s.B03,s.B04,s.B05,s.B06,s.B07,s.B08,s.B8A,s.B11,s.B12,ndvi,ndre,ndmi,ndwi,evi,savi],dataMask:[mask]};}"""
 S1="""//VERSION=3
-function setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"default",bands:4,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
-function evaluatePixel(s){return {default:[s.VV,s.VH,s.VV-s.VH,(s.VH!==0?s.VV/s.VH:0)],dataMask:[s.dataMask]};}"""
+function setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:4,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
+function evaluatePixel(s){return {backscatter:[s.VV,s.VH,s.VV-s.VH,(s.VH!==0?s.VV/s.VH:0)],dataMask:[s.dataMask]};}"""
 def req(url,method="GET",payload=None,headers=None):
  data=None if payload is None else json.dumps(payload,separators=(",",":")).encode()
  h={"Accept":"application/json","User-Agent":"SeedProductionSatelliteAudit/1.0"}
