@@ -40,3 +40,12 @@ Backfill and catalogue provenance handling are implemented in the feature branch
 ## Frontend status panel
 
 The feature-branch application now includes a status-first Satellite Monitoring page. It deliberately reports the integration as **not connected to the app** and does not render synthetic metrics as real observations. The page documents the outstanding prerequisites and the intended observation fields. It is not a live API client: no authenticated field-observation read endpoint or pilot database has been confirmed. Do not label the feature live until a role-scoped read endpoint is configured and tested with approved pilot records.
+
+
+## Authenticated frontend read contract
+
+The feature-branch Satellite Monitoring page now has a client adapter that can request an authenticated read endpoint. Configure only the public endpoint URL as `window.SATELLITE_OBSERVATIONS_API_URL` before `app.js` loads. The endpoint must use the app's approved authentication/session mechanism and enforce company, role and field scope server-side; the browser sends same-origin/session credentials and never accepts a service-role key or Copernicus secret.
+
+Expected response: either a JSON array or `{ "observations": [] }`. Each row may include `field_id`, `field_code`, `village`, `district`, `state`, `collection`, `interval_start`, `interval_end`, `valid_pixel_pct`, `acquisition_dates`, `indices`, `plain_language_interpretation`, `provider`, `retrieved_at`, and `review_status`. A 401/403, network failure, malformed payload or empty array is displayed explicitly; an empty response is not presented as healthy crop status.
+
+This adapter is a client-side integration seam, not proof that a deployed API exists. No endpoint URL is configured by default, and it will not make a request until one is supplied.
