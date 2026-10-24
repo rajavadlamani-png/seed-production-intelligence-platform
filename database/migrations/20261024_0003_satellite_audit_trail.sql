@@ -5,11 +5,12 @@ alter table public.seed_weather_locations
  add column if not exists crop_variety text,
  add column if not exists planting_date date;
 create table if not exists public.seed_satellite_ingestion_runs (
- id uuid primary key default gen_random_uuid(), location_id uuid references public.seed_weather_locations(id),
+ id uuid primary key default gen_random_uuid(), location_id uuid,
  company_id uuid not null references public.companies(id), crop_season_id uuid not null,
  farmer_id uuid not null, field_id uuid not null,
  foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
+ foreign key (location_id, company_id, crop_season_id, field_id) references public.seed_weather_locations(id, company_id, crop_season_id, field_id) on delete restrict,
  provider text not null default 'Copernicus Data Space / Sentinel Hub',
  collection text not null check(collection in ('sentinel-2-l2a','sentinel-1-grd')),
  interval_start date not null, interval_end date not null,
@@ -19,11 +20,12 @@ create table if not exists public.seed_satellite_ingestion_runs (
 );
 create index if not exists seed_satellite_runs_field_date_idx on public.seed_satellite_ingestion_runs(company_id,crop_season_id,field_id,interval_start desc);
 create table if not exists public.seed_satellite_observations (
- id uuid primary key default gen_random_uuid(), location_id uuid not null references public.seed_weather_locations(id),
+ id uuid primary key default gen_random_uuid(), location_id uuid not null,
  company_id uuid not null references public.companies(id), crop_season_id uuid not null,
  farmer_id uuid not null, field_id uuid not null,
  foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
+ foreign key (location_id, company_id, crop_season_id, field_id) references public.seed_weather_locations(id, company_id, crop_season_id, field_id) on delete restrict,
  field_code text, village text not null, district text not null, state text not null, crop text not null,
  hybrid text, planting_date date, crop_stage text,
  collection text not null check(collection in ('sentinel-2-l2a','sentinel-1-grd')),
