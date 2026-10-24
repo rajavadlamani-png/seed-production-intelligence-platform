@@ -1,6 +1,21 @@
 # Browser Acceptance Checklist — Configurable Templates V1
 
-Status: prepared for interactive review. This checklist has not yet been executed in a real browser against the feature branch.
+Status: an automated browser acceptance subset passed in GitHub Actions on commit `a023aab9e8a9311fe59625cddd6302215b779271`. The full manual checklist below is not yet complete, and no separate hosted preview has been created.
+
+## Automated browser checks completed
+- [x] Demo manager login opens the workspace.
+- [x] Template Designer route loads and shows the approved pilot scope.
+- [x] Six baseline inspection stages appear.
+- [x] Stage label rename updates the stage selector.
+- [x] Hide/show updates field visibility in the preview.
+- [x] Add a long-text field and confirm it appears in preview.
+- [x] Mobile and desktop preview layout controls toggle their layout classes.
+- [x] TFA/TPL aliases, separate Field Officer and Production Officer titles, and unmapped roles are displayed.
+- [x] Roster and inspection navigation render.
+- [x] Mobile configuration viewport has no horizontal overflow in the tested Chromium environment.
+- [x] No uncaught browser page errors during the automated path.
+
+These checks are a smoke/acceptance subset, not proof that every item in the manual checklist passes.
 
 ## Before testing
 - Open a local checkout of `feature/configurable-paddy-templates` or use a temporary preview deployment built from this branch.
