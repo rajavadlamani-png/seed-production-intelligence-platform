@@ -1,6 +1,6 @@
 # Foundation schema proposal — Paddy pilot
 
-**Status: design proposal only.** This file is not an executable migration. It has not been applied to Supabase. Confirm the data model and business-role mapping before converting it into SQL.
+**Status: design proposal.** The companion executable migration draft is [`20261024_0001_foundation_paddy_pilot.sql`](../database/migrations/20261024_0001_foundation_paddy_pilot.sql), followed by [`20261024_0002_weather_audit_trail.sql`](../database/migrations/20261024_0002_weather_audit_trail.sql) and [`20261024_0003_satellite_audit_trail.sql`](../database/migrations/20261024_0003_satellite_audit_trail.sql). The SQL drafts have not been applied to Supabase, and CI execution has not yet been confirmed. Review the data model and business-role mapping before any application.
 
 ## Pilot boundary
 - Crop: Paddy
