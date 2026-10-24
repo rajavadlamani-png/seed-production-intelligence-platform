@@ -30,6 +30,7 @@ def main():
     provider_request = {
         "input": {
             "bounds": {
+                "bbox": [78.4500, 17.4000, 78.4510, 17.4010],
                 "geometry": polygon,
                 "properties": {"crs": "http://www.opengis.net/def/crs/EPSG/0/4326"},
             },
