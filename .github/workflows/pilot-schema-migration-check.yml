@@ -57,6 +57,48 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f database/migrations/20261024_0001_foundation_paddy_pilot.sql
           psql -v ON_ERROR_STOP=1 -f database/migrations/20261024_0002_weather_audit_trail.sql
           psql -v ON_ERROR_STOP=1 -f database/migrations/20261024_0003_satellite_audit_trail.sql
+      - name: Verify tenant, field and assignment integrity
+        run: |
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          INSERT INTO auth.users (id) VALUES
+            ('10000000-0000-4000-8000-000000000001'),
+            ('10000000-0000-4000-8000-000000000002');
+          INSERT INTO public.companies (id, company_code, name)
+            VALUES ('20000000-0000-4000-8000-000000000001', 'CI-TEST', 'Disposable CI tenant');
+          INSERT INTO public.company_memberships (id, company_id, user_id, role)
+            VALUES
+              ('30000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'field_officer'),
+              ('30000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000002', 'viewer');
+          INSERT INTO public.farmers (id, company_id, farmer_reference, display_name, village, district, state)
+            VALUES
+              ('40000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'F-001', 'CI Farmer One', 'Village A', 'Karimnagar', 'Telangana'),
+              ('40000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', 'F-002', 'CI Farmer Two', 'Village A', 'Karimnagar', 'Telangana');
+          INSERT INTO public.crop_seasons (id, company_id, crop, season_code, season_label, state, district)
+            VALUES ('50000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'Paddy', 'RABI-CI', 'Rabi CI', 'Telangana', 'Karimnagar');
+          INSERT INTO public.fields (id, company_id, farmer_id, field_code, village, district, state)
+            VALUES
+              ('60000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000001', 'FIELD-001', 'Village A', 'Karimnagar', 'Telangana'),
+              ('60000000-0000-4000-8000-000000000002', '20000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002', 'FIELD-002', 'Village A', 'Karimnagar', 'Telangana');
+          INSERT INTO public.field_assignments (company_id, field_officer_membership_id, field_id, crop_season_id)
+            VALUES ('20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001');
+          DO $
+          BEGIN
+            BEGIN
+              INSERT INTO public.field_assignments (company_id, field_officer_membership_id, field_id, crop_season_id)
+                VALUES ('20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002', '60000000-0000-4000-8000-000000000002', '50000000-0000-4000-8000-000000000001');
+              RAISE EXCEPTION 'Expected non-field-officer assignment to be rejected';
+            EXCEPTION WHEN raise_exception THEN
+              IF SQLERRM = 'Expected non-field-officer assignment to be rejected' THEN RAISE; END IF;
+            END;
+            BEGIN
+              INSERT INTO public.seasonal_field_records (company_id, crop_season_id, field_id, farmer_id, seasonal_field_number, crop, hybrid)
+                VALUES ('20000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002', 'SEASONAL-MISMATCH', 'Paddy', 'CI Hybrid');
+              RAISE EXCEPTION 'Expected field/farmer mismatch to be rejected';
+            EXCEPTION WHEN foreign_key_violation THEN
+              NULL;
+            END;
+          END $;
+          SQL
       - name: Confirm expected tables exist
         run: |
           psql -v ON_ERROR_STOP=1 -c "SELECT to_regclass('public.company_memberships'), to_regclass('public.fields'), to_regclass('public.inspection_reports'), to_regclass('public.seed_weather_daily'), to_regclass('public.seed_satellite_observations');"
