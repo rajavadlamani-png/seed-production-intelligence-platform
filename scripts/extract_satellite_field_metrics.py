@@ -124,7 +124,14 @@ def main():
       print("WARN catalogue lookup failed for field="+str(loc.get("field_id"))+" collection="+collection+": "+str(catalog_error),file=sys.stderr)
      intervals=result.get("data") or []
      if not intervals:
-      db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal");continue
+      if product_ids:
+       errors+=1
+       audit={"status":"failed","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"error_code":"CatalogStatisticsMismatch","error_message":"Catalogue returned "+str(len(product_ids))+" products but the Statistical API returned no interval data."}
+       db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",audit,"return=minimal")
+       print("ERROR catalogue/statistics mismatch for field="+str(loc.get("field_id"))+" collection="+collection,file=sys.stderr)
+      else:
+       db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest,"request_parameters":{"cadence_days":CADENCE,"provider":PROVIDER,"catalog_url":CATALOG_URL,"catalog_products_found":0,"catalog_response_sha256":catalog_sha}},"return=minimal")
+      continue
      for interval in intervals:
       outputs=interval.get("outputs") or {};default=outputs.get("default") or {};bands=default.get("bands") or {};mask_output=outputs.get("dataMask") or {};mask_bands=mask_output.get("bands") or {}
       names=["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","NDVI","NDRE","NDMI","NDWI","EVI","SAVI"] if collection=="sentinel-2-l2a" else ["VV","VH","VV_MINUS_VH","VV_VH_RATIO"]
