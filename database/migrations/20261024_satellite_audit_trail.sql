@@ -6,7 +6,11 @@ alter table public.seed_weather_locations
  add column if not exists planting_date date;
 create table if not exists public.seed_satellite_ingestion_runs (
  id uuid primary key default gen_random_uuid(), location_id uuid references public.seed_weather_locations(id),
- company_id text not null, crop_season_id text not null, farmer_id text not null, field_id text not null,
+ company_id uuid not null references public.companies(id), crop_season_id uuid not null,
+ farmer_id uuid not null, field_id uuid not null,
+ foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
+ foreign key (company_id, farmer_id) references public.farmers(company_id, id) on delete restrict,
+ foreign key (company_id, field_id) references public.fields(company_id, id) on delete restrict,
  provider text not null default 'Copernicus Data Space / Sentinel Hub',
  collection text not null check(collection in ('sentinel-2-l2a','sentinel-1-grd')),
  interval_start date not null, interval_end date not null,
@@ -34,7 +38,7 @@ create index if not exists seed_satellite_obs_field_date_idx on public.seed_sate
 create index if not exists seed_satellite_obs_farmer_date_idx on public.seed_satellite_observations(company_id,crop_season_id,farmer_id,interval_start desc);
 create table if not exists public.seed_satellite_interpretation_reviews (
  id uuid primary key default gen_random_uuid(), observation_id uuid not null references public.seed_satellite_observations(id),
- reviewer_id text, review_status text not null default 'pending' check(review_status in ('pending','accepted','corrected','rejected')),
+ reviewer_id uuid references auth.users(id) on delete restrict, review_status text not null default 'pending' check(review_status in ('pending','accepted','corrected','rejected')),
  reviewer_notes text, reviewed_at timestamptz, correction_payload jsonb, created_at timestamptz not null default now()
 );
 create or replace function public.prevent_seed_satellite_observation_mutation()
