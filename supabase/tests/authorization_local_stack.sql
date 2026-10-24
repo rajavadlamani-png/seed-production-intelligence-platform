@@ -297,6 +297,51 @@ begin
    raise exception 'FAIL: cross-tenant update changed Beta submission';
  end if;
 end $test$;
+-- Cross-tenant update and direct-delete negative tests (synthetic records only).
+-- Knowing another tenant's UUID must not grant access or mutate its field.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+update public.fields
+   set field_code='TAMPERED-BETA-FIELD'
+ where id='20000000-0000-0000-0000-000000000024';
+reset role;
+do $test$
+declare actual_code text;
+begin
+  select field_code into actual_code from public.fields
+   where id='20000000-0000-0000-0000-000000000024';
+  if actual_code is distinct from 'BETA-F1' then
+    raise exception 'FAIL: Alpha Field Officer modified a known Beta field UUID';
+  end if;
+end $test$;
+
+-- Direct deletion of an assigned submission must be denied to a Field Officer.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    delete from public.form_submissions
+     where id='10000000-0000-0000-0000-000000000017';
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: Field Officer directly deleted a form submission';
+  end if;
+end $test$;
+reset role;
+do $test$
+declare n integer;
+begin
+  select count(*) into n from public.form_submissions
+   where id='10000000-0000-0000-0000-000000000017';
+  if n <> 1 then
+    raise exception 'FAIL: direct-delete denial test did not preserve the submission';
+  end if;
+end $test$;
+
 -- Territory boundary tests: a Field Officer needs an active assignment; a Territory Manager
 -- sees only fields matching their own active territory, even within the same company.
 reset role;
