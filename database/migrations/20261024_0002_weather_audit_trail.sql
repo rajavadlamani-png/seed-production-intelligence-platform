@@ -25,7 +25,8 @@ create table if not exists public.seed_weather_ingestion_runs (
  source text not null default 'Open-Meteo Archive API', source_url text,
  requested_latitude double precision, requested_longitude double precision,
  started_at timestamptz not null, completed_at timestamptz not null default now(),
- error_code text, error_message text, response_sha256 text, created_at timestamptz not null default now()
+ error_code text, error_message text, response_sha256 text, created_at timestamptz not null default now(),
+ unique(id, company_id, crop_season_id, field_id)
 );
 create index if not exists seed_weather_ingestion_runs_field_date_idx on public.seed_weather_ingestion_runs(company_id,crop_season_id,field_id,target_date desc);
 create table if not exists public.seed_weather_daily (
@@ -35,6 +36,7 @@ create table if not exists public.seed_weather_daily (
  foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
  foreign key (company_id, field_id, farmer_id) references public.fields(company_id, id, farmer_id) on delete restrict,
  foreign key (location_id, company_id, crop_season_id, field_id) references public.seed_weather_locations(id, company_id, crop_season_id, field_id) on delete restrict,
+ foreign key (ingestion_run_id, company_id, crop_season_id, field_id) references public.seed_weather_ingestion_runs(id, company_id, crop_season_id, field_id) on delete restrict,
  field_code text, village text not null, district text not null, state text not null, crop text not null, hybrid text,
  observation_date date not null, timezone text not null default 'Asia/Kolkata',
  latitude double precision not null, longitude double precision not null,
@@ -45,7 +47,7 @@ create table if not exists public.seed_weather_daily (
  source text not null default 'Open-Meteo Archive API', source_url text not null,
  source_licence text not null default 'CC BY 4.0; attribution required', source_payload jsonb not null,
  response_sha256 text not null, retrieved_at timestamptz not null default now(),
- ingestion_run_id uuid references public.seed_weather_ingestion_runs(id), created_at timestamptz not null default now(),
+ ingestion_run_id uuid, created_at timestamptz not null default now(),
  unique(company_id,crop_season_id,field_id,observation_date,source)
 );
 create index if not exists seed_weather_daily_season_date_idx on public.seed_weather_daily(company_id,crop_season_id,observation_date desc);
