@@ -12,7 +12,6 @@ create table if not exists public.companies (
   status text not null default 'active' check (status in ('active','suspended','closed')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (id, id)
 );
 
 create table if not exists public.company_memberships (
@@ -109,6 +108,7 @@ create table if not exists public.seasonal_field_records (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (company_id, id),
+  unique (company_id, id, crop_season_id),
   unique (crop_season_id, seasonal_field_number),
   foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
   foreign key (company_id, field_id) references public.fields(company_id, id) on delete restrict,
@@ -181,7 +181,7 @@ create table if not exists public.inspection_reports (
   unique (company_id, id),
   unique (seasonal_field_record_id, stage_key, revision_number),
   foreign key (company_id, crop_season_id) references public.crop_seasons(company_id, id) on delete restrict,
-  foreign key (company_id, seasonal_field_record_id) references public.seasonal_field_records(company_id, id) on delete restrict,
+  foreign key (company_id, seasonal_field_record_id, crop_season_id) references public.seasonal_field_records(company_id, id, crop_season_id) on delete restrict,
   foreign key (company_id, template_version_id) references public.inspection_template_versions(company_id, id) on delete restrict,
   check ((status not in ('submitted','approved')) or (submitted_by is not null and submitted_at is not null)),
   check ((status <> 'approved') or (reviewed_by is not null and reviewed_at is not null))
