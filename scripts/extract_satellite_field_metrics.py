@@ -14,11 +14,11 @@ STAT_URL="https://sh.dataspace.copernicus.eu/api/v1/statistics"
 PROVIDER="Copernicus Data Space / Sentinel Hub"
 CADENCE=max(1,int(os.environ.get("SATELLITE_CADENCE_DAYS","5")))
 S2="""//VERSION=3
-function setup(){return {input:[{bands:["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL","dataMask"]}],output:[{id:"default",bands:17,sampleType:"FLOAT32"}]};}
-function evaluatePixel(s){let ndvi=(s.B08+s.B04)!==0?(s.B08-s.B04)/(s.B08+s.B04):0;let ndre=(s.B8A+s.B05)!==0?(s.B8A-s.B05)/(s.B8A+s.B05):0;let ndmi=(s.B8A+s.B11)!==0?(s.B8A-s.B11)/(s.B8A+s.B11):0;let ndwi=(s.B03+s.B08)!==0?(s.B03-s.B08)/(s.B03+s.B08):0;let evi=(s.B08+6*s.B04-7.5*s.B02+1)!==0?2.5*(s.B08-s.B04)/(s.B08+6*s.B04-7.5*s.B02+1):0;let savi=(s.B08+s.B04+0.5)!==0?1.5*(s.B08-s.B04)/(s.B08+s.B04+0.5):0;return [s.B02,s.B03,s.B04,s.B05,s.B06,s.B07,s.B08,s.B8A,s.B11,s.B12,ndvi,ndre,ndmi,ndwi,evi,savi,s.dataMask];}"""
+function setup(){return {input:[{bands:["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","SCL","dataMask"]}],output:[{id:"default",bands:16,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
+function evaluatePixel(s){let mask=s.dataMask*( [3,8,9,10,11].indexOf(s.SCL)===-1?1:0 );let ndvi=(s.B08+s.B04)!==0?(s.B08-s.B04)/(s.B08+s.B04):0;let ndre=(s.B8A+s.B05)!==0?(s.B8A-s.B05)/(s.B8A+s.B05):0;let ndmi=(s.B8A+s.B11)!==0?(s.B8A-s.B11)/(s.B8A+s.B11):0;let ndwi=(s.B03+s.B08)!==0?(s.B03-s.B08)/(s.B03+s.B08):0;let evi=(s.B08+6*s.B04-7.5*s.B02+1)!==0?2.5*(s.B08-s.B04)/(s.B08+6*s.B04-7.5*s.B02+1):0;let savi=(s.B08+s.B04+0.5)!==0?1.5*(s.B08-s.B04)/(s.B08+s.B04+0.5):0;return {default:[s.B02,s.B03,s.B04,s.B05,s.B06,s.B07,s.B08,s.B8A,s.B11,s.B12,ndvi,ndre,ndmi,ndwi,evi,savi],dataMask:[mask]};}"""
 S1="""//VERSION=3
-function setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"default",bands:5,sampleType:"FLOAT32"}]};}
-function evaluatePixel(s){return [s.VV,s.VH,s.VV-s.VH,(s.VH!==0?s.VV/s.VH:0),s.dataMask];}"""
+function setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"default",bands:4,sampleType:"FLOAT32"},{id:"dataMask",bands:1,sampleType:"UINT8"}]};}
+function evaluatePixel(s){return {default:[s.VV,s.VH,s.VV-s.VH,(s.VH!==0?s.VV/s.VH:0)],dataMask:[s.dataMask]};}"""
 def req(url,method="GET",payload=None,headers=None):
  data=None if payload is None else json.dumps(payload,separators=(",",":")).encode()
  h={"Accept":"application/json","User-Agent":"SeedProductionSatelliteAudit/1.0"}
@@ -82,13 +82,13 @@ def main():
     if not intervals:
      db("seed_satellite_ingestion_runs?id=eq."+run_id,"PATCH",{"status":"no_observation","request_completed_at":datetime.now(timezone.utc).isoformat(),"response_sha256":digest},"return=minimal");continue
     for interval in intervals:
-     outputs=interval.get("outputs") or {};default=outputs.get("default") or {};bands=default.get("bands") or {}
-     names=["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","NDVI","NDRE","NDMI","NDWI","EVI","SAVI","dataMask"] if collection=="sentinel-2-l2a" else ["VV","VH","VV_MINUS_VH","VV_VH_RATIO","dataMask"]
+     outputs=interval.get("outputs") or {};default=outputs.get("default") or {};bands=default.get("bands") or {};mask_output=outputs.get("dataMask") or {};mask_bands=mask_output.get("bands") or {}
+     names=["B02","B03","B04","B05","B06","B07","B08","B8A","B11","B12","NDVI","NDRE","NDMI","NDWI","EVI","SAVI"] if collection=="sentinel-2-l2a" else ["VV","VH","VV_MINUS_VH","VV_VH_RATIO"]
      stats={}
      for i,name in enumerate(names):
       band=bands.get(str(i),bands.get(name,{}))
       if isinstance(band,dict) and band.get("stats") is not None:stats[name]=band["stats"]
-     mask=stats.get("dataMask",{}).get("mean");valid=round(float(mask)*100,2) if mask is not None else None
+     mask_band=mask_bands.get("B0",mask_bands.get("0",{}));mask_stats=mask_band.get("stats",{}) if isinstance(mask_band,dict) else {};mask=mask_stats.get("mean");valid=round(float(mask)*100,2) if mask is not None else None
      indices={k:stats[k] for k in ("NDVI","NDRE","NDMI","NDWI","EVI","SAVI") if k in stats}
      row={"location_id":loc["id"],"company_id":loc["company_id"],"crop_season_id":loc["crop_season_id"],"farmer_id":loc["farmer_id"],"field_id":loc["field_id"],"field_code":loc.get("field_code"),"village":loc["village"],"district":loc["district"],"state":loc["state"],"crop":loc.get("crop") or "Paddy","hybrid":loc.get("hybrid"),"planting_date":loc.get("planting_date"),"collection":collection,"interval_start":start.isoformat(),"interval_end":end.isoformat(),"acquisition_dates":[],"field_boundary_geojson":polygon,"valid_pixel_pct":valid,"metrics":{"band_statistics":bands,"channel_statistics":stats},"indices":indices,"plain_language_interpretation":explain(collection,stats,valid),"provider":PROVIDER,"source_payload":result,"source_sha256":digest,"ingestion_run_id":run_id}
      db("seed_satellite_observations","POST",row,"resolution=ignore-duplicates,return=minimal");saved+=1
