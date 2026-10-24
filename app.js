@@ -312,9 +312,9 @@ async function loadSeedWeather(fieldRecord,locationMode='device'){
     document.getElementById('refreshSeedWeather')?.addEventListener('click',()=>loadSeedWeather(fieldRecord));
     host.querySelectorAll('[data-weather-location]').forEach(button=>button.addEventListener('click',()=>loadSeedWeather(fieldRecord,button.dataset.weatherLocation)));
   }catch(error){
-    host.innerHTML='<section class="weather-panel"><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Weather forecast unavailable</h2><p class="muted">'+escape(error?.message||'Could not load weather data.')+'</p><p class="weather-disclaimer">No weather values or alerts have been invented. Allow device location or retry when connectivity returns.</p><button type="button" class="outline" id="refreshSeedWeather">Retry device GPS</button>'+(locationMode==='field'?'':' <button type="button" class="outline" id="useFieldWeatherFallback">Use selected field location instead</button>')+'</section>';
+    host.innerHTML='<section class="weather-panel"><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Weather forecast unavailable</h2><p class="muted">'+escape(error?.message||'Could not load weather data.')+'</p><p class="weather-disclaimer">No weather values or alerts have been invented. Retry this location or switch to the other location source.</p><button type="button" class="outline" id="refreshSeedWeather">Retry this location</button><button type="button" class="outline" id="switchWeatherLocation">'+(locationMode==='field'?'Use my device GPS':'Use selected farmer / village')+'</button></section>';
     document.getElementById('refreshSeedWeather')?.addEventListener('click',()=>loadSeedWeather(fieldRecord,locationMode));
-    document.getElementById('useFieldWeatherFallback')?.addEventListener('click',()=>loadSeedWeather(fieldRecord,'field'));
+    document.getElementById('switchWeatherLocation')?.addEventListener('click',()=>loadSeedWeather(fieldRecord,locationMode==='field'?'device':'field'));
   }
 }
 function distanceMeters(a,b){const rad=n=>n*Math.PI/180,lat1=rad(a.lat),lat2=rad(b.lat),dlat=lat2-lat1,dlon=rad(b.lon-a.lon),h=Math.sin(dlat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dlon/2)**2;return 6371008.8*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h))}
