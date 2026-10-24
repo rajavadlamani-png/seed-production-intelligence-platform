@@ -47,7 +47,8 @@ These checks are a smoke/acceptance subset, not proof that every item in the man
 
 ## Regression checks
 - [ ] Weather Watch requests device GPS and uses those coordinates for the Open-Meteo forecast; it must not silently use the selected farmer's village.
-- [ ] Denied/unavailable GPS displays a clear explanation and offers an explicit selected-field fallback.
+- [ ] The user can switch between device GPS and selected farmer/village forecasts; village geocoding must match India and the selected state, and must not silently choose an unrelated location.
+- [ ] Denied/unavailable GPS displays a clear explanation and offers the other location source.
 - [ ] Weather Refresh retries device GPS by default.
 - [ ] Demo login still opens the selected manager, territory, and field-officer views.
 - [ ] Overview and farmer/field roster still render.
