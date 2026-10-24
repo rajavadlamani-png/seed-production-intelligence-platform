@@ -55,6 +55,12 @@ def main():
         print("WARNING: no active field locations configured; no weather rows collected."); return 0
     ok, failed = 0, 0
     for loc in locations:
+        # Collect only dates within the configured crop window, inclusive.
+        if loc.get("crop_start_date") and target < loc["crop_start_date"]:
+            print("SKIP field=" + str(loc.get("field_id")) + ": crop has not started on " + target)
+            continue
+        if loc.get("expected_harvest_date") and target > loc["expected_harvest_date"]:
+            continue
         started = datetime.now(timezone.utc)
         params = urllib.parse.urlencode({"latitude":loc["latitude"],"longitude":loc["longitude"],"start_date":target,"end_date":target,"daily":DAILY_FIELDS,"timezone":"Asia/Kolkata"})
         url = f"{ARCHIVE_ENDPOINT}?{params}"
