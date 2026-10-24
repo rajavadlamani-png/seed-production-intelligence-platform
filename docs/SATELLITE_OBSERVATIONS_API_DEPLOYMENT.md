@@ -42,9 +42,9 @@ The actual observation rows come only from `public.seed_satellite_observations`.
 ## Server-side controls
 
 - Verifies the caller's Supabase access token using Supabase Auth.
-- Requires an active `company_memberships` record for the requested company.
+- Requires an active `company_memberships` record and an active `companies.status` for the requested company.
 - Uses the service-role key only inside the Edge Function; it must never be placed in GitHub Pages or browser code.
-- Limits field officers to fields assigned through `field_assignments`, resolving field codes from `fields`. If identifiers cannot be reconciled, it fails closed.
+- Limits field officers to currently active, date-valid `field_assignments`, resolving field codes from `fields`. If identifiers cannot be reconciled, it fails closed.
 - Rejects `territory_manager` requests with HTTP 409 until a verified territory-to-field mapping is implemented. Do not relax this guard based on the client-side role selector.
 - Restricts CORS to the comma-separated `ALLOWED_ORIGINS` environment variable.
 - Allows only GET and OPTIONS and returns `Cache-Control: no-store`.
@@ -55,10 +55,11 @@ The actual observation rows come only from `public.seed_satellite_observations`.
 1. Confirm the exact isolated pilot Supabase project reference. Do not use a production or ANVORA Beta Access project by assumption.
 2. Apply the required migrations to that isolated project, including the weather and satellite audit-trail migrations, only after explicit approval.
 3. Verify that `company_memberships`, `fields`, `field_assignments`, `seed_weather_locations`, and the satellite audit tables are present and that their identifiers can be mapped for the pilot.
-4. Configure `ALLOWED_ORIGINS` to the exact approved application origin(s). Do not use `*` when credentials are used.
-5. Configure Supabase Edge Function environment variables securely: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Use the project-generated values in the Supabase dashboard/CLI; never paste them into chat or commit them.
-6. Confirm the application's authentication flow issues a Supabase access token and that the client can pass it in the Authorization header. The current static prototype uses simulated roles and does not yet provide a verified sign-in/session flow; the API is not yet wired to the page.
-7. Verify the pilot field registry uses stable identifiers, verified polygons, crop/season and planting dates. No synthetic demo field should be used as pilot evidence.
+4. Confirm that the foundation, weather and satellite migrations are applied in numeric order (`20261024_0001`, `_0002`, `_0003`) in the isolated pilot database, and that the expected schema/UUID contract matches the function.
+5. Configure `ALLOWED_ORIGINS` to the exact approved application origin(s). Do not use `*` when credentials are used.
+6. Configure Supabase Edge Function environment variables securely: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Use the project-generated values in the Supabase dashboard/CLI; never paste them into chat or commit them.
+7. Confirm the application's authentication flow issues a Supabase access token and that the client can pass it in the Authorization header. The current static prototype uses simulated roles and does not yet provide a verified sign-in/session flow; the API is not yet wired to the page.
+8. Verify the pilot field registry uses stable identifiers, verified polygons, crop/season and planting dates. No synthetic demo field should be used as pilot evidence.
 
 ## Deployment and verification (only after project approval)
 
