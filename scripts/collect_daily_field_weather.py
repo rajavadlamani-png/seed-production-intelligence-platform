@@ -44,7 +44,7 @@ def main():
     if not DB_URL or not DB_KEY:
         print("ERROR: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.",file=sys.stderr); return 2
     target = (datetime.now(LOCAL_TZ).date()-timedelta(days=1)).isoformat()
-    select = "id,company_id,crop_season_id,farmer_id,field_id,field_code,village,district,state,crop,hybrid,latitude,longitude,boundary_centroid,active"
+    select = "id,company_id,crop_season_id,farmer_id,field_id,field_code,village,district,state,crop,hybrid,latitude,longitude,boundary_centroid,active,crop_start_date,expected_harvest_date"
     query = urllib.parse.urlencode({"select":select,"active":"eq.true","order":"id.asc"})
     try: _, locations, _ = db_request(f"seed_weather_locations?{query}")
     except Exception as exc:
