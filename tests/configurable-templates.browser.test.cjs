@@ -115,15 +115,17 @@ const assert = require('node:assert/strict');
     assert.ok(weatherRequestUrl.includes('latitude=20.0833'), 'Selected farmer weather must use village latitude');
     assert.ok(weatherRequestUrl.includes('longitude=73.8'), 'Selected farmer weather must use village longitude');
 
-    // Choosing a different farmer should automatically switch the forecast to that village.
+    // Changing the selected farmer must not silently move personal weather away from device GPS.
     await page.locator('#assignedField').selectOption('2');
-    await page.locator('#seedWeatherPanel').getByText('Yeola, Maharashtra, India · selected farmer/village').waitFor();
-    assert.ok(weatherRequestUrl.includes('latitude=20.1'), 'Changing farmer should use the newly selected village latitude');
-    assert.ok(weatherRequestUrl.includes('longitude=74.5'), 'Changing farmer should use the newly selected village longitude');
-
-    await page.locator('#seedWeatherPanel [data-weather-location="device"]').click();
     await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor();
-    assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Switching back must restore device GPS weather');
+    assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Changing farmer must retain device latitude by default');
+    assert.ok(weatherRequestUrl.includes('longitude=78.4867'), 'Changing farmer must retain device longitude by default');
+
+    // Village weather remains available, but only when the user explicitly selects it.
+    await page.locator('#seedWeatherPanel [data-weather-location="field"]').click();
+    await page.locator('#seedWeatherPanel').getByText('Yeola, Maharashtra, India · selected farmer/village').waitFor();
+    assert.ok(weatherRequestUrl.includes('latitude=20.1'), 'Explicit selected-field mode must use village latitude');
+    assert.ok(weatherRequestUrl.includes('longitude=74.5'), 'Explicit selected-field mode must use village longitude');
 
     // Return to the manager workspace so the mobile overflow check still targets configuration.
     await page.locator('[data-bottom="more"]').click();
