@@ -1,5 +1,6 @@
 -- Sentinel imagery, field metrics, plain-language interpretation and audit trail.
 -- Apply only to the dedicated Seed Production Intelligence Platform database.
+begin;
 alter table public.seed_weather_locations
  add column if not exists field_boundary_geojson jsonb,
  add column if not exists crop_variety text,
@@ -64,3 +65,4 @@ grant all on public.seed_satellite_ingestion_runs to service_role;
 grant all on public.seed_satellite_observations to service_role;
 grant all on public.seed_satellite_interpretation_reviews to service_role;
 comment on table public.seed_satellite_observations is 'Append-only field-specific Sentinel optical/radar statistics, indices, plain-language interpretation, source payload and provenance.';
+commit;
