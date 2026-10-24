@@ -85,7 +85,12 @@ const assert = require('node:assert/strict');
       });
     });
     await page.locator('#openFieldApp').click();
-    await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor();
+    // The field app intentionally opens behind its demo phone/OTP sign-in gate.
+    await page.locator('#fieldMobile').fill('9876543210');
+    await page.locator('#fieldAuthForm button[type="submit"]').click();
+    await page.locator('#demoOtp').fill('123456');
+    await page.locator('#fieldAuthForm button[type="submit"]').click();
+    await page.locator('#seedWeatherPanel').getByText('Device GPS location · 17.3850, 78.4867').waitFor({ timeout: 10000 });
     assert.ok(weatherRequestUrl.includes('latitude=17.385'), 'Weather request must use device latitude');
     assert.ok(weatherRequestUrl.includes('longitude=78.4867'), 'Weather request must use device longitude');
     assert.ok(!(await page.locator('#seedWeatherPanel').innerText()).includes('Niphād, Maharashtra'),
