@@ -7,7 +7,7 @@ Store one daily observed-weather record per active farmer field and crop season 
 - Identity: company, crop season, farmer, field, field code, crop, hybrid, village, district and state.
 - Spatial provenance: latitude/longitude and whether the point represents field GPS or a captured boundary centroid.
 - Open-Meteo Archive API daily observations: precipitation total, rain, showers, precipitation hours, maximum/minimum temperature, maximum wind speed/gust and reference ET₀.
-- Audit provenance: observation date/timezone, source URL/licence, retrieval timestamp, full source response, SHA-256 response hash and ingestion-run ID.
+- Audit provenance: observation date/timezone, source URL/licence, retrieval timestamp, full source response, SHA-256 response hash, plus a separate attempt-level log correlated by company, season, field and date.
 - Every attempt, including failed attempts, has a separate run-log row with status, timestamp and error detail.
 
 ## Integrity and limitations
@@ -28,7 +28,7 @@ This is weather-model/grid data associated with a field coordinate, not a physic
 5. Manually run the Daily field weather audit workflow and inspect the summary and database rows before relying on the schedule.
 6. Establish data retention, backup/restore, service-role rotation and operational ownership before loading real farmer-linked data.
 
-The scheduled job is committed to the feature branch only. It will not run successfully until the migration, field registry and repository secrets are configured. The static GitHub Pages prototype itself does not provide durable storage, authenticated server APIs, or a production audit trail.
+The workflow is committed to the feature branch only. GitHub scheduled workflows run from the repository's default branch, so the daily schedule will not activate until this workflow is merged to the default branch with approval. It will not collect successfully until the migration, field registry and repository secrets are configured. The static GitHub Pages prototype itself does not provide durable storage, authenticated server APIs, or a production audit trail.
 
 ## Next integration
 The MIS must write verified farmer/field/crop-season identities and GPS boundary centroids to the protected location registry through an authenticated backend. Never expose the service-role key in browser JavaScript. The dashboard can then read history through a server-enforced API and show rainfall charts, missing-day indicators and crop-season summaries.
