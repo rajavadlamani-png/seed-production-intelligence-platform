@@ -14,7 +14,7 @@ The current sample roster remains synthetic and Maharashtra-based. No Karimnagar
 ## Implemented in the static demo
 - Six Paddy stage labels are read from `template-config.js` using stable stage keys.
 - Manager navigation includes a Templates & designations workspace.
-- Session-only template editor supports stage label changes; field label and required-flag editing; select-option editing; field ordering; retiring fields from future entry; adding short text, long text, decimal, date, or single-select fields; and mobile/desktop preview layout.
+- Session-only template editor supports stage label changes; field label and required-flag editing; select-option editing; field ordering; hiding/showing fields; retiring fields from future entry; adding short text, long text, decimal, date, or single-select fields; and mobile/desktop preview layout.
 - The editor's field changes feed the current in-browser report field arrays. Stable field keys are separate from display labels.
 - Retired fields are filtered out of future report entry and stage preview rendering. Existing in-memory saved report objects are not deleted by the retire action.
 - Designation titles and aliases can be edited independently. TFA and TPL are initialized as aliases for Temporary Field Assistant and Territory Production Lead respectively. Field Officer and Production Officer remain distinct. No role or permission mapping is inferred.
