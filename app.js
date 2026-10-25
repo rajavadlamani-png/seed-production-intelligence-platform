@@ -546,6 +546,16 @@ setNewPasswordForm?.addEventListener('submit',async event=>{
     if(saveNewPassword){saveNewPassword.disabled=false;saveNewPassword.innerHTML='Save new password <span>→</span>'}
   }
 });
+/* Explicitly switch from the secure live-record workspace to the clearly labelled sample dashboard. */
+document.getElementById('openSampleDashboard')?.addEventListener('click',async()=>{
+  if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
+  activeCompanyId=null;activeCompanyName='';activeMembershipRole='';cropRows=[];hybridRows=[];
+  setSecureWorkspaceVisible(false);
+  document.body.classList.add('demo-authenticated');
+  role='manager';selectedOfficer='FA-01';selectedTerritoryManager='TM-01';page='overview';fieldMode=false;
+  render();
+  notify('Sample dashboards opened. All displayed operational data is illustrative only.');
+});
 secureSignOut?.addEventListener('click',async()=>{
   if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
   activeCompanyId=null;activeCompanyName='';activeMembershipRole='';cropRows=[];hybridRows=[];
