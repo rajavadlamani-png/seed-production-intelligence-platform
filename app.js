@@ -374,6 +374,17 @@ const secureLoginSubmit=document.getElementById('secureLoginSubmit');
 const secureWorkspaceGate=document.getElementById('secureWorkspaceGate');
 const secureIdentity=document.getElementById('secureIdentity');
 const secureSignOut=document.getElementById('secureSignOut');
+const showPasswordRecovery=document.getElementById('showPasswordRecovery');
+const passwordRecoveryForm=document.getElementById('passwordRecoveryForm');
+const recoveryEmail=document.getElementById('recoveryEmail');
+const recoveryError=document.getElementById('recoveryError');
+const recoverySuccess=document.getElementById('recoverySuccess');
+const recoverySubmit=document.getElementById('recoverySubmit');
+const backToLogin=document.getElementById('backToLogin');
+const setNewPasswordForm=document.getElementById('setNewPasswordForm');
+const newPasswordError=document.getElementById('newPasswordError');
+const saveNewPassword=document.getElementById('saveNewPassword');
+const demoDetails=document.querySelector('.demo-details');
 const supabaseConfig=window.SEED_SUPABASE_CONFIG||{};
 let supabaseAuthClient=null;
 try{
@@ -438,15 +449,82 @@ secureLoginForm?.addEventListener('submit',async event=>{
     if(secureLoginSubmit){secureLoginSubmit.disabled=false;secureLoginSubmit.innerHTML='Sign in securely <span>→</span>'}
   }
 });
+function showPasswordFlow(mode){
+  secureLoginForm?.classList.toggle('hidden',mode!=='login');
+  passwordRecoveryForm?.classList.toggle('hidden',mode!=='recovery');
+  setNewPasswordForm?.classList.toggle('hidden',mode!=='set-password');
+  if(demoDetails)demoDetails.classList.toggle('hidden',mode!=='login');
+  recoveryError?.classList.add('hidden');
+  recoverySuccess?.classList.add('hidden');
+  newPasswordError?.classList.add('hidden');
+  if(mode==='recovery'&&recoveryEmail&&secureLoginForm){
+    recoveryEmail.value=String(document.getElementById('secureEmail')?.value||'').trim();
+  }
+}
+showPasswordRecovery?.addEventListener('click',()=>showPasswordFlow('recovery'));
+backToLogin?.addEventListener('click',()=>showPasswordFlow('login'));
+passwordRecoveryForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  recoveryError?.classList.add('hidden');
+  recoverySuccess?.classList.add('hidden');
+  if(!supabaseAuthClient){if(recoveryError){recoveryError.textContent='Password recovery is not available because the secure client did not load.';recoveryError.classList.remove('hidden')}return}
+  const email=String(recoveryEmail?.value||'').trim();
+  if(!email){if(recoveryError){recoveryError.textContent='Enter your company email address.';recoveryError.classList.remove('hidden')}return}
+  if(recoverySubmit){recoverySubmit.disabled=true;recoverySubmit.textContent='Sending…'}
+  try{
+    const redirectTo=window.location.origin+window.location.pathname+'?passwordRecovery=1';
+    const {error}=await supabaseAuthClient.auth.resetPasswordForEmail(email,{redirectTo});
+    if(error)throw error;
+    if(recoverySuccess){recoverySuccess.textContent='If this account can receive recovery emails, a secure link will be sent. Check your inbox and spam folder.';recoverySuccess.classList.remove('hidden')}
+  }catch(error){
+    console.error('Password recovery request failed.',error);
+    if(recoveryError){recoveryError.textContent='We could not send the recovery email. Please check the Supabase redirect URL settings and email configuration, then try again.';recoveryError.classList.remove('hidden')}
+  }finally{
+    if(recoverySubmit){recoverySubmit.disabled=false;recoverySubmit.innerHTML='Send recovery link <span>→</span>'}
+  }
+});
+setNewPasswordForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  newPasswordError?.classList.add('hidden');
+  const password=String(document.getElementById('newPassword')?.value||'');
+  const confirmation=String(document.getElementById('confirmNewPassword')?.value||'');
+  if(password.length<8){if(newPasswordError){newPasswordError.textContent='Use at least 8 characters for your new password.';newPasswordError.classList.remove('hidden')}return}
+  if(password!==confirmation){if(newPasswordError){newPasswordError.textContent='The two passwords do not match.';newPasswordError.classList.remove('hidden')}return}
+  if(saveNewPassword){saveNewPassword.disabled=true;saveNewPassword.textContent='Saving…'}
+  try{
+    const {data,error}=await supabaseAuthClient.auth.updateUser({password});
+    if(error)throw error;
+    if(setNewPasswordForm)setNewPasswordForm.reset();
+    showPasswordFlow('login');
+    if(data.user)await verifyCompanyMembership(data.user);
+    notify('Your password has been updated.');
+  }catch(error){
+    console.error('Password update failed.',error);
+    if(newPasswordError){newPasswordError.textContent='We could not update the password. Reopen the latest recovery email and try again.';newPasswordError.classList.remove('hidden')}
+  }finally{
+    if(saveNewPassword){saveNewPassword.disabled=false;saveNewPassword.innerHTML='Save new password <span>→</span>'}
+  }
+});
 secureSignOut?.addEventListener('click',async()=>{
   if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
   setSecureWorkspaceVisible(false);
   if(secureLoginForm)secureLoginForm.reset();
+  showPasswordFlow('login');
   notify('You have signed out.');
 });
 if(supabaseAuthClient){
+  supabaseAuthClient.auth.onAuthStateChange((event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){
+      showPasswordFlow('set-password');
+      setSecureWorkspaceVisible(false);
+    }
+  });
   supabaseAuthClient.auth.getSession().then(async({data,error})=>{
     if(error){console.warn('Could not restore Supabase session.',error);return}
+    if(data.session?.user&&new URLSearchParams(window.location.search).has('passwordRecovery')){
+      showPasswordFlow('set-password');
+      return;
+    }
     if(data.session?.user)await verifyCompanyMembership(data.session.user);
   });
 }
