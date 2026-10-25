@@ -673,3 +673,67 @@ end $test$;
 
 reset role;
 rollback;
+
+
+-- Tenant identity hardening: an authenticated user cannot move an existing
+-- tenant-owned row to another company, even when the destination company UUID
+-- is known. The immutable-column trigger should reject the attempted change.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    update public.fields
+       set company_id='20000000-0000-0000-0000-000000000020'
+     where id='10000000-0000-0000-0000-000000000014';
+  exception when others then
+    if sqlerrm = 'company_id is immutable; create a new record through an approved transfer workflow' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: tenant-owned field company_id was mutable';
+  end if;
+end $test$;
+reset role;
+do $test$
+declare actual_company uuid;
+begin
+  select company_id into actual_company from public.fields
+   where id='10000000-0000-0000-0000-000000000014';
+  if actual_company is distinct from '10000000-0000-0000-0000-000000000010'::uuid then
+    raise exception 'FAIL: attempted tenant move changed the field company_id';
+  end if;
+end $test$;
+
+-- Company administration guard: customer admins cannot directly change a
+-- company's identity (slug). Such changes must use a future trusted procedure.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000050',true);
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    update public.companies
+       set slug='tampered-alpha'
+     where id='10000000-0000-0000-0000-000000000010';
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: customer admin directly changed company slug';
+  end if;
+end $test$;
+reset role;
+do $test$
+declare actual_slug text;
+begin
+  select slug into actual_slug from public.companies
+   where id='10000000-0000-0000-0000-000000000010';
+  if actual_slug is distinct from 'synthetic-alpha' then
+    raise exception 'FAIL: denied company slug update changed the slug';
+  end if;
+end $test$;
