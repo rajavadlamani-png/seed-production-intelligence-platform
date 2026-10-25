@@ -672,8 +672,6 @@ begin
 end $test$;
 
 reset role;
-rollback;
-
 
 -- Tenant identity hardening: an authenticated user cannot move an existing
 -- tenant-owned row to another company, even when the destination company UUID
@@ -737,3 +735,5 @@ begin
     raise exception 'FAIL: denied company slug update changed the slug';
   end if;
 end $test$;
+
+rollback;
