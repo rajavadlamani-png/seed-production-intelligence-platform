@@ -69,12 +69,27 @@ create policy harness_crops_select on public.crops
       and m.status = 'active'
   ));
 
-create policy harness_crops_write on public.crops
-  for all to authenticated
+create policy harness_crops_insert on public.crops
+  for insert to authenticated
+  with check (private.has_company_role(company_id,
+    array['company_admin','seed_production_manager','state_head','district_manager']));
+
+create policy harness_crops_update on public.crops
+  for update to authenticated
   using (private.has_company_role(company_id,
     array['company_admin','seed_production_manager','state_head','district_manager']))
   with check (private.has_company_role(company_id,
     array['company_admin','seed_production_manager','state_head','district_manager']));
+
+-- Reproduce the observed role-insensitive DELETE policy names for the proposed fix.
+create policy crops_tenant_delete on public.crops
+  for delete to authenticated
+  using (exists (
+    select 1 from public.company_memberships m
+    where m.company_id = crops.company_id
+      and m.user_id = auth.uid()
+      and m.status = 'active'
+  ));
 
 create policy harness_hybrids_select on public.hybrids
   for select to authenticated
@@ -85,12 +100,26 @@ create policy harness_hybrids_select on public.hybrids
       and m.status = 'active'
   ));
 
-create policy harness_hybrids_write on public.hybrids
-  for all to authenticated
+create policy harness_hybrids_insert on public.hybrids
+  for insert to authenticated
+  with check (private.has_company_role(company_id,
+    array['company_admin','seed_production_manager','state_head','district_manager']));
+
+create policy harness_hybrids_update on public.hybrids
+  for update to authenticated
   using (private.has_company_role(company_id,
     array['company_admin','seed_production_manager','state_head','district_manager']))
   with check (private.has_company_role(company_id,
     array['company_admin','seed_production_manager','state_head','district_manager']));
+
+create policy hybrids_tenant_delete on public.hybrids
+  for delete to authenticated
+  using (exists (
+    select 1 from public.company_memberships m
+    where m.company_id = hybrids.company_id
+      and m.user_id = auth.uid()
+      and m.status = 'active'
+  ));
 
 -- Synthetic fixtures only. Never insert real company, grower, or field data.
 insert into public.company_memberships (id, company_id, user_id, role_key, status) values
@@ -122,6 +151,10 @@ begin
 end;
 $assert_baseline$;
 
+-- Proposed remediation also removes the role-insensitive DELETE policies.
+drop policy if exists crops_tenant_delete on public.crops;
+drop policy if exists hybrids_tenant_delete on public.hybrids;
+
 -- Proposed remediation, applied only inside this transaction.
 revoke all privileges on table public.crops, public.hybrids from anon;
 revoke delete, truncate, references, trigger
@@ -141,6 +174,15 @@ begin
      or has_table_privilege('anon', 'public.hybrids', 'delete')
      or has_table_privilege('anon', 'public.hybrids', 'truncate') then
     raise exception 'anon retains an unexpected privilege on crops or hybrids';
+  end if;
+
+  if exists (
+       select 1 from pg_policies
+       where schemaname = 'public'
+         and ((tablename = 'crops' and policyname = 'crops_tenant_delete')
+           or (tablename = 'hybrids' and policyname = 'hybrids_tenant_delete'))
+     ) then
+    raise exception 'Role-insensitive DELETE policy remains after remediation';
   end if;
 
   if has_table_privilege('authenticated', 'public.crops', 'delete')
