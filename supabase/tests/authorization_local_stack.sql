@@ -672,4 +672,26 @@ begin
 end $test$;
 
 reset role;
+
+-- Crop & Hybrid master privileges: RLS does not constrain TRUNCATE.
+-- Migration 0018 must remove direct destructive privileges from client roles.
+do $test$
+begin
+  if has_table_privilege('anon', 'public.crops', 'TRUNCATE')
+     or has_table_privilege('authenticated', 'public.crops', 'TRUNCATE') then
+    raise exception 'FAIL: client role retains TRUNCATE privilege on crops';
+  end if;
+  if has_table_privilege('anon', 'public.hybrids', 'TRUNCATE')
+     or has_table_privilege('authenticated', 'public.hybrids', 'TRUNCATE') then
+    raise exception 'FAIL: client role retains TRUNCATE privilege on hybrids';
+  end if;
+  if has_table_privilege('anon', 'public.crops', 'DELETE')
+     or has_table_privilege('authenticated', 'public.crops', 'DELETE') then
+    raise exception 'FAIL: client role retains direct DELETE privilege on crops';
+  end if;
+  if has_table_privilege('anon', 'public.hybrids', 'DELETE')
+     or has_table_privilege('authenticated', 'public.hybrids', 'DELETE') then
+    raise exception 'FAIL: client role retains direct DELETE privilege on hybrids';
+  end if;
+end $test$;
 rollback;
