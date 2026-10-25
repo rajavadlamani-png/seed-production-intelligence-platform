@@ -24,6 +24,21 @@ Read-only catalog checks identify 47 public tables, including `companies`, `comp
 
 The two existing master tables have unsafe direct ACLs. Default privileges for tables, sequences and functions created in `public` are also broad for owners `postgres` and `supabase_admin`. See `LIVE_CROP_HYBRID_ACL_REMEDIATION.md` and `PUBLIC_SCHEMA_PRIVILEGE_REVIEW_CHECKLIST.md`.
 
+## Read-only checkpoint — 25 October 2026
+
+The connected Supabase project tools were used to compare migration and extension metadata. No SQL, migration, table, policy, grant, Auth, or data changes were made.
+
+| Check | Live project `xjtzvhtoeormizrhozoy` | Staging project `afhifiiwmaxuiwctstzo` |
+|---|---|---|
+| Public tables | 47 previously inventoried | No tables returned |
+| Migration history | 5 hosted entries, all dated 2026-10-24 | No migration entries |
+| Extensions metadata | Extension catalog returned | Extension catalog returned |
+| Type generation | Generated live TypeScript database types through the read-only project tool | Not run because staging has no application tables |
+
+**Interpretation:** staging is not yet a schema-matched rehearsal environment. Matching extension metadata does not mean the schema, RLS policies, grants, triggers, or functions match. The five hosted migration-history entries do not provide a complete source-of-truth schema dump. The generated TypeScript types help document table/column/relationship shape, but do not replace a schema-only SQL export and do not prove policy/ACL correctness.
+
+**Gate remains closed:** do not apply the ACL proposal to live or staging until the schema-only export has been reviewed, the exact policies and inherited/PUBLIC privileges are reconciled, and the rollback-only tests cover the resulting schema. The disposable PostgreSQL harness remains a narrow contract test, not a hosted Supabase validation.
+
 ## Procedure
 
 ### 1. Establish the local tooling environment
