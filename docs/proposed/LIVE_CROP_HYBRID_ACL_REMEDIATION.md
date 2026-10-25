@@ -81,3 +81,15 @@ A rollback that restores the previous broad `anon` privileges or client TRUNCATE
 - No hosted policy, grant, schema, or data was changed.
 - Do not merge this proposal as a deployable migration until isolated staging validation is complete.
 - The existing hosted staging project is currently empty; staging validation therefore requires a schema-only staging setup step first.
+
+
+### Default-privilege and schema follow-up
+
+A further read-only catalog check found broad default privileges for objects created in `public`:
+
+- For default tables (`object_type = r`), both `postgres` and `supabase_admin` default ACLs include `anon=arwdDxtm` and `authenticated=arwdDxtm`.
+- Default sequence ACLs (`object_type = S`) include `anon=rwU` and `authenticated=rwU`.
+- Default function ACLs (`object_type = f`) include EXECUTE (`X`) for `anon` and `authenticated`.
+- The `public` schema ACL gives `USAGE` to `anon`, `authenticated`, and `service_role`; this is not itself table-data access, but it allows name resolution when object privileges also permit access.
+
+This means the remediation scope should not stop at the two existing tables. The default ACLs should be separately reviewed and a least-privilege default-privilege plan drafted for each object-creating owner (`postgres` and `supabase_admin`). Do not change defaults blindly: existing Supabase application behavior and intended public RPCs must be inventoried first. These are catalog findings only; no defaults or schema grants were changed.
