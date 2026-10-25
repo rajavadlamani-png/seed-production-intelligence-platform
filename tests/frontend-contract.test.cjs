@@ -43,3 +43,22 @@ test('HTML IDs are unique', () => {
   const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
   assert.deepEqual([...new Set(duplicates)], []);
 });
+
+test('active company memberships are listed instead of requiring a single row', () => {
+  assert.match(js, /\.select\('company_id, role_key, status, companies\(name\)'\)[\s\S]*?\.eq\('user_id',user\.id\)[\s\S]*?\.eq\('status','active'\)[\s\S]*?\.order\('company_id'\)/);
+  assert.match(js, /if\(!memberships\?\.length\)/);
+  assert.match(js, /if\(memberships\.length===1\)\{activateCompanyMembership\(memberships\[0\],user\);return true\}/);
+  assert.match(js, /showCompanyMembershipChoices\(memberships,user\)/);
+});
+
+test('multiple-company choice does not load records until user selects a company', () => {
+  const start = js.indexOf('function showCompanyMembershipChoices');
+  const end = js.indexOf('async function verifyCompanyMembership', start);
+  assert.ok(start >= 0 && end > start, 'company choice handler exists');
+  const chooser = js.slice(start, end);
+  assert.match(chooser, /activeCompanyId=null/);
+  assert.match(chooser, /Select the company workspace you want to open/);
+  assert.match(chooser, /companyMembershipSelect/);
+  assert.match(chooser, /confirmCompanyMembership/);
+  assert.match(chooser, /activateCompanyMembership\(membership,user\)/);
+});
