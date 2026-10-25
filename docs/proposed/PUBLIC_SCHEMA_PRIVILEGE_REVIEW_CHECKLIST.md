@@ -54,6 +54,17 @@ Search the frontend, Edge Functions, SQL migrations, and tests for use of:
 ### D. Staging gate
 The dedicated hosted staging project is empty. Do not apply the repository's original migrations 0001–0018 to live, and do not apply this proposal to live. Prepare a schema-only staging snapshot from the live schema using a reviewed process, with synthetic test data only. Confirm target project identity before any DDL. Test role behavior using real staging Auth sessions and verify tenant isolation, least privilege, and rollback evidence.
 
+## PUBLIC privilege inheritance regression probe — 25 October 2026
+
+The disposable ACL harness was extended on PR #11 with a synthetic probe that grants `TRUNCATE` to PostgreSQL `PUBLIC`, revokes all direct privileges from `anon`, and asserts that `anon` still effectively has `TRUNCATE` through the PUBLIC grant. This probe is designed to prevent the mistaken conclusion that a direct `REVOKE ... FROM anon` necessarily removes every effective access path.
+
+- Test commit: `ac988c0100e43724e9b6eabefaef3b54af79876e`
+- The probe uses a separate synthetic table inside the harness transaction and ends with `ROLLBACK`.
+- No hosted database was touched.
+- **CI status is unconfirmed:** the connected GitHub workflow lookup returned no run associated with this commit, and the combined commit status returned no statuses. Do not mark this new regression probe as passing until a run result is visible.
+
+The actual live review still needs to enumerate direct ACLs, PUBLIC grants, inherited role membership, and relevant default ACLs across the intended schema before a deployable remediation can be approved.
+
 ## Decision
 
 No grants, policies, schema, or rows were changed. This checklist is for review and safe preparation of a staged remediation; it is not executable SQL and does not authorize production changes.
