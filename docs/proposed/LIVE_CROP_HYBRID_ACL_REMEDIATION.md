@@ -59,6 +59,18 @@ Before creating a deployable migration:
 8. Confirm after the proposed change that `has_table_privilege('anon', ..., 'TRUNCATE')`, `has_table_privilege('authenticated', ..., 'TRUNCATE')`, and both roles' DELETE checks are false for both tables.
 9. Check the final grants/policies and run the full staging test suite. Record evidence before proposing a production deployment.
 
+## Read-only verification update — 25 October 2026
+
+A follow-up read-only check was run against the live project after the disposable PostgreSQL harness passed:
+
+- The explicit table ACLs for both tables are `{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwDxtm/postgres,service_role=arwdDxtm/postgres}`.
+- `anon` effectively has SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES and TRIGGER on both tables.
+- `authenticated` effectively has SELECT, INSERT, UPDATE, TRUNCATE, REFERENCES and TRIGGER; DELETE is not effectively granted.
+- `service_role` has the expected broad administrative privileges.
+- The information-schema query returned no direct table grants to `PUBLIC`.
+
+This confirms the dangerous grants are direct ACL entries for `anon` and `authenticated`; it does **not** complete every role-membership/default-privilege investigation. Role membership and default ACLs still need a safe, explicit review before finalizing a deployable fix. No privilege, policy, schema or data changes were made during these checks.
+
 ## Rollback consideration
 
 A rollback that restores the previous broad `anon` privileges or client TRUNCATE grants is not acceptable. If the change needs to be reversed due to an application issue, first diagnose the missing least-privilege grant and restore only the narrow, justified non-destructive privilege. Keep direct client TRUNCATE and DELETE denied.
