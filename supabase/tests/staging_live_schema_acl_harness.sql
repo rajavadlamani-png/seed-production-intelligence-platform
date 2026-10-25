@@ -22,7 +22,8 @@ create table public.crops (
   name text not null,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
-  unique (company_id, crop_code)
+  unique (company_id, crop_code),
+  unique (company_id, id)
 );
 
 create table public.hybrids (
@@ -38,9 +39,6 @@ create table public.hybrids (
     references public.crops(company_id, id)
     deferrable initially immediate
 );
-
--- The composite FK requires the referenced pair to be unique.
-alter table public.crops add constraint crops_company_id_id_unique unique (company_id, id);
 
 create or replace function private.has_company_role(p_company_id uuid, p_roles text[])
 returns boolean
