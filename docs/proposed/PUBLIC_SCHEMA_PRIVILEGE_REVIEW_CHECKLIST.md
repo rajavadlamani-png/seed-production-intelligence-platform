@@ -14,8 +14,10 @@
    - Owners `postgres` and `supabase_admin`, object type `r` (tables): `anon` and `authenticated` receive `arwdDxtm`.
    - Both owners, object type `S` (sequences): `anon` and `authenticated` receive `rwU`.
    - Both owners, object type `f` (functions): `anon` and `authenticated` receive EXECUTE.
-6. A read-only query of `information_schema.routine_privileges` for routines in schema `public` granted to `PUBLIC`, `anon`, or `authenticated` returned no rows. This should be cross-checked against `pg_proc` ACLs and all non-public exposed schemas before concluding no RPC exposure exists.
-7. Live public schema inventory currently reports RLS enabled for every listed table. There are 47 public tables; only `companies` (1 row) and `company_memberships` (2 rows) have rows in the compact inventory; other listed tables currently report zero rows. RLS enabled is not proof that policies and grants are safe.
+6. A follow-up `pg_proc` ACL inspection found the `graphql_public.graphql(...)` function has EXECUTE for `PUBLIC`, `anon`, and `authenticated` (not SECURITY DEFINER). This may be provider-standard, but its exposure and GraphQL schema configuration must be checked against the application's intended API surface.
+7. The private helper `private.has_company_role(uuid,text[])` has EXECUTE for `authenticated` and is SECURITY DEFINER with an empty `search_path`; this is consistent with a deliberate helper pattern, but its callable exposure and all dependent policies must be included in review.
+8. The `pg_proc` ACL check did not find a `public`-schema function with effective default `PUBLIC`/`anon`/`authenticated` EXECUTE in the inspected catalog result. This differs from the broad default-function ACLs for future objects, so current routine ACLs and default ACLs must be documented separately.
+9. Live public schema inventory currently reports RLS enabled for every listed table. There are 47 public tables; only `companies` (1 row) and `company_memberships` (2 rows) have rows in the compact inventory; other listed tables currently report zero rows. RLS enabled is not proof that policies and grants are safe.
 
 ## Public table inventory (from read-only table listing)
 
@@ -55,3 +57,15 @@ The dedicated hosted staging project is empty. Do not apply the repository's ori
 ## Decision
 
 No grants, policies, schema, or rows were changed. This checklist is for review and safe preparation of a staged remediation; it is not executable SQL and does not authorize production changes.
+
+
+## Disposable PostgreSQL CI harness result (25 October 2026)
+
+The latest PR #11 CI runs completed successfully:
+- rollback-only ACL contract harness: success;
+- migration smoke test: success;
+- Supabase local-stack migration and contract test: success.
+
+The harness explicitly reproduces excessive direct grants, applies the proposed crops/hybrids revokes inside a transaction, checks the intended post-fix privileges, and rolls everything back. CI also verifies no harness objects/privileges remain in the disposable database.
+
+**Scope limitation:** this is a minimal PostgreSQL contract test. It does not prove the full hosted schema matches the harness, does not validate Supabase Auth sessions or every RLS policy, and does not account for all inherited/PUBLIC/default ACL paths. PR #11 remains open and unmerged.
