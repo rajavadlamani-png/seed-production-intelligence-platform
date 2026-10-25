@@ -673,11 +673,10 @@ end $test$;
 
 reset role;
 
--- Tenant identity hardening: an authenticated user cannot move an existing
--- tenant-owned row to another company, even when the destination company UUID
--- is known. The immutable-column trigger should reject the attempted change.
-set local role authenticated;
-select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+-- Tenant identity hardening: RLS should hide out-of-scope rows from a normal
+-- authenticated update; separately, the trigger itself must reject a tenant move
+-- when exercised by the privileged test role (to distinguish trigger coverage from RLS).
+set local role postgres;
 do $test$
 declare denied boolean := false;
 begin
@@ -693,7 +692,7 @@ begin
     end if;
   end;
   if not denied then
-    raise exception 'FAIL: tenant-owned field company_id was mutable';
+    raise exception 'FAIL: immutable company_id trigger did not reject tenant move';
   end if;
 end $test$;
 reset role;
