@@ -1,0 +1,84 @@
+name: Staging ACL harness (disposable PostgreSQL)
+
+on:
+  push:
+    paths:
+      - "supabase/tests/staging_live_schema_acl_harness.sql"
+      - ".github/workflows/staging-acl-harness.yml"
+  pull_request:
+    paths:
+      - "supabase/tests/staging_live_schema_acl_harness.sql"
+      - ".github/workflows/staging-acl-harness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging-acl-harness:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: seed_platform_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d seed_platform_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+
+      - name: Create an isolated empty test database and Auth shim
+        run: |
+          createdb -T template0 staging_acl_harness
+          psql -v ON_ERROR_STOP=1 -d staging_acl_harness <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          CREATE SCHEMA auth;
+          CREATE OR REPLACE FUNCTION auth.uid()
+          RETURNS uuid
+          LANGUAGE sql
+          STABLE
+          AS $$
+            SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+          $$;
+          SQL
+
+      - name: Execute rollback-only ACL contract harness
+        env:
+          PGDATABASE: staging_acl_harness
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/staging_live_schema_acl_harness.sql
+
+      - name: Verify harness left no objects or privileges behind
+        env:
+          PGDATABASE: staging_acl_harness
+        run: |
+          psql -v ON_ERROR_STOP=1 -At <<'SQL'
+          DO $$
+          BEGIN
+            IF to_regclass('public.crops') IS NOT NULL
+               OR to_regclass('public.hybrids') IS NOT NULL
+               OR to_regclass('public.company_memberships') IS NOT NULL THEN
+              RAISE EXCEPTION 'Rollback harness left public test tables behind';
+            END IF;
+          END
+          $$;
+          SELECT 'PASS: rollback left no test tables behind';
+          SQL
