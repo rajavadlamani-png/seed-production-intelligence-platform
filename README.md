@@ -54,3 +54,8 @@ The branch `feature/supabase-auth-integration` adds a first authentication miles
 - The branch has not been merged to `main` or deployed to GitHub Pages.
 
 See [docs/SUPABASE_AUTH_INTEGRATION.md](docs/SUPABASE_AUTH_INTEGRATION.md) for the scope, setup, and verification checklist.
+
+
+### Password recovery
+
+The secure login branch includes a Supabase email recovery flow and a form to set a new password after the recovery link returns to the site. In Supabase Authentication URL Configuration, allow this exact Redirect URL: `https://rajavadlamani-png.github.io/seed-production-intelligence-platform/?passwordRecovery=1`. Confirm the email provider is enabled and email delivery is configured. Password recovery is not considered verified until a real recovery email is received and a password change succeeds.
