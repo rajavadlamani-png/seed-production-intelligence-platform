@@ -47,7 +47,7 @@ function cropHealthDashboard(list){
 const badge=s=>`<span class="demo-status ${s==='On track'?'ok':s==='Due'?'due':'follow'}">${s}</span>`;
 function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function roleToolbar(){return `<div class="demo-toolbar"><div><b>Interactive demo</b><small>Sample data only · changes reset when you refresh</small></div><label>View as <select id="roleSelect"><option value="manager">Production Manager · Maharashtra</option><option value="territory">Territory Manager · team scope</option><option value="officer">Field Officer · assigned fields</option><option value="aggregator">Aggregator · AG-01</option></select></label><label id="officerPicker" class="${role==='officer'?'':'hidden'}">Field officer <select id="officerSelect"><option>FA-01</option><option>FA-02</option><option>FA-03</option><option>FA-04</option></select></label><label id="territoryPicker" class="${role==='territory'?'':'hidden'}">Territory manager <select id="territorySelect"><option>TM-01</option><option>TM-02</option></select></label><button class="outline" id="openFieldApp">Open field app view</button><button class="outline" id="resetDemo">Reset demo</button></div><div class="simulation-note">Role views are a workflow simulation. Secure sign-in and server-enforced access are not implemented.</div>`}
-function shell(){document.querySelector('.mobile-switch')?.classList.add('hidden');let old=document.getElementById('demoToolbar');if(old)old.remove();manager.insertAdjacentHTML('afterbegin',`<div id="demoToolbar">${roleToolbar()}</div>`);document.getElementById('roleSelect').value=role;document.getElementById('officerSelect').value=selectedOfficer;document.getElementById('territorySelect').value=selectedTerritoryManager;document.getElementById('roleSelect').onchange=e=>{role=e.target.value;page='overview';render()};document.getElementById('officerSelect').onchange=e=>{selectedOfficer=e.target.value;render()};document.getElementById('territorySelect').onchange=e=>{selectedTerritoryManager=e.target.value;render()};document.getElementById('openFieldApp').onclick=()=>{role='officer';fieldScreen()};document.getElementById('resetDemo').onclick=()=>{records=structuredClone(SEED);role='manager';page='overview';render();notify('Demo data reset to its original sample records.')};}
+function shell(){document.querySelector('.mobile-switch')?.classList.add('hidden');let old=document.getElementById('demoToolbar');if(old)old.remove();if(document.body.classList.contains('secure-authenticated'))return;manager.insertAdjacentHTML('afterbegin',`<div id="demoToolbar">${roleToolbar()}</div>`);document.getElementById('roleSelect').value=role;document.getElementById('officerSelect').value=selectedOfficer;document.getElementById('territorySelect').value=selectedTerritoryManager;document.getElementById('roleSelect').onchange=e=>{role=e.target.value;page='overview';render()};document.getElementById('officerSelect').onchange=e=>{selectedOfficer=e.target.value;render()};document.getElementById('territorySelect').onchange=e=>{selectedTerritoryManager=e.target.value;render()};document.getElementById('openFieldApp').onclick=()=>{role='officer';fieldScreen()};document.getElementById('resetDemo').onclick=()=>{records=structuredClone(SEED);role='manager';page='overview';render();notify('Demo data reset to its original sample records.')};}
 function metrics(list){let due=list.filter(r=>r.status!=='On track').length,done=list.filter(r=>r.stage>=3).length;return `<div class="metric-grid"><article class="metric"><div class="metric-title">Farmers in this view</div><strong>${list.length}</strong><small>Synthetic demo records</small></article><article class="metric"><div class="metric-title">Inspections up to date</div><strong>${list.length?Math.round((list.length-due)/list.length*100):0}%</strong><small>${list.length-due} on track</small><div class="progress"><span style="width:${list.length?(list.length-due)/list.length*100:0}%"></span></div></article><article class="metric"><div class="metric-title">Needs follow-up</div><strong>${due}</strong><small>Due or follow-up records</small></article><article class="metric"><div class="metric-title">Quality red flags</div><strong>${list.reduce((n,r)=>n+(r.qualityFlags?.length?1:0),0)}</strong><small>Records needing review</small></article><article class="metric"><div class="metric-title">SAP lot numbers</div><strong>${list.filter(r=>r.sapLot).length}/${list.length}</strong><small>Remaining can be simulated</small></article></div>`}
 function row(r){return `<tr><td><b>${escape(r.name)}</b><small>${escape(r.village)}, ${escape(r.district)}</small></td><td><code>${escape(r.fieldNo)}</code></td><td>${escape(r.crop)} · ${escape(r.hybrid)}</td><td>${escape(r.officer)}<small>${escape(r.territoryManager)} · ${escape(r.aggregator)}</small></td><td>${badge(r.status)}</td><td>${r.qualityFlags?.length?`<span class="quality-chip">${r.qualityFlags.length} quality flag${r.qualityFlags.length===1?'':'s'}</span><small>${escape(r.qualityFlags[0])}</small>`:'<span class="quality-clear">No flags</span>'}</td><td>${r.assignedAcres!=null?`${Number(r.assignedAcres).toFixed(2)} ac allocated`:'Not allocated'}<small>${r.actualArea?`${r.actualArea.toFixed(2)} ac measured · ${r.areaSource==='gps'?'GPS':r.areaSource==='sample'?'sample walk':'field report'}`:'Actual area not captured'}</small></td><td>${r.sapLot?`<code>${escape(r.sapLot)}</code>`:`<button class="small-action" data-sap="${r.id}">Simulate SAP</button>`}</td><td><button class="small-action" data-inspect="${r.id}">Update</button></td></tr>`}
 function table(list){return `<div class="table-wrap"><table><thead><tr><th>Farmer & location</th><th>Season field no.</th><th>Crop & hybrid</th><th>Team assignment</th><th>Inspection</th><th>Quality review</th><th>Area allocated / actual</th><th>SAP lot number</th><th>Action</th></tr></thead><tbody>${list.map(row).join('')}</tbody></table>${list.length?'':'<p class="empty-state">No sample farmers in this role scope.</p>'}</div>`}
@@ -183,7 +183,7 @@ function bindPlanningPage(){
  });
 }
 
-function renderManager(){document.body.classList.remove('field-mode');shell();const list=scoped();dashboard.classList.toggle('hidden',page!=='overview');registry.classList.toggle('hidden',page==='overview');if(page==='overview')dashboard.innerHTML=overview(list);else if(page==='planning')registry.innerHTML=planningPage();else if(page==='fields')registry.innerHTML=roster(list);else if(page==='inspections')registry.innerHTML=inspections(list);else if(page==='production')registry.innerHTML=production(list);else registry.innerHTML=reports(list);nav.forEach(n=>n.classList.toggle('selected',n.dataset.view===page));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{showMasterImport=page!=='fields'&&b.dataset.go==='fields'&&/upload master|bulk onboard/i.test(b.textContent);page=b.dataset.go;render()});document.querySelectorAll('[data-open-territory]').forEach(b=>b.onclick=()=>{selectedTerritoryManager=b.dataset.openTerritory;role='territory';page='overview';render()});document.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>editInspection(+b.dataset.inspect));document.querySelectorAll('[data-sap]').forEach(b=>b.onclick=()=>simulateSap(+b.dataset.sap));if(page==='planning')bindPlanningPage();bindMasterUpload();document.getElementById('toggleMasterImport')?.addEventListener('click',()=>{showMasterImport=!showMasterImport;render()});document.getElementById('rosterSearch')?.addEventListener('input',filterRoster);document.getElementById('rosterCrop')?.addEventListener('change',filterRoster);document.getElementById('reloadSamples')?.addEventListener('click',()=>{records=structuredClone(SEED);showMasterImport=false;notify('Sample roster reloaded.');render()})}
+function renderManager(){document.body.classList.remove('field-mode');shell();const list=scoped();const mastersView=document.getElementById('mastersView');dashboard.classList.toggle('hidden',page!=='overview');registry.classList.toggle('hidden',page==='overview'||page==='masters');mastersView?.classList.toggle('hidden',page!=='masters');if(page==='overview')dashboard.innerHTML=overview(list);else if(page==='planning')registry.innerHTML=planningPage();else if(page==='fields')registry.innerHTML=roster(list);else if(page==='inspections')registry.innerHTML=inspections(list);else if(page==='production')registry.innerHTML=production(list);else if(page==='reports')registry.innerHTML=reports(list);nav.forEach(n=>n.classList.toggle('selected',n.dataset.view===page));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{showMasterImport=page!=='fields'&&b.dataset.go==='fields'&&/upload master|bulk onboard/i.test(b.textContent);page=b.dataset.go;render()});document.querySelectorAll('[data-open-territory]').forEach(b=>b.onclick=()=>{selectedTerritoryManager=b.dataset.openTerritory;role='territory';page='overview';render()});document.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>editInspection(+b.dataset.inspect));document.querySelectorAll('[data-sap]').forEach(b=>b.onclick=()=>simulateSap(+b.dataset.sap));if(page==='planning')bindPlanningPage();bindMasterUpload();document.getElementById('toggleMasterImport')?.addEventListener('click',()=>{showMasterImport=!showMasterImport;render()});document.getElementById('rosterSearch')?.addEventListener('input',filterRoster);document.getElementById('rosterCrop')?.addEventListener('change',filterRoster);document.getElementById('reloadSamples')?.addEventListener('click',()=>{records=structuredClone(SEED);showMasterImport=false;notify('Sample roster reloaded.');render()})}
 function fieldSummaryScreen(r){
   const pre=(r.inspectionReports||{})[5]||{},harvest=(r.inspectionReports||{})[6]||{};
   const shown=(value,unit)=>value!==undefined&&value!==null&&String(value).trim()!==''?escape(String(value)+(unit?' '+unit:'')):'Not recorded';
@@ -361,11 +361,49 @@ f.elements.stage.value=initialStage||r.stage;f.elements.status.value=r.status;f.
 f.querySelectorAll('[data-stage-panel]').forEach(panel=>{const n=+panel.dataset.stagePanel,data=(r.inspectionReports||{})[n]||(n===1?r.stageOne:null)||{};panel.querySelectorAll('[name]').forEach(input=>input.value=data[input.name]||(n===1?(r.parentSeed?.[input.name]||''):''));loadApplications(panel,data.inputApplications);panel.dataset.photoData=data.fieldPhotoData||'';panel.dataset.photoName=data.fieldPhotoName||'';const preview=panel.querySelector('.field-photo-preview');preview.classList.toggle('hidden',!data.fieldPhotoData);if(data.fieldPhotoData){preview.querySelector('img').src=data.fieldPhotoData;preview.querySelector('[data-photo-name]').textContent=data.fieldPhotoName||'Selected photo'}});
 syncReportForm(f);dlg.showModal()
 }
-function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.remove('hidden');field.classList.add('hidden');renderManager()}}
+function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.remove('hidden');field.classList.add('hidden');renderManager();if(page==='masters'&&activeCompanyId)loadMasterRecords()}}
 nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=false;render()}));
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';showMasterImport=true;render()});
 
+
+/* Authenticated, read-only Crop & Hybrid Masters. RLS remains the authoritative tenant boundary. */
+let activeCompanyId=null, activeCompanyName='', activeMembershipRole='', masterKind='crops', cropRows=[], hybridRows=[], masterLoadVersion=0;
+const mastersStatus=document.getElementById('mastersStatus');
+const mastersTableHost=document.getElementById('mastersTableHost');
+const masterSearch=document.getElementById('masterSearch');
+const masterCount=document.getElementById('masterCount');
+function setMastersStatus(message,kind='info'){if(!mastersStatus)return;mastersStatus.textContent=message;mastersStatus.className='masters-status'+(kind==='error'?' error':kind==='success'?' success':'')}
+function renderMasterTable(){
+  if(!mastersTableHost)return;
+  const search=String(masterSearch?.value||'').trim().toLowerCase();
+  if(masterKind==='crops'){
+    const rows=cropRows.filter(r=>[r.crop_code,r.name,r.is_active?'Active':'Inactive'].some(v=>String(v??'').toLowerCase().includes(search)));
+    mastersTableHost.innerHTML=rows.length?'<div class="table-wrap"><table><thead><tr><th>Crop code</th><th>Crop name</th><th>Status</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><code>'+escape(r.crop_code)+'</code></td><td><b>'+escape(r.name)+'</b></td><td><span class="masters-state '+(r.is_active?'active':'inactive')+'">'+(r.is_active?'Active':'Inactive')+'</span></td></tr>').join('')+'</tbody></table></div>':'<p class="empty-state">No crop records match this search.</p>';
+    if(masterCount)masterCount.textContent=rows.length+' of '+cropRows.length+' crops';
+  }else{
+    const cropsById=new Map(cropRows.map(r=>[r.id,r.name]));
+    const rows=hybridRows.filter(r=>[r.hybrid_code,r.name,cropsById.get(r.crop_id)||'',r.is_active?'Active':'Inactive'].some(v=>String(v??'').toLowerCase().includes(search)));
+    mastersTableHost.innerHTML=rows.length?'<div class="table-wrap"><table><thead><tr><th>Hybrid code</th><th>Hybrid name</th><th>Crop</th><th>Status</th></tr></thead><tbody>'+rows.map(r=>'<tr><td><code>'+escape(r.hybrid_code)+'</code></td><td><b>'+escape(r.name)+'</b></td><td>'+escape(cropsById.get(r.crop_id)||'Unresolved crop reference')+'</td><td><span class="masters-state '+(r.is_active?'active':'inactive')+'">'+(r.is_active?'Active':'Inactive')+'</span></td></tr>').join('')+'</tbody></table></div>':'<p class="empty-state">No hybrid records match this search.</p>';
+    if(masterCount)masterCount.textContent=rows.length+' of '+hybridRows.length+' hybrids';
+  }
+}
+async function loadMasterRecords(){
+  if(!activeCompanyId||!supabaseAuthClient)return;
+  const version=++masterLoadVersion;setMastersStatus('Loading crop and hybrid records…');if(mastersTableHost)mastersTableHost.innerHTML='';
+  try{
+    const [cropsResult,hybridsResult]=await Promise.all([
+      supabaseAuthClient.from('crops').select('id, company_id, crop_code, name, is_active').eq('company_id',activeCompanyId).order('crop_code'),
+      supabaseAuthClient.from('hybrids').select('id, company_id, crop_id, hybrid_code, name, is_active').eq('company_id',activeCompanyId).order('hybrid_code')
+    ]);
+    if(version!==masterLoadVersion)return;if(cropsResult.error)throw cropsResult.error;if(hybridsResult.error)throw hybridsResult.error;
+    cropRows=(cropsResult.data||[]).filter(r=>r.company_id===activeCompanyId);hybridRows=(hybridsResult.data||[]).filter(r=>r.company_id===activeCompanyId);
+    renderMasterTable();setMastersStatus('Loaded '+cropRows.length+' crops and '+hybridRows.length+' hybrids for '+activeCompanyName+'. No changes have been made.','success');
+  }catch(error){if(version!==masterLoadVersion)return;console.error('Crop and Hybrid Masters read failed.',error);cropRows=[];hybridRows=[];if(mastersTableHost)mastersTableHost.innerHTML='';if(masterCount)masterCount.textContent='';setMastersStatus('Unable to load master records. Check the table permissions and connection, then refresh. No sample data is shown in this secure workspace.','error')}
+}
+document.querySelectorAll('[data-master-tab]').forEach(button=>button.addEventListener('click',()=>{masterKind=button.dataset.masterTab;document.querySelectorAll('[data-master-tab]').forEach(b=>{const selected=b===button;b.classList.toggle('selected',selected);b.setAttribute('aria-selected',String(selected))});if(masterSearch)masterSearch.value='';renderMasterTable()}));
+masterSearch?.addEventListener('input',renderMasterTable);
+document.getElementById('refreshMasters')?.addEventListener('click',loadMasterRecords);
 
 /* Supabase secure sign-in. Authenticated sessions stay out of the sample-data dashboard until live data screens are connected. */
 const secureLoginForm=document.getElementById('secureLoginForm');
@@ -404,30 +442,70 @@ function setSecureWorkspaceVisible(visible){
     secureWorkspaceGate?.classList.add('hidden');
   }
 }
+function activateCompanyMembership(membership,user){
+  activeCompanyId=membership.company_id;
+  activeCompanyName=membership.companies?.name||'Authorized company';
+  activeMembershipRole=String(membership.role_key||'');
+  const roleName=activeMembershipRole.replaceAll('_',' ');
+  if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nCompany: '+activeCompanyName+'\nRole: '+roleName;
+  secureLoginError?.classList.add('hidden');
+  setSecureWorkspaceVisible(true);
+  page='masters';fieldMode=false;render();
+}
+function showCompanyMembershipChoices(memberships,user){
+  activeCompanyId=null;activeCompanyName='';activeMembershipRole='';cropRows=[];hybridRows=[];
+  setSecureWorkspaceVisible(false);
+  page='masters';fieldMode=false;
+  render();
+  if(mastersTableHost)mastersTableHost.innerHTML='';
+  setMastersStatus('Select the company workspace you want to open. No company data is loaded until you choose one.');
+  if(!mastersTableHost)return;
+  const wrap=document.createElement('div');
+  wrap.className='company-membership-chooser';
+  const label=document.createElement('label');
+  label.className='field-label';
+  label.textContent='Company workspace';
+  const select=document.createElement('select');
+  select.id='companyMembershipSelect';
+  select.setAttribute('aria-label','Choose a company workspace');
+  memberships.forEach((membership,index)=>{
+    const option=document.createElement('option');
+    option.value=String(index);
+    option.textContent=(membership.companies?.name||'Authorized company')+' · '+String(membership.role_key||'').replaceAll('_',' ');
+    select.appendChild(option);
+  });
+  const button=document.createElement('button');
+  button.type='button';button.className='primary';button.id='confirmCompanyMembership';
+  button.textContent='Open selected company';
+  button.addEventListener('click',()=>{
+    const membership=memberships[Number(select.value)];
+    if(!membership)return;
+    activateCompanyMembership(membership,user);
+  });
+  wrap.appendChild(label);wrap.appendChild(select);wrap.appendChild(button);
+  mastersTableHost.appendChild(wrap);
+}
 async function verifyCompanyMembership(user){
   if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
-  const {data:membership,error}=await supabaseAuthClient
+  const {data:memberships,error}=await supabaseAuthClient
     .from('company_memberships')
     .select('company_id, role_key, status, companies(name)')
     .eq('user_id',user.id)
     .eq('status','active')
-    .maybeSingle();
+    .order('company_id');
   if(error){
     console.error('Company membership check failed.',error);
     await supabaseAuthClient.auth.signOut();
     secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
     return false;
   }
-  if(!membership){
+  if(!memberships?.length){
     await supabaseAuthClient.auth.signOut();
     secureAuthError('Your account does not have an active company membership. Please ask your company administrator for access.');
     return false;
   }
-  const companyName=membership.companies?.name||'Authorized company';
-  const roleName=String(membership.role_key||'').replaceAll('_',' ');
-  if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nCompany: '+companyName+'\nRole: '+roleName;
-  secureLoginError?.classList.add('hidden');
-  setSecureWorkspaceVisible(true);
+  if(memberships.length===1){activateCompanyMembership(memberships[0],user);return true}
+  showCompanyMembershipChoices(memberships,user);
   return true;
 }
 secureLoginForm?.addEventListener('submit',async event=>{
@@ -505,8 +583,19 @@ setNewPasswordForm?.addEventListener('submit',async event=>{
     if(saveNewPassword){saveNewPassword.disabled=false;saveNewPassword.innerHTML='Save new password <span>→</span>'}
   }
 });
+/* Explicitly switch from the secure live-record workspace to the clearly labelled sample dashboard. */
+document.getElementById('openSampleDashboard')?.addEventListener('click',async()=>{
+  if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
+  activeCompanyId=null;activeCompanyName='';activeMembershipRole='';cropRows=[];hybridRows=[];
+  setSecureWorkspaceVisible(false);
+  document.body.classList.add('demo-authenticated');
+  role='manager';selectedOfficer='FA-01';selectedTerritoryManager='TM-01';page='overview';fieldMode=false;
+  render();
+  notify('Sample dashboards opened. All displayed operational data is illustrative only.');
+});
 secureSignOut?.addEventListener('click',async()=>{
   if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
+  activeCompanyId=null;activeCompanyName='';activeMembershipRole='';cropRows=[];hybridRows=[];
   setSecureWorkspaceVisible(false);
   if(secureLoginForm)secureLoginForm.reset();
   showPasswordFlow('login');

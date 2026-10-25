@@ -7,7 +7,7 @@
   <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
   <title>SageHarvest — Seed Production Monitor</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=password-recovery-v1">
+  <link rel="stylesheet" href="styles.css?v=crop-hybrid-masters-v2">
 </head>
 <body>
   <header class="topbar">
@@ -23,6 +23,7 @@
       <button class="nav-item" data-view="planning"><span>◷</span> Planning & allocation</button>
       <button class="nav-item" data-view="production"><span>▤</span> Production & lots</button>
       <button class="nav-item" data-view="reports"><span>▥</span> Reports</button>
+      <button class="nav-item" data-view="masters"><span>◇</span> Crop & Hybrid Masters</button>
       <div class="side-bottom"><div class="season-card"><span class="season-dot"></span><div><small>ACTIVE SEASON</small><strong>Kharif 2026</strong></div></div><p class="muted tiny">Management workspace</p></div>
     </aside>
     <main>
@@ -70,6 +71,15 @@
         </div>
         <footer>Illustrative workflow only · Demo uploads remain in this browser session; do not use real farmer data</footer>
       </div>
+      <section class="manager-view hidden" id="mastersView">
+        <div class="page-heading"><div><p class="eyebrow">MASTER DATA · COMPANY SCOPED</p><h1>Crop & Hybrid Masters</h1><p class="muted">Read-only view of records available to your authenticated company.</p></div><span class="status-chip planned">READ ONLY</span></div>
+        <div class="masters-note"><strong>Live company records · read-only</strong><p>Records are loaded from Supabase using your authenticated session. Add, edit and delete actions remain disabled pending completion of the database security review.</p><div class="masters-demo-action"><p><strong>Need to test the operational dashboards?</strong> Open the separate sample workspace below. It contains illustrative data only and does not show or change your company records.</p><button type="button" class="outline" id="openSampleDashboard">Open sample dashboards →</button></div></div>
+        <div class="masters-tabs" role="tablist" aria-label="Master data type"><button type="button" class="masters-tab selected" data-master-tab="crops" role="tab" aria-selected="true">Crops</button><button type="button" class="masters-tab" data-master-tab="hybrids" role="tab" aria-selected="false">Hybrids</button></div>
+        <div class="masters-toolbar"><label for="masterSearch">Search records</label><input id="masterSearch" type="search" placeholder="Search by code or name"><span id="masterCount" class="muted" aria-live="polite"></span></div>
+        <div id="mastersStatus" class="masters-status" role="status">Loading master records…</div>
+        <div id="mastersTableHost" class="masters-table-host"></div>
+        <div class="masters-footer"><span>Changes are not enabled in this first release.</span><button type="button" class="outline" id="refreshMasters">Refresh records</button></div>
+      </section>
       </section>
       <section class="field-view hidden" id="fieldView"><div class="field-head"><div><p class="eyebrow">SAGEHARVEST · FIELD TEAM</p><h1>Good morning, Rohan</h1><p class="muted">Your field work for today</p></div><div class="weather-pill">☀ <span><b>28°</b><small>Local conditions not connected</small></span></div></div>
         <div class="field-summary"><div><strong>3</strong><small>Visits today</small></div><div><strong>2</strong><small>Inspections due</small></div><div><strong>1</strong><small>Follow-up</small></div></div>
@@ -165,6 +175,6 @@
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="supabase-config.js"></script>
-  <script defer src="app.js?v=password-recovery-v1"></script>
+  <script defer src="app.js?v=crop-hybrid-masters-v2"></script>
 </body>
 </html>
