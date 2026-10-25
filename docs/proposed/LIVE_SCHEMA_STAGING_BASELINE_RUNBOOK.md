@@ -3,6 +3,8 @@
 **Status:** preparation only. Do not execute against production or apply any schema to hosted staging until the generated dump is reviewed.  
 **Date:** 25 October 2026.
 
+**Update:** added an explicit schema-only CLI export example based on the current official Supabase documentation; it has not been executed against either hosted project.
+
 ## Goal
 
 Build a dedicated, schema-matched staging baseline for testing the ACL remediation. The staging project `Seed Production Intelligence - Staging` (ref `afhifiiwmaxuiwctstzo`) was confirmed empty through the Supabase project tools. The live project is `seed-production-intelligence` (ref `xjtzvhtoeormizrhozoy`). Never substitute ANVORA Beta Access.
@@ -30,9 +32,24 @@ Use a trusted development workstation with the Supabase CLI and PostgreSQL clien
 
 ### 2. Create a schema-only export
 
-Use the documented Supabase CLI database dump workflow with the live database connection supplied locally through a protected environment variable or approved secret manager. Include the actual application schemas and required DDL dependencies identified from the live catalog; exclude all table data. Do not put the connection string inline in shell history or command output.
+The current Supabase CLI reference documents `supabase db dump` as schema-only by default; data is included only when `--data-only` is supplied. It also excludes Supabase-managed schemas by default. See the [official Supabase CLI reference](https://supabase.com/docs/reference/cli/supabase-inspect-db-role-configs) and [CLI workflow guide](https://supabase.com/docs/guides/local-development/cli-workflows).
 
-The exact CLI options should be checked against the installed CLI version before use. Preserve the raw export in a private, access-controlled workspace, not in a public repository.
+**Preferred procedure:** use an approved workstation and explicitly verify the linked project before exporting. Never run `db push`, `db reset --linked`, or apply migrations as part of this export.
+
+Example, after an administrator has installed/approved the CLI, authenticated it, and verified that the link points to the live project ref `xjtzvhtoeormizrhozoy`:
+
+```powershell
+supabase --version
+supabase projects list
+supabase link --project-ref xjtzvhtoeormizrhozoy
+supabase db dump --linked --file .\live-schema-review.sql
+```
+
+The dump command above is read-only and schema-only by default. It intentionally does **not** use `--data-only`. Keep `live-schema-review.sql` in a private, access-controlled workspace. Do not commit or upload the raw file yet.
+
+If a complete baseline needs application schemas beyond the default dump, inspect the dump and current CLI behavior first. Supabase-managed schemas (including Auth and Storage internals) are excluded by default; custom triggers/functions that touch those schemas may need a separate, carefully reviewed capture. Do not blindly add provider-managed schemas to a staging restore.
+
+Do not paste the database URL or password into chat or a public terminal transcript. If a direct connection is required, use an approved secret manager and a protected local process. Verify the target project ref immediately before running the command.
 
 ### 3. Sanitize and review
 
