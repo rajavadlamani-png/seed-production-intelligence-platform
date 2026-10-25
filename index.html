@@ -93,31 +93,57 @@
           <div><span>03</span><section><b>Upload & route growers</b><small>Review the grower Excel list and allocate records to Field Officers.</small></section></div>
           <div><span>04</span><section><b>Execute in the field</b><small>Field Officers update GPS, inspections and production progress.</small></section></div>
         </div>
-        <form class="welcome-login" id="demoLoginForm">
-          <span class="demo-pill">DEMO ACCESS · NOT SECURE AUTHENTICATION</span>
+        <div class="welcome-login">
+          <span class="secure-pill">SECURE ACCESS · SUPABASE AUTH</span>
           <h2>Sign in to your workspace</h2>
-          <p class="muted">Choose a demo role and use its sample credentials.</p>
-          <label for="demoRole">Workspace role</label>
-          <select id="demoRole" name="role">
-            <option value="manager">Production Manager</option>
-            <option value="territory">Territory Manager</option>
-            <option value="officer">Field Officer</option>
-          </select>
-          <label for="demoUsername">Username</label>
-          <input id="demoUsername" name="username" autocomplete="username" value="manager" required>
-          <label for="demoPassword">Password</label>
-          <input id="demoPassword" name="password" type="password" autocomplete="current-password" value="demo123" required>
-          <p class="login-error hidden" id="loginError" role="alert">The username, password or selected role does not match the demo account.</p>
-          <button class="primary welcome-submit" type="submit">Enter workspace <span>→</span></button>
-          <div class="demo-credentials"><b>Demo accounts</b><span>Production Manager: <code>manager</code></span><span>Territory Manager: <code>territory</code></span><span>Field Officer: <code>officer</code></span><small>Password for all accounts: <code>demo123</code></small></div>
-        </form>
-      </div>
+          <p class="muted">Use your company email and password. Access is checked against your active company membership.</p>
+          <form id="secureLoginForm" novalidate>
+            <label for="secureEmail">Company email</label>
+            <input id="secureEmail" name="email" type="email" autocomplete="username" placeholder="you@company.com" required>
+            <label for="securePassword">Password</label>
+            <input id="securePassword" name="password" type="password" autocomplete="current-password" required>
+            <p class="login-error hidden" id="secureLoginError" role="alert"></p>
+            <button class="primary welcome-submit" id="secureLoginSubmit" type="submit">Sign in securely <span>→</span></button>
+          </form>
+          <details class="demo-details">
+            <summary>Open the sample demo instead</summary>
+            <p class="demo-explainer">Sample records only. This preview does not connect to Supabase or provide secure authentication.</p>
+            <form id="demoLoginForm">
+              <label for="demoRole">Demo workspace role</label>
+              <select id="demoRole" name="role">
+                <option value="manager">Production Manager</option>
+                <option value="territory">Territory Manager</option>
+                <option value="officer">Field Officer</option>
+              </select>
+              <label for="demoUsername">Demo username</label>
+              <input id="demoUsername" name="username" autocomplete="username" value="manager" required>
+              <label for="demoPassword">Demo password</label>
+              <input id="demoPassword" name="password" type="password" autocomplete="current-password" value="demo123" required>
+              <p class="login-error hidden" id="loginError" role="alert">The username, password or selected role does not match the demo account.</p>
+              <button class="outline welcome-submit" type="submit">Enter sample demo <span>→</span></button>
+              <div class="demo-credentials"><b>Demo accounts</b><span>Production Manager: <code>manager</code></span><span>Territory Manager: <code>territory</code></span><span>Field Officer: <code>officer</code></span><small>Password for all accounts: <code>demo123</code></small></div>
+            </form>
+          </details>
+        </div>      </div>
       <p class="welcome-disclaimer">Prototype only. Uses sample data in your browser. This public demo does not provide secure authentication, user isolation or server-side data storage. Do not enter real farmer or company information.</p>
+    </div>
+  </section>
+  <section class="secure-workspace-gate hidden" id="secureWorkspaceGate" aria-live="polite">
+    <div class="secure-workspace-card">
+      <img src="assets/sage-harvest-logo.svg" alt="Sage Harvest" class="secure-workspace-logo">
+      <p class="eyebrow">AUTHENTICATION VERIFIED</p>
+      <h1>Secure sign-in successful</h1>
+      <p id="secureIdentity" class="secure-identity"></p>
+      <p class="secure-next-step">Your Supabase session and active company membership have been verified. The operational screens are not yet connected to live database records, so sample data is intentionally hidden in this secure session.</p>
+      <div class="secure-status-row"><span class="secure-status-dot"></span><span>Authentication and membership check complete</span></div>
+      <button class="primary welcome-submit" id="secureSignOut" type="button">Sign out <span>↗</span></button>
     </div>
   </section>
   <div class="toast" id="toast" role="status"></div>
   <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <script defer src="app.js?v=gps-history-v1"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="supabase-config.js"></script>
+  <script defer src="app.js?v=supabase-auth-v1"></script>
 </body>
 </html>
