@@ -442,25 +442,7 @@ function setSecureWorkspaceVisible(visible){
     secureWorkspaceGate?.classList.add('hidden');
   }
 }
-async function verifyCompanyMembership(user){
-  if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
-  const {data:membership,error}=await supabaseAuthClient
-    .from('company_memberships')
-    .select('company_id, role_key, status, companies(name)')
-    .eq('user_id',user.id)
-    .eq('status','active')
-    .maybeSingle();
-  if(error){
-    console.error('Company membership check failed.',error);
-    await supabaseAuthClient.auth.signOut();
-    secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
-    return false;
-  }
-  if(!membership){
-    await supabaseAuthClient.auth.signOut();
-    secureAuthError('Your account does not have an active company membership. Please ask your company administrator for access.');
-    return false;
-  }
+function activateCompanyMembership(membership,user){
   activeCompanyId=membership.company_id;
   activeCompanyName=membership.companies?.name||'Authorized company';
   activeMembershipRole=String(membership.role_key||'');
@@ -469,6 +451,61 @@ async function verifyCompanyMembership(user){
   secureLoginError?.classList.add('hidden');
   setSecureWorkspaceVisible(true);
   page='masters';fieldMode=false;render();
+}
+function showCompanyMembershipChoices(memberships,user){
+  activeCompanyId=null;activeCompanyName='';activeMembershipRole='';cropRows=[];hybridRows=[];
+  setSecureWorkspaceVisible(false);
+  page='masters';fieldMode=false;
+  render();
+  if(mastersTableHost)mastersTableHost.innerHTML='';
+  setMastersStatus('Select the company workspace you want to open. No company data is loaded until you choose one.');
+  if(!mastersTableHost)return;
+  const wrap=document.createElement('div');
+  wrap.className='company-membership-chooser';
+  const label=document.createElement('label');
+  label.className='field-label';
+  label.textContent='Company workspace';
+  const select=document.createElement('select');
+  select.id='companyMembershipSelect';
+  select.setAttribute('aria-label','Choose a company workspace');
+  memberships.forEach((membership,index)=>{
+    const option=document.createElement('option');
+    option.value=String(index);
+    option.textContent=(membership.companies?.name||'Authorized company')+' · '+String(membership.role_key||'').replaceAll('_',' ');
+    select.appendChild(option);
+  });
+  const button=document.createElement('button');
+  button.type='button';button.className='primary';button.id='confirmCompanyMembership';
+  button.textContent='Open selected company';
+  button.addEventListener('click',()=>{
+    const membership=memberships[Number(select.value)];
+    if(!membership)return;
+    activateCompanyMembership(membership,user);
+  });
+  wrap.appendChild(label);wrap.appendChild(select);wrap.appendChild(button);
+  mastersTableHost.appendChild(wrap);
+}
+async function verifyCompanyMembership(user){
+  if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
+  const {data:memberships,error}=await supabaseAuthClient
+    .from('company_memberships')
+    .select('company_id, role_key, status, companies(name)')
+    .eq('user_id',user.id)
+    .eq('status','active')
+    .order('company_id');
+  if(error){
+    console.error('Company membership check failed.',error);
+    await supabaseAuthClient.auth.signOut();
+    secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
+    return false;
+  }
+  if(!memberships?.length){
+    await supabaseAuthClient.auth.signOut();
+    secureAuthError('Your account does not have an active company membership. Please ask your company administrator for access.');
+    return false;
+  }
+  if(memberships.length===1){activateCompanyMembership(memberships[0],user);return true}
+  showCompanyMembershipChoices(memberships,user);
   return true;
 }
 secureLoginForm?.addEventListener('submit',async event=>{
