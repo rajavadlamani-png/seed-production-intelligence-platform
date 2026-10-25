@@ -513,3 +513,23 @@ body.demo-authenticated .mobile-switch{display:none!important}
 .gps-record-type.sample{background:#fff0d7;color:#80520d}
 .gps-history-empty,.gps-integrity-note{font-size:.76rem;color:var(--muted,#68756d);line-height:1.5;margin:8px 0 0}
 .gps-integrity-note{padding-top:8px;border-top:1px dashed var(--line,#dce5df)}
+
+/* Supabase authentication foundation — secure sessions never expose demo records */
+.secure-pill{display:inline-block;padding:6px 8px;border-radius:20px;background:#e7f1e5;color:#2f6241;font-size:8px;font-weight:800;letter-spacing:.45px}
+.secure-login-form{margin:0}
+.demo-details{margin-top:18px;padding-top:14px;border-top:1px solid #edf0e9}
+.demo-details summary{cursor:pointer;color:#657568;font-size:10px;font-weight:700}
+.demo-explainer{margin:10px 0;color:#7a857a;font-size:9px;line-height:1.5}
+.demo-details form{margin-top:10px}
+.secure-workspace-gate{min-height:100vh;align-items:center;justify-content:center;padding:28px;background:#fbfaf6}
+.secure-workspace-card{width:min(100%,560px);padding:34px;border:1px solid #dce1da;border-radius:18px;background:#fff;box-shadow:0 18px 54px #183d2b12}
+.secure-workspace-logo{width:58px;height:58px;object-fit:contain;margin-bottom:18px}
+.secure-workspace-card h1{margin:8px 0 12px;color:#203f2d;font-size:28px}
+.secure-identity{padding:12px;border-radius:9px;background:#f3f6f0;color:#304b36;font-size:12px;line-height:1.6;white-space:pre-line}
+.secure-next-step{color:#607066;font-size:12px;line-height:1.7}
+.secure-status-row{display:flex;align-items:center;gap:8px;margin:18px 0;color:#416b49;font-size:11px;font-weight:700}
+.secure-status-dot{width:8px;height:8px;border-radius:50%;background:#4d8b55}
+body.secure-authenticated .welcome-gate,body.secure-authenticated .layout,body.secure-authenticated .toast{display:none!important}
+body.secure-authenticated .secure-workspace-gate{display:flex!important}
+body.secure-authenticated .mobile-switch{display:none!important}
+@media(max-width:700px){.secure-workspace-gate{padding:16px}.secure-workspace-card{padding:24px}.secure-workspace-card h1{font-size:24px}}

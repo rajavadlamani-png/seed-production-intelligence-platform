@@ -1,0 +1,24 @@
+name: Frontend syntax checks
+
+on:
+  push:
+    branches:
+      - feature/supabase-auth-integration
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check app.js
+          node --check supabase-config.js

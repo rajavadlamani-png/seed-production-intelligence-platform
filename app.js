@@ -366,6 +366,91 @@ nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=fal
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';showMasterImport=true;render()});
 
+
+/* Supabase secure sign-in. Authenticated sessions stay out of the sample-data dashboard until live data screens are connected. */
+const secureLoginForm=document.getElementById('secureLoginForm');
+const secureLoginError=document.getElementById('secureLoginError');
+const secureLoginSubmit=document.getElementById('secureLoginSubmit');
+const secureWorkspaceGate=document.getElementById('secureWorkspaceGate');
+const secureIdentity=document.getElementById('secureIdentity');
+const secureSignOut=document.getElementById('secureSignOut');
+const supabaseConfig=window.SEED_SUPABASE_CONFIG||{};
+let supabaseAuthClient=null;
+try{
+  if(window.supabase?.createClient&&supabaseConfig.url&&supabaseConfig.publishableKey){
+    supabaseAuthClient=window.supabase.createClient(supabaseConfig.url,supabaseConfig.publishableKey);
+  }
+}catch(error){console.error('Supabase client initialization failed.',error)}
+function secureAuthError(message){
+  if(secureLoginError){secureLoginError.textContent=message;secureLoginError.classList.remove('hidden')}
+}
+function setSecureWorkspaceVisible(visible){
+  if(visible){
+    document.body.classList.add('secure-authenticated');
+    secureWorkspaceGate?.classList.remove('hidden');
+  }else{
+    document.body.classList.remove('secure-authenticated');
+    secureWorkspaceGate?.classList.add('hidden');
+  }
+}
+async function verifyCompanyMembership(user){
+  if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
+  const {data:membership,error}=await supabaseAuthClient
+    .from('company_memberships')
+    .select('company_id, role_key, status, companies(name)')
+    .eq('user_id',user.id)
+    .eq('status','active')
+    .maybeSingle();
+  if(error){
+    console.error('Company membership check failed.',error);
+    await supabaseAuthClient.auth.signOut();
+    secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
+    return false;
+  }
+  if(!membership){
+    await supabaseAuthClient.auth.signOut();
+    secureAuthError('Your account does not have an active company membership. Please ask your company administrator for access.');
+    return false;
+  }
+  const companyName=membership.companies?.name||'Authorized company';
+  const roleName=String(membership.role_key||'').replaceAll('_',' ');
+  if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nCompany: '+companyName+'\nRole: '+roleName;
+  secureLoginError?.classList.add('hidden');
+  setSecureWorkspaceVisible(true);
+  return true;
+}
+secureLoginForm?.addEventListener('submit',async event=>{
+  event.preventDefault();
+  secureLoginError?.classList.add('hidden');
+  if(!supabaseAuthClient){secureAuthError('The Supabase client could not load. Check your connection and reload this page.');return}
+  const email=String(document.getElementById('secureEmail')?.value||'').trim();
+  const password=String(document.getElementById('securePassword')?.value||'');
+  if(!email||!password){secureAuthError('Enter your company email and password.');return}
+  if(secureLoginSubmit){secureLoginSubmit.disabled=true;secureLoginSubmit.textContent='Signing in…'}
+  try{
+    const {data,error}=await supabaseAuthClient.auth.signInWithPassword({email,password});
+    if(error){secureAuthError('Sign-in failed. Check your email and password, then try again.');return}
+    await verifyCompanyMembership(data.user);
+  }catch(error){
+    console.error('Secure sign-in failed.',error);
+    secureAuthError('A connection error prevented sign-in. Please try again.');
+  }finally{
+    if(secureLoginSubmit){secureLoginSubmit.disabled=false;secureLoginSubmit.innerHTML='Sign in securely <span>→</span>'}
+  }
+});
+secureSignOut?.addEventListener('click',async()=>{
+  if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
+  setSecureWorkspaceVisible(false);
+  if(secureLoginForm)secureLoginForm.reset();
+  notify('You have signed out.');
+});
+if(supabaseAuthClient){
+  supabaseAuthClient.auth.getSession().then(async({data,error})=>{
+    if(error){console.warn('Could not restore Supabase session.',error);return}
+    if(data.session?.user)await verifyCompanyMembership(data.session.user);
+  });
+}
+
 /* Public prototype sign-in gate. This is demo routing, not secure authentication. */
 const demoLoginForm=document.getElementById('demoLoginForm');
 const demoRoleSelect=document.getElementById('demoRole');

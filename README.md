@@ -40,3 +40,17 @@ The project-specific Codex skill is in `.agents/skills/sageharvest-seed-monitor/
 ## Next stage
 
 Confirm crop-specific isolation rules, seasonal acreage and production targets, and crop/hybrid yield assumptions with the production team before adding compliance or predictive forecasts. The six Paddy inspection report forms are the current baseline. Other crops should use separately confirmed, configurable field definitions. GitHub Pages can host this front-end prototype; production records and integrations require a separate secure backend.
+
+
+## Supabase authentication integration (in progress)
+
+The branch `feature/supabase-auth-integration` adds a first authentication milestone for the existing static HTML/CSS/JavaScript application. It uses the project's public Supabase URL and publishable key in `supabase-config.js`; it does not use a service-role key.
+
+- The secure sign-in form uses Supabase email/password authentication.
+- After sign-in, the app checks for an active row in `company_memberships` under Row-Level Security.
+- A verified session shows a secure status screen and deliberately hides the prototype dashboard. This prevents sample records from being mistaken for live company data.
+- The existing sample demo remains separately available and is not connected to Supabase.
+- Live farmer, field, inspection, and production-data screens are **not yet connected**. Do not use the app for real production records yet.
+- The branch has not been merged to `main` or deployed to GitHub Pages.
+
+See [docs/SUPABASE_AUTH_INTEGRATION.md](docs/SUPABASE_AUTH_INTEGRATION.md) for the scope, setup, and verification checklist.
