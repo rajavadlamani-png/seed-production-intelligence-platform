@@ -529,9 +529,15 @@ body.demo-authenticated .mobile-switch{display:none!important}
 .secure-next-step{color:#607066;font-size:12px;line-height:1.7}
 .secure-status-row{display:flex;align-items:center;gap:8px;margin:18px 0;color:#416b49;font-size:11px;font-weight:700}
 .secure-status-dot{width:8px;height:8px;border-radius:50%;background:#4d8b55}
-body.secure-authenticated .welcome-gate,body.secure-authenticated .layout,body.secure-authenticated .toast{display:none!important}
-body.secure-authenticated .secure-workspace-gate{display:flex!important}
+body.secure-authenticated .welcome-gate,body.secure-authenticated .secure-workspace-gate,body.secure-authenticated .toast{display:none!important}
+body.secure-authenticated .layout{display:grid!important}
 body.secure-authenticated .mobile-switch{display:none!important}
+body.secure-authenticated #managerView{display:block!important}
+body.secure-authenticated #dashboardPage,body.secure-authenticated #registryPage{display:none!important}
+body.secure-authenticated #mastersView{display:block!important}
+body.secure-authenticated .sidebar .nav-item:not([data-view='masters']){display:none!important}
+body.secure-authenticated .prototype-tag{display:none!important}
+body.secure-authenticated .side-bottom{display:none!important}
 @media(max-width:700px){.secure-workspace-gate{padding:16px}.secure-workspace-card{padding:24px}.secure-workspace-card h1{font-size:24px}}
 
 
@@ -541,3 +547,26 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .password-flow>p.muted{margin:0 0 15px;font-size:10px;line-height:1.55}
 .login-success{margin:10px 0 0;padding:9px;border-radius:7px;background:#edf7ed;color:#356748;font-size:10px;line-height:1.5}
 .password-flow.hidden{display:none!important}
+
+/* Crop & Hybrid Masters — read-only first increment */
+.masters-note{margin:20px 0 18px;padding:15px 17px;border:1px solid #dce1da;border-left:3px solid #c9a75a;border-radius:8px;background:#fff}
+.masters-note strong{font-size:12px}.masters-note p{margin:6px 0 0;color:#607066;font-size:12px;line-height:1.55}
+.masters-tabs{display:flex;gap:7px;border-bottom:1px solid #dce1da;margin-bottom:18px}
+.masters-tab{border:0;border-bottom:2px solid transparent;background:transparent;padding:11px 16px;color:#607066;font:600 12px Inter,ui-sans-serif,system-ui,sans-serif;cursor:pointer}
+.masters-tab.selected{border-bottom-color:#123b2b;color:#123b2b}
+.masters-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}
+.masters-toolbar label{font-size:11px;font-weight:700;color:#607066}
+.masters-toolbar input{min-width:220px;max-width:420px;flex:1;border:1px solid #dce1da;border-radius:7px;padding:10px 12px;font:12px Inter,ui-sans-serif,system-ui,sans-serif;background:#fff;color:#17231d}
+.masters-status{padding:13px 15px;border:1px solid #dce1da;background:#fff;border-radius:8px;color:#607066;font-size:12px;margin:12px 0}
+.masters-status.success{border-color:#c7ddcb;background:#f2f8f2;color:#285e3a}
+.masters-status.error{border-color:#e4c7c2;background:#fff6f4;color:#9c3e34}
+.masters-table-host .table-wrap{background:#fff;border:1px solid #dce1da;border-radius:9px;overflow:auto}
+.masters-table-host table{width:100%;border-collapse:collapse;text-align:left;font-size:12px}
+.masters-table-host th{padding:12px 14px;background:#f5f6f1;color:#607066;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.masters-table-host td{padding:13px 14px;border-top:1px solid #e8ebe5}
+.masters-table-host code{font-size:11px;color:#365e49}
+.masters-state{display:inline-block;border-radius:20px;padding:4px 8px;font-size:10px;font-weight:700}
+.masters-state.active{background:#edf5ed;color:#28623d}.masters-state.inactive{background:#f0f1ef;color:#68746c}
+.masters-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;color:#607066;font-size:11px}
+body.secure-authenticated .layout{min-height:100vh}body.secure-authenticated main{max-width:1500px}
+@media(max-width:700px){body.secure-authenticated .layout{grid-template-columns:1fr}body.secure-authenticated .sidebar{position:static;border-right:0;border-bottom:1px solid #dce1da;padding:12px;display:flex;align-items:center;gap:5px;overflow-x:auto}body.secure-authenticated .sidebar .nav-item[data-view='masters']{display:block!important;white-space:nowrap;width:auto}body.secure-authenticated main{padding:20px 14px}.masters-toolbar input{max-width:none;min-width:0;width:100%}.masters-toolbar label{width:100%}}
