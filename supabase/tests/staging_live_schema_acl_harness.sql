@@ -161,6 +161,22 @@ begin
 end;
 $assert_remediation$;
 
+-- Regression probe: direct role revokes do not cancel privileges inherited from PUBLIC.
+-- This synthetic table exists only in the rollback-only harness. It demonstrates
+-- why the live preflight must inspect PUBLIC/inherited ACLs before relying on
+-- REVOKE ... FROM anon as a complete remediation.
+create table public.public_acl_probe (id integer primary key);
+grant truncate on table public.public_acl_probe to public;
+revoke all privileges on table public.public_acl_probe from anon;
+
+do $assert_public_inheritance$
+begin
+  if not has_table_privilege('anon', 'public.public_acl_probe', 'truncate') then
+    raise exception 'Expected PUBLIC TRUNCATE grant to remain effective for anon after direct anon revoke; PostgreSQL ACL inheritance behavior changed';
+  end if;
+end;
+$assert_public_inheritance$;
+
 -- No destructive statements are executed. Everything created or granted above
 -- is rolled back, leaving the staging project unchanged.
 rollback;
