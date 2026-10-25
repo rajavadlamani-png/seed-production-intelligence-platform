@@ -533,3 +533,11 @@ body.secure-authenticated .welcome-gate,body.secure-authenticated .layout,body.s
 body.secure-authenticated .secure-workspace-gate{display:flex!important}
 body.secure-authenticated .mobile-switch{display:none!important}
 @media(max-width:700px){.secure-workspace-gate{padding:16px}.secure-workspace-card{padding:24px}.secure-workspace-card h1{font-size:24px}}
+
+
+/* Supabase password recovery screens */
+.password-recovery-link{display:block;margin:10px auto 0;padding:5px;border:0;background:transparent;color:#356748;font-size:11px;font-weight:700;cursor:pointer}
+.password-flow h2{margin:8px 0 6px;color:#203f2d;font-size:20px}
+.password-flow>p.muted{margin:0 0 15px;font-size:10px;line-height:1.55}
+.login-success{margin:10px 0 0;padding:9px;border-radius:7px;background:#edf7ed;color:#356748;font-size:10px;line-height:1.5}
+.password-flow.hidden{display:none!important}
