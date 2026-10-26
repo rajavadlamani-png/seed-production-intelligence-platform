@@ -31,7 +31,7 @@ const payload = {
       resx: 10,
       resy: 10
     },
-    calculations: { default: { statistics: { default: { percentiles: { k: [10, 50, 90] } } } } }
+    calculations: { default: { statistics: { default: { percentiles: { k: [10, 50, 90] } } } } },
   providerEndpoint: 'https://sh.dataspace.copernicus.eu/statistics/v1',
   acquisition: {
     plotId: 'PLOT-R002',
