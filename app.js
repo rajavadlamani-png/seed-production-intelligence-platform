@@ -250,8 +250,42 @@ async function runCropMonitorSentinel2(){
     const raw=await response.text();
     let data;try{data=raw?JSON.parse(raw):{};}catch(_){data={message:raw.slice(0,1200)};}
     if(!response.ok)throw new Error('HTTP '+response.status+(data.error||data.message?': '+(data.error||data.message):''));
-    if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 Worker returned status OK</b><small>HTTP '+response.status+' · '+escape(data.provider||'provider not supplied')+' · '+escape(data.timestamp||new Date().toISOString())+'</small></div><span class="pill">Response received</span></div>';
-    if(output)output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-2 · PROVIDER RESPONSE</p><h3>Optical vegetation-index response</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip planned">Review response</span></div><p class="satellite-readonly-note">This is a live provider response, not a crop-health diagnosis. Confirm that NDVI, NDMI, NDRE, EVI and SAVI values, interval dates, and pixel/no-data counts are present before using them operationally.</p><details><summary>View full provider response (JSON)</summary><pre class="satellite-json">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
+
+    // Worker response shape: data.data.data[] -> interval -> outputs -> index -> bands.B0.stats.
+    const intervals=data?.data?.data;
+    const indexKeys=['ndvi','ndmi','ndre','evi','savi'];
+    const indexLabels={ndvi:'NDVI',ndmi:'NDMI',ndre:'NDRE',evi:'EVI',savi:'SAVI'};
+    const fmt=value=>Number.isFinite(Number(value))?Number(value).toFixed(4):'—';
+    const dateLabel=value=>{
+      if(!value)return 'Date unavailable';
+      const d=new Date(value);
+      return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+    };
+    const cards=Array.isArray(intervals)?intervals.map((item,i)=>{
+      const interval=item?.interval||{};
+      const outputs=item?.outputs||{};
+      const allStats=indexKeys.map(key=>{
+        const stats=outputs?.[key]?.bands?.B0?.stats||outputs?.[key]?.bands?.B0||{};
+        return {key,label:indexLabels[key],stats};
+      });
+      const available=allStats.filter(x=>Number.isFinite(Number(x.stats?.mean)));
+      const sampleCount=Math.max(0,...allStats.map(x=>Number(x.stats?.sampleCount)||0));
+      const noDataCount=Math.max(0,...allStats.map(x=>Number(x.stats?.noDataCount)||0));
+      const rows=allStats.map(({key,label,stats})=>'<tr><td><b>'+label+'</b></td><td>'+fmt(stats?.mean)+'</td><td>'+fmt(stats?.['50.0']??stats?.percentiles?.['50.0']??stats?.median)+'</td><td>'+fmt(stats?.min)+'</td><td>'+fmt(stats?.max)+'</td><td>'+((Number.isFinite(Number(stats?.sampleCount)))?Number(stats.sampleCount):'—')+'</td><td>'+((Number.isFinite(Number(stats?.noDataCount)))?Number(stats.noDataCount):'—')+'</td></tr>').join('');
+      return '<section class="panel satellite-interval-card"><div class="panel-head"><div><p class="eyebrow">OBSERVATION INTERVAL '+(i+1)+'</p><h3>'+escape(dateLabel(interval.from))+' – '+escape(dateLabel(interval.to))+'</h3><p class="muted">'+available.length+' of 5 indices have mean values · '+sampleCount+' sampled pixels · '+noDataCount+' no-data pixels per index</p></div><span class="status-chip '+(available.length===5?'ok':'planned')+'">'+available.length+'/5 indices</span></div><div class="table-wrap"><table><thead><tr><th>Index</th><th>Mean</th><th>Median (P50)</th><th>Min</th><th>Max</th><th>Sample pixels</th><th>No-data</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+    }).join(''):'';
+    const validIntervals=Array.isArray(intervals)?intervals.length:0;
+    const indexSet=new Set();
+    if(Array.isArray(intervals))intervals.forEach(item=>indexKeys.forEach(key=>{
+      const stats=item?.outputs?.[key]?.bands?.B0?.stats||{};
+      if(Number.isFinite(Number(stats.mean)))indexSet.add(key);
+    }));
+    const complete=validIntervals>0&&indexKeys.every(key=>indexSet.has(key));
+    if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 Worker returned status OK</b><small>HTTP '+response.status+' · '+escape(data.provider||'provider not supplied')+' · '+escape(data.timestamp||data.measuredAt||new Date().toISOString())+'</small></div><span class="pill">'+(complete?'Indices parsed':'Response received')+'</span></div>';
+    if(output){
+      const geometryCount=data?.data?.geometryPixelCount??data?.geometryPixelCount;
+      output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-2 · OPTICAL OBSERVATIONS</p><h3>Vegetation-index statistics</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(complete?'ok':'planned')+'">'+(complete?'Indices available':'Review response')+'</span></div><p class="satellite-readonly-note">Read-only provider statistics; not a crop-health diagnosis. Compare like-for-like dates and review crop stage, cloud masking and field conditions before agronomic decisions.</p><div class="satellite-summary-metrics"><div><small>Intervals returned</small><b>'+validIntervals+'</b></div><div><small>Indices found</small><b>'+indexSet.size+' / 5</b></div><div><small>Geometry pixels</small><b>'+(geometryCount??'—')+'</b></div></div>'+(validIntervals?cards:'<p class="satellite-readonly-note">The Worker responded successfully, but no interval statistics were found in the expected response field. Open the raw JSON for diagnosis.</p>')+'<details><summary>View full provider response (JSON)</summary><pre class="satellite-json">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
+    }
   }catch(error){
     if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 request failed</b><small>'+escape(error?.message||'Unknown error')+'</small></div><span class="pill">Error</span></div>';
     if(output)output.innerHTML='<p class="satellite-readonly-note">No production observation was saved. Review the error and Worker logs before retrying.</p>';
