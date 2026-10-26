@@ -55,7 +55,7 @@ try { result = raw ? JSON.parse(raw) : {}; }
 catch { throw new Error(`Worker returned non-JSON (HTTP ${response.status}).`); }
 
 if (!response.ok) {
-  throw new Error(`Worker HTTP ${response.status}: ${String(result.error || result.message || 'request failed').slice(0, 500)}`);
+  throw new Error(`Worker HTTP ${response.status}: ${String(result.error || result.message || JSON.stringify(result)).slice(0, 1000)}`);
 }
 if (result.status !== 'OK' || result.simulated === true) {
   throw new Error(`Worker did not confirm a real observation. status=${String(result.status)} provider=${String(result.provider || 'not stated')}`);
