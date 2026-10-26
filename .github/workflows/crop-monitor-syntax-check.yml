@@ -20,3 +20,5 @@ jobs:
           node-version: 22
       - name: Check application JavaScript syntax
         run: node --check app.js
+      - name: Smoke-test Sentinel-1 Worker polygon request
+        run: node tests/sentinel-worker-smoke.mjs
