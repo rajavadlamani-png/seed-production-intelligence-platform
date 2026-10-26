@@ -455,7 +455,7 @@ function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.re
 nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=false;render()}));
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';showMasterImport=true;render()});
-document.getElementById('openSatelliteKmlTest')?.addEventListener('click',()=>{role='officer';fieldMode=true;fieldTab='satellite';fieldScreen()});
+document.addEventListener('click',e=>{if(e.target.closest('#openSatelliteKmlTest')){role='officer';fieldMode=true;fieldTab='satellite';fieldScreen()}});
 
 
 /* Supabase secure sign-in. Authenticated sessions stay out of the sample-data dashboard until live data screens are connected. */
