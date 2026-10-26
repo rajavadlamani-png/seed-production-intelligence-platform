@@ -28,8 +28,8 @@ const payload = {
       timeRange: { from: '2026-10-01T00:00:00.000Z', to: '2026-10-26T23:59:59.999Z' },
       aggregationInterval: { of: 'P1D' },
       evalscript,
-      resx: 10,
-      resy: 10
+      resx: '10m',
+      resy: '10m'
     },
     calculations: { default: { statistics: { default: { percentiles: { k: [10, 50, 90] } } } } },
   providerEndpoint: 'https://sh.dataspace.copernicus.eu/statistics/v1',
