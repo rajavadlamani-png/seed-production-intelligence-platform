@@ -27,7 +27,7 @@ const manager = document.getElementById('managerView'), field = document.getElem
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
 const nav = [...document.querySelectorAll('.nav-item')];
 const toast = document.getElementById('toast');
-let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectionId=null;
+let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectionId=null, satelliteRequestGeometry=null;
 function notify(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2800)}
 function scoped(){if(role==='officer')return records.filter(r=>r.officer===selectedOfficer);if(role==='territory')return records.filter(r=>r.territoryManager===selectedTerritoryManager);if(role==='aggregator')return records.filter(r=>r.aggregator==='AG-01');return records}
 const TEAM_BY_TERRITORY={'TM-01':['FA-01','FA-02'],'TM-02':['FA-03','FA-04']};
@@ -203,14 +203,19 @@ function askRamScreen(current){
 
 
 function applySatelliteBoundary(points,plotId,source){
-  const lons=points.map(p=>Number(p.lon??p.lng)),lats=points.map(p=>Number(p.lat));
-  if(points.length<3||!lons.every(Number.isFinite)||!lats.every(Number.isFinite))throw new Error('A valid boundary with at least 3 GPS points is required.');
+  const clean=points.map(p=>({lon:Number(p.lon??p.lng),lat:Number(p.lat)})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat)&&Math.abs(p.lon)<=180&&Math.abs(p.lat)<=90);
+  if(clean.length>1&&clean[0].lon===clean[clean.length-1].lon&&clean[0].lat===clean[clean.length-1].lat)clean.pop();
+  const unique=new Set(clean.map(p=>p.lon.toFixed(8)+','+p.lat.toFixed(8)));
+  if(clean.length<3||unique.size<3)throw new Error('A valid boundary with at least 3 distinct GPS points is required.');
+  const lons=clean.map(p=>p.lon),lats=clean.map(p=>p.lat);
   const west=Math.min(...lons),east=Math.max(...lons),south=Math.min(...lats),north=Math.max(...lats);
   if(west===east||south===north)throw new Error('The boundary does not cover a valid geographic area.');
+  const ring=clean.map(p=>[p.lon,p.lat]);ring.push([...ring[0]]);
+  satelliteRequestGeometry={type:'Polygon',coordinates:[ring]};
   const values={satellitePlotId:String(plotId||'FIELD-BOUNDARY'),satelliteWest:west.toFixed(6),satelliteSouth:south.toFixed(6),satelliteEast:east.toFixed(6),satelliteNorth:north.toFixed(6)};
   Object.entries(values).forEach(([id,value])=>{const input=document.getElementById(id);if(input)input.value=value});
   const note=document.getElementById('satelliteReferenceNote');
-  if(note)note.textContent=source+' loaded. The current connector request uses the derived bounding box, not the full polygon geometry.';
+  if(note)note.textContent=source+' loaded. The request will include the full polygon plus its bounding box, so pixels outside the field can be excluded by the provider.';
 }
 
 async function runCropMonitorSatellite(){
@@ -229,7 +234,7 @@ async function runCropMonitorSatellite(){
   const to=new Date(toValue+'T23:59:59.999Z').toISOString();
   const evalscript='//VERSION=3\nfunction setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:2,sampleType:"FLOAT32"},{id:"dataMask",bands:1}]};}\nfunction evaluatePixel(samples){return {backscatter:[samples.VV,samples.VH],dataMask:[samples.dataMask]};}';
   const requestBody={
-    input:{bounds:{bbox,properties:{crs:'http://www.opengis.net/def/crs/EPSG/0/4326'}},data:[{type:'sentinel-1-grd',dataFilter:{},processing:{orthorectify:true,backCoeff:'GAMMA0_TERRAIN'}}]},
+    input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}},data:[{type:'sentinel-1-grd',dataFilter:{},processing:{orthorectify:true,backCoeff:'GAMMA0_TERRAIN'}}]},
     aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx:10,resy:10},
     calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}}
   };
@@ -283,10 +288,12 @@ function fieldScreen(){
       if(!/\.kml$/i.test(file.name))throw new Error('Please choose a .kml file.');
       const xmlText=await file.text(),xml=new DOMParser().parseFromString(xmlText,'application/xml');
       if(xml.querySelector('parsererror'))throw new Error('The KML file could not be read.');
-      const coords=[...xml.getElementsByTagNameNS('*','coordinates')].flatMap(node=>node.textContent.trim().split(/\s+/).map(pair=>pair.split(',')).filter(parts=>parts.length>=2).map(parts=>({lon:Number(parts[0]),lat:Number(parts[1])})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat)&&Math.abs(p.lon)<=180&&Math.abs(p.lat)<=90));
-      if(coords.length<3)throw new Error('No valid field polygon coordinates found in the KML.');
+      const outer=xml.getElementsByTagNameNS('*','outerBoundaryIs')[0];
+      const coordsNode=outer?.getElementsByTagNameNS('*','coordinates')[0]||xml.getElementsByTagNameNS('*','coordinates')[0];
+      const coords=(coordsNode?.textContent||'').trim().split(/\s+/).map(pair=>pair.split(',')).filter(parts=>parts.length>=2).map(parts=>({lon:Number(parts[0]),lat:Number(parts[1])})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat)&&Math.abs(p.lon)<=180&&Math.abs(p.lat)<=90);
+      if(coords.length<3)throw new Error('No valid outer field-boundary polygon coordinates found in the KML.');
       applySatelliteBoundary(coords,file.name.replace(/\.kml$/i,''),'KML file');
-      if(note)note.textContent='Loaded '+file.name+' ('+coords.length+' boundary coordinates). Bounding box derived from the KML boundary.';
+      if(note)note.textContent='Loaded '+file.name+' ('+coords.length+' outer-boundary coordinates). Full polygon and bounding box are ready.';
     }catch(err){if(note)note.textContent=err.message||'Could not load KML.';notify(err.message||'Could not load KML.');}
   });
   field.querySelector('#useCurrentGpsBoundary')?.addEventListener('click',()=>{
@@ -298,6 +305,7 @@ function fieldScreen(){
     if(note)note.textContent='Using '+selected.fieldNo+' GPS boundary ('+points.length+' points); recorded area: '+(recordedAcres(selected)?recordedAcres(selected).toFixed(2)+' acres':'not recorded')+'.';
   });
   field.querySelector('#useReferenceSatelliteSample')?.addEventListener('click',()=>{
+    satelliteRequestGeometry=null;
     const values={satellitePlotId:'PLOT-R002',satelliteWest:'79.00',satelliteSouth:'17.00',satelliteEast:'79.10',satelliteNorth:'17.10',satelliteFrom:'2026-10-01',satelliteTo:'2026-10-26'};
     Object.entries(values).forEach(([id,value])=>{const input=field.querySelector('#'+id);if(input)input.value=value});
     const note=field.querySelector('#satelliteReferenceNote');
