@@ -238,7 +238,7 @@ async function runCropMonitorSatellite(){
     aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx:10,resy:10},
     calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}}
   };
-  const payload={operation:'sentinel1-statistics',request:requestBody,providerEndpoint:'https://sh.dataspace.copernicus.eu/statistics/v1',acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},requestedAt:new Date().toISOString(),clientVersion:'SEED-PRODUCTION-MONITOR-EO-0.1'};
+  const payload={operation:'sentinel1-statistics',...requestBody,providerEndpoint:'https://sh.dataspace.copernicus.eu/statistics/v1',acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},requestedAt:new Date().toISOString(),clientVersion:'SEED-PRODUCTION-MONITOR-EO-0.1'};
   if(button)button.disabled=true;
   if(status)status.innerHTML='<div class="control-row"><div><b>Requesting Sentinel-1 statistics</b><small>Sending the request to the existing ANVORA Worker; no provider credentials are exposed in the browser.</small></div><span class="pill">Running…</span></div>';
   if(output)output.innerHTML='';
