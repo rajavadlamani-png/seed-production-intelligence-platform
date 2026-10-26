@@ -533,3 +533,15 @@ body.secure-authenticated .welcome-gate,body.secure-authenticated .layout,body.s
 body.secure-authenticated .secure-workspace-gate{display:flex!important}
 body.secure-authenticated .mobile-switch{display:none!important}
 @media(max-width:700px){.secure-workspace-gate{padding:16px}.secure-workspace-card{padding:24px}.secure-workspace-card h1{font-size:24px}}
+
+
+/* Existing ANVORA Sentinel-1 Worker integration */
+.satellite-connector-panel{margin-top:16px}
+.satellite-request-form{margin-top:14px}
+.satellite-coordinate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.satellite-coordinate-grid label{display:flex;flex-direction:column;gap:6px;font-size:.82rem;font-weight:650;color:var(--ink,#173b2f)}
+.satellite-coordinate-grid input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd8d0;border-radius:9px;padding:10px 11px;background:#fff;color:#173b2f;font:inherit}
+.satellite-request-form .hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+#cropSatelliteResult pre{font-size:.78rem;line-height:1.45}
+@media(max-width:760px){.satellite-coordinate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){.satellite-coordinate-grid{grid-template-columns:1fr}}
