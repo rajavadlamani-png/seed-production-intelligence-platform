@@ -235,7 +235,7 @@ async function runCropMonitorSatellite(){
   const evalscript='//VERSION=3\nfunction setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:2,sampleType:"FLOAT32"},{id:"dataMask",bands:1}]};}\nfunction evaluatePixel(samples){return {backscatter:[samples.VV,samples.VH],dataMask:[samples.dataMask]};}';
   const requestBody={
     input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}},data:[{type:'sentinel-1-grd',dataFilter:{},processing:{orthorectify:true,backCoeff:'GAMMA0_TERRAIN'}}]},
-    aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx:10,resy:10},
+    aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx:'10m',resy:'10m'},
     calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}}
   };
   const payload={operation:'sentinel1-statistics',...requestBody,providerEndpoint:'https://sh.dataspace.copernicus.eu/statistics/v1',acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},requestedAt:new Date().toISOString(),clientVersion:'SEED-PRODUCTION-MONITOR-EO-0.1'};
