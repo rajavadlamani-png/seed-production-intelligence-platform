@@ -533,3 +533,26 @@ body.secure-authenticated .welcome-gate,body.secure-authenticated .layout,body.s
 body.secure-authenticated .secure-workspace-gate{display:flex!important}
 body.secure-authenticated .mobile-switch{display:none!important}
 @media(max-width:700px){.secure-workspace-gate{padding:16px}.secure-workspace-card{padding:24px}.secure-workspace-card h1{font-size:24px}}
+
+
+/* Existing ANVORA Sentinel-1 Worker integration */
+.satellite-connector-panel{margin-top:16px}
+.satellite-request-form{margin-top:14px}
+.satellite-coordinate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.satellite-coordinate-grid label{display:flex;flex-direction:column;gap:6px;font-size:.82rem;font-weight:650;color:var(--ink,#173b2f)}
+.satellite-coordinate-grid input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd8d0;border-radius:9px;padding:10px 11px;background:#fff;color:#173b2f;font:inherit}
+.satellite-request-form .hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+#cropSatelliteResult pre{font-size:.78rem;line-height:1.45}
+@media(max-width:760px){.satellite-coordinate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:460px){.satellite-coordinate-grid{grid-template-columns:1fr}}
+
+
+.satellite-boundary-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:end;margin:14px 0;padding:14px;border:1px solid var(--line,#d8e2db);border-radius:12px;background:var(--surface-soft,#f7faf7)}
+.satellite-file-label{display:grid;gap:7px;font-size:13px;font-weight:650}
+.satellite-file-label input{max-width:100%;font:inherit;font-size:13px}
+#satelliteBoundaryStatus{grid-column:1/-1;font-size:12px;line-height:1.45}
+@media(max-width:560px){.satellite-boundary-inputs{grid-template-columns:1fr}}
+
+/* Keep the satellite test easy to find from the manager overview. */
+.po-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+@media(max-width:760px){.po-heading-actions{width:100%;justify-content:flex-start}.po-heading-actions button{flex:1}}
