@@ -552,3 +552,7 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .satellite-file-label input{max-width:100%;font:inherit;font-size:13px}
 #satelliteBoundaryStatus{grid-column:1/-1;font-size:12px;line-height:1.45}
 @media(max-width:560px){.satellite-boundary-inputs{grid-template-columns:1fr}}
+
+/* Keep the satellite test easy to find from the manager overview. */
+.po-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+@media(max-width:760px){.po-heading-actions{width:100%;justify-content:flex-start}.po-heading-actions button{flex:1}}
