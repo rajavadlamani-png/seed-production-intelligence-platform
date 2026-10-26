@@ -233,9 +233,13 @@ async function runCropMonitorSatellite(){
   const from=new Date(fromValue+'T00:00:00.000Z').toISOString();
   const to=new Date(toValue+'T23:59:59.999Z').toISOString();
   const evalscript='//VERSION=3\nfunction setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:2,sampleType:"FLOAT32"},{id:"dataMask",bands:1}]};}\nfunction evaluatePixel(samples){return {backscatter:[samples.VV,samples.VH],dataMask:[samples.dataMask]};}';
+  // Sentinel Hub resolution units must match the bounds CRS. The bbox is in degrees (CRS84), so convert target metres to approximate degrees at the field latitude.
+  const centerLat=(south+north)/2;
+  const resx=10/(111320*Math.cos(centerLat*Math.PI/180));
+  const resy=10/110574;
   const requestBody={
     input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}},data:[{type:'sentinel-1-grd',dataFilter:{},processing:{orthorectify:true,backCoeff:'GAMMA0_TERRAIN'}}]},
-    aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx:'10m',resy:'10m'},
+    aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx,resy},
     calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}}
   };
   const payload={operation:'sentinel1-statistics',...requestBody,providerEndpoint:'https://sh.dataspace.copernicus.eu/statistics/v1',acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},requestedAt:new Date().toISOString(),clientVersion:'SEED-PRODUCTION-MONITOR-EO-0.1'};
