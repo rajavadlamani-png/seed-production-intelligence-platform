@@ -311,7 +311,7 @@ async function runCropMonitorSentinel2Image(){
     const type=response.headers.get('content-type')||'';
     if(!response.ok||!type.includes('image/')){
       const raw=await response.text();
-      let details=raw;try{const parsed=JSON.parse(raw);details=parsed.error||parsed.details||raw;}catch(_){}
+      let details=raw;try{const parsed=JSON.parse(raw);details=parsed.details||parsed.error||raw;}catch(_){}
       throw new Error('HTTP '+response.status+': '+String(details).slice(0,900));
     }
     const blob=await response.blob();
