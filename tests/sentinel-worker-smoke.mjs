@@ -10,6 +10,9 @@ const ring = [
 ];
 
 const evalscript = '//VERSION=3\nfunction setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:2,sampleType:"FLOAT32"},{id:"dataMask",bands:1}]};}\nfunction evaluatePixel(samples){return {backscatter:[samples.VV,samples.VH],dataMask:[samples.dataMask]};}';
+const centerLat = (bbox[1] + bbox[3]) / 2;
+const resx = 30 / (111320 * Math.cos(centerLat * Math.PI / 180));
+const resy = 30 / 110574;
 const payload = {
   operation: 'sentinel1-statistics',
   input: {
@@ -28,8 +31,8 @@ const payload = {
       timeRange: { from: '2026-10-01T00:00:00.000Z', to: '2026-10-26T23:59:59.999Z' },
       aggregationInterval: { of: 'P1D' },
       evalscript,
-      resx: '10m',
-      resy: '10m'
+      resx,
+      resy
     },
     calculations: { default: { statistics: { default: { percentiles: { k: [10, 50, 90] } } } } },
   providerEndpoint: 'https://sh.dataspace.copernicus.eu/statistics/v1',
