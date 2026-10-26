@@ -12,8 +12,7 @@ const ring = [
 const evalscript = '//VERSION=3\nfunction setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:2,sampleType:"FLOAT32"},{id:"dataMask",bands:1}]};}\nfunction evaluatePixel(samples){return {backscatter:[samples.VV,samples.VH],dataMask:[samples.dataMask]};}';
 const payload = {
   operation: 'sentinel1-statistics',
-  request: {
-    input: {
+  input: {
       bounds: {
         bbox,
         geometry: { type: 'Polygon', coordinates: [ring] },
@@ -33,7 +32,6 @@ const payload = {
       resy: 10
     },
     calculations: { default: { statistics: { default: { percentiles: { k: [10, 50, 90] } } } } }
-  },
   providerEndpoint: 'https://sh.dataspace.copernicus.eu/statistics/v1',
   acquisition: {
     plotId: 'PLOT-R002',
