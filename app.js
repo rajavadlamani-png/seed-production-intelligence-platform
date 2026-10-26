@@ -236,7 +236,7 @@ async function runCropMonitorSentinel2(){
   const resx=10/(111320*Math.cos(centerLat*Math.PI/180));
   const resy=10/110574;
   const payload={
-    input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}}},
+    input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}},data:[{type:'sentinel-2-l2a',dataFilter:{maxCloudCoverage:20,mosaickingOrder:'leastCC'}}]},
     aggregation:{timeRange:{from,to},aggregationInterval:{of:'P5D'},resx,resy},
     calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}},
     acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},
