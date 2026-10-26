@@ -420,25 +420,11 @@ async function loadSeedWeather(fieldRecord){
   const host=document.getElementById('seedWeatherPanel');if(!host||!fieldRecord)return;
   host.innerHTML='<section class="weather-panel"><p class="eyebrow">WEATHER & SEED PRODUCTION</p><h2>Loading field weather…</h2><p class="muted">Retrieving current conditions and a 7-day forecast.</p></section>';
   try{
-    let placeLabel=[fieldRecord.village,fieldRecord.district,fieldRecord.state].filter(Boolean).join(', ');
-    let lat,lon,locationLabel=placeLabel;
-    if(Array.isArray(fieldRecord.boundaryPoints)&&fieldRecord.boundaryPoints.length>=3){
-      const center=centroid(fieldRecord.boundaryPoints);lat=center.lat;lon=center.lon;locationLabel+=' · field GPS boundary';
-    }else{
-      const searchTerms=[fieldRecord.village,fieldRecord.district].filter(Boolean);
-      let hit=null;
-      for(const term of searchTerms){
-        const geo=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(term)+'&count=10&language=en&format=json');
-        if(!geo.ok)continue;
-        const gd=await geo.json();const results=gd.results||[];
-        hit=results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.admin1||'').toLowerCase().includes(String(fieldRecord.state||'').toLowerCase()))||
-            results.find(x=>String(x.country_code||'').toUpperCase()==='IN'&&String(x.name||'').toLowerCase()===String(term).toLowerCase())||
-            results.find(x=>String(x.country_code||'').toUpperCase()==='IN');
-        if(hit)break;
-      }
-      if(!hit)throw new Error('Could not locate this sample field. Capture its GPS boundary or check the village and district.');
-      lat=hit.latitude;lon=hit.longitude;locationLabel=[hit.name,hit.admin1,hit.country].filter(Boolean).join(', ');
-    }
+    if(!navigator.geolocation)throw new Error('This browser does not support device location. Weather requires current GPS access.');
+    const position=await new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,()=>reject(new Error('Current device GPS is unavailable. Allow location access in your browser and retry.')), {enableHighAccuracy:true,timeout:15000,maximumAge:60000}));
+    const lat=position.coords.latitude,lon=position.coords.longitude;
+    const accuracy=Math.round(position.coords.accuracy||0);
+    const locationLabel='Current device GPS · accuracy ±'+accuracy+' m';
     const params=new URLSearchParams({latitude:String(lat),longitude:String(lon),timezone:'auto',forecast_days:'7',
       current:'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
       hourly:'temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,et0_fao_evapotranspiration',
