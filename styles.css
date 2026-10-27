@@ -460,7 +460,7 @@ body.field-mode .field-app-shell{padding-bottom:110px!important}
 .demo-credentials small{margin-top:3px;font-size:9px}
 .welcome-disclaimer{max-width:900px;margin:22px auto 0;color:#879187;font-size:9px;line-height:1.6;text-align:center}
 body.demo-authenticated .welcome-gate{display:none}
-body.demo-authenticated .mobile-switch{display:none!important}
+
 @media(max-width:700px){.welcome-gate{align-items:start;padding:20px 14px}.welcome-brand{margin-bottom:22px}.welcome-brand img{width:45px;height:45px}.welcome-columns{grid-template-columns:1fr;gap:12px}.welcome-flow{gap:7px;padding:0}.welcome-flow>div{padding:11px 12px}.welcome-login{padding:20px}.welcome-copy h1{font-size:32px}.welcome-copy>p:last-child{font-size:12px}.welcome-disclaimer{margin:16px 0 4px}}
 
 
