@@ -594,3 +594,19 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .satellite-trend-row>strong{text-align:right}
 .satellite-trend-row .trend-down{color:#a44434}.satellite-trend-row .trend-up{color:#27734d}.satellite-trend-row .trend-steady{color:#68766d}
 @media(max-width:540px){.satellite-trend-row{grid-template-columns:.55fr 1.2fr .7fr;font-size:.77rem;padding:8px 7px}}
+
+/* Combined satellite comparison charts */
+.combined-satellite-panel{background:#fbfcfa;border-color:#dce6dd}
+.combined-chart{margin:14px 0;padding:12px;border:1px solid #e1e8e1;border-radius:10px;background:#fff}
+.combined-chart h4{margin:0 0 8px;font-size:.96rem}
+.combined-chart svg{display:block;width:100%;height:auto;overflow:visible}
+.combined-chart svg text{font-size:12px;fill:#617166}
+.combined-axis{stroke:#aebbb1;stroke-width:1}
+.combined-grid{stroke:#e7ece7;stroke-width:1;stroke-dasharray:4 4}
+.combined-line-a{stroke:#277c58}.combined-line-b{stroke:#bd8740}
+.combined-dot-a{fill:#277c58}.combined-dot-b{fill:#bd8740}
+.combined-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:4px;font-size:.8rem;color:#43574a}
+.combined-legend span:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#277c58;margin-right:6px}
+.combined-legend span:nth-child(2):before{background:#bd8740}
+.combined-date-check{padding:12px;border:1px solid #dce6dd;border-radius:9px;background:#fff;margin:12px 0}
+.combined-date-check p{margin:5px 0 0;line-height:1.5;font-size:.88rem;color:#4a5d51}
