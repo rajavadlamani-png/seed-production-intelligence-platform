@@ -46,6 +46,48 @@ function cropHealthDashboard(list){
 }
 const badge=s=>`<span class="demo-status ${s==='On track'?'ok':s==='Due'?'due':'follow'}">${s}</span>`;
 function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function advisoryValue(stats,key){
+  const value=stats?.[key]?.bands?.B0?.stats?.mean;
+  return Number.isFinite(Number(value))?Number(value):null;
+}
+function opticalAdvisory(stats,previousStats){
+  const ndvi=advisoryValue(stats,'ndvi'), ndmi=advisoryValue(stats,'ndmi'), ndre=advisoryValue(stats,'ndre');
+  const previousNdvi=advisoryValue(previousStats,'ndvi');
+  const items=[];
+  if(ndvi===null){
+    items.push({title:'Crop vigour',text:'NDVI was not available for this observation, so crop vigour cannot be assessed from this interval.'});
+  }else{
+    let text=ndvi<0.2?'The vegetation signal is low or sparse. Bare soil, early crop stage, harvested ground, water or weak crop growth can all produce this pattern.':ndvi<0.4?'The vegetation signal is moderate. Whether this is expected depends on crop type, growth stage and field conditions.':'The vegetation signal is relatively strong, which is consistent with a greener or denser canopy; it does not by itself prove the crop is stress-free.';
+    if(previousNdvi!==null){
+      const delta=ndvi-previousNdvi;
+      if(delta<=-0.08) text+=' NDVI has fallen noticeably versus the previous interval; check the field for stress or a normal stage transition.';
+      else if(delta>=0.08) text+=' NDVI has risen noticeably versus the previous interval, which may indicate canopy development or recovery.';
+      else text+=' NDVI is broadly stable versus the previous interval.';
+    }
+    items.push({title:'Crop vigour (NDVI)',text});
+  }
+  if(ndmi===null){
+    items.push({title:'Canopy moisture signal (NDMI)',text:'NDMI was not available. No moisture interpretation can be made from this interval.'});
+  }else{
+    items.push({title:'Canopy moisture signal (NDMI)',text:ndmi<0?'NDMI is below zero, which can be consistent with a relatively low vegetation-moisture signal, but soil background, crop stage and canopy density can affect it. Check soil and plant moisture directly.':'NDMI is above zero, indicating a positive vegetation-moisture signal. Compare with the same field over time; this is not a direct soil-moisture measurement.'});
+  }
+  if(ndre!==null) items.push({title:'Chlorophyll-related signal (NDRE)',text:'NDRE mean is '+ndre.toFixed(3)+'. Interpret it against earlier observations of this same crop and growth stage; it cannot identify a specific nutrient deficiency on its own.'});
+  return '<section class="satellite-advisory"><p class="eyebrow">PLAIN-LANGUAGE INTERPRETATION · SCREENING ONLY</p>'+items.map(x=>'<div class="satellite-advisory-item"><b>'+escape(x.title)+'</b><p>'+escape(x.text)+'</p></div>').join('')+'<div class="satellite-advisory-next"><b>What to do next</b><p>Inspect the field before taking corrective action. Check crop stage, soil moisture, waterlogging, weeds, nutrient symptoms, pests and disease. Satellite indices cannot confirm a pest, disease, lodging event or a specific nutrient problem by themselves.</p></div></section>';
+}
+function radarAdvisory(vv,vh,previousVv,previousVh){
+  const items=[];
+  function trend(label,current,previous){
+    if(!Number.isFinite(current)) return label+' value is unavailable.';
+    if(!Number.isFinite(previous)) return label+' mean is '+current.toFixed(4)+'. A single radar value is not enough to diagnose crop condition or soil moisture.';
+    const change=current-previous, pct=Math.abs(previous)>0.000001?Math.abs(change/previous)*100:null;
+    if(pct!==null&&pct>=20) return label+' changed by about '+pct.toFixed(0)+'% versus the previous interval. This is a notable radar-signal change, not a diagnosis; rainfall, surface wetness, vegetation structure and acquisition conditions can affect it.';
+    return label+' is broadly stable versus the previous interval. This alone does not establish that the crop is healthy or free from stress.';
+  }
+  items.push(trend('VV backscatter',vv,previousVv));
+  items.push(trend('VH backscatter',vh,previousVh));
+  return '<section class="satellite-advisory"><p class="eyebrow">PLAIN-LANGUAGE INTERPRETATION · RADAR SIGNAL</p>'+items.map(t=>'<div class="satellite-advisory-item"><p>'+escape(t)+'</p></div>').join('')+'<div class="satellite-advisory-next"><b>What to do next</b><p>Compare several usable observations and check rainfall/irrigation records. Confirm possible water stress, waterlogging or lodging in the field; VV/VH alone cannot confirm any of these conditions.</p></div></section>';
+}
+
 function roleToolbar(){return `<div class="demo-toolbar"><div><b>Interactive demo</b><small>Sample data only · changes reset when you refresh</small></div><label>View as <select id="roleSelect"><option value="manager">Production Manager · Maharashtra</option><option value="territory">Territory Manager · team scope</option><option value="officer">Field Officer · assigned fields</option><option value="aggregator">Aggregator · AG-01</option></select></label><label id="officerPicker" class="${role==='officer'?'':'hidden'}">Field officer <select id="officerSelect"><option>FA-01</option><option>FA-02</option><option>FA-03</option><option>FA-04</option></select></label><label id="territoryPicker" class="${role==='territory'?'':'hidden'}">Territory manager <select id="territorySelect"><option>TM-01</option><option>TM-02</option></select></label><button class="outline" id="openFieldApp">Open field app view</button><button class="outline" id="resetDemo">Reset demo</button></div><div class="simulation-note">Role views are a workflow simulation. Secure sign-in and server-enforced access are not implemented.</div>`}
 function shell(){document.querySelector('.mobile-switch')?.classList.add('hidden');let old=document.getElementById('demoToolbar');if(old)old.remove();manager.insertAdjacentHTML('afterbegin',`<div id="demoToolbar">${roleToolbar()}</div>`);document.getElementById('roleSelect').value=role;document.getElementById('officerSelect').value=selectedOfficer;document.getElementById('territorySelect').value=selectedTerritoryManager;document.getElementById('roleSelect').onchange=e=>{role=e.target.value;page='overview';render()};document.getElementById('officerSelect').onchange=e=>{selectedOfficer=e.target.value;render()};document.getElementById('territorySelect').onchange=e=>{selectedTerritoryManager=e.target.value;render()};document.getElementById('openFieldApp').onclick=()=>{role='officer';fieldScreen()};document.getElementById('resetDemo').onclick=()=>{records=structuredClone(SEED);role='manager';page='overview';render();notify('Demo data reset to its original sample records.')};}
 function metrics(list){let due=list.filter(r=>r.status!=='On track').length,done=list.filter(r=>r.stage>=3).length;return `<div class="metric-grid"><article class="metric"><div class="metric-title">Farmers in this view</div><strong>${list.length}</strong><small>Synthetic demo records</small></article><article class="metric"><div class="metric-title">Inspections up to date</div><strong>${list.length?Math.round((list.length-due)/list.length*100):0}%</strong><small>${list.length-due} on track</small><div class="progress"><span style="width:${list.length?(list.length-due)/list.length*100:0}%"></span></div></article><article class="metric"><div class="metric-title">Needs follow-up</div><strong>${due}</strong><small>Due or follow-up records</small></article><article class="metric"><div class="metric-title">Quality red flags</div><strong>${list.reduce((n,r)=>n+(r.qualityFlags?.length?1:0),0)}</strong><small>Records needing review</small></article><article class="metric"><div class="metric-title">SAP lot numbers</div><strong>${list.filter(r=>r.sapLot).length}/${list.length}</strong><small>Remaining can be simulated</small></article></div>`}
@@ -272,7 +314,8 @@ async function runCropMonitorSentinel2(){
       const sampleCount=Math.max(0,...allStats.map(x=>Number(x.stats?.sampleCount)||0));
       const noDataCount=Math.max(0,...allStats.map(x=>Number(x.stats?.noDataCount)||0));
       const rows=allStats.map(({key,label,stats})=>'<tr><td><b>'+label+'</b></td><td>'+fmt(stats?.mean)+'</td><td>'+fmt(stats?.['50.0']??stats?.percentiles?.['50.0']??stats?.median)+'</td><td>'+fmt(stats?.min)+'</td><td>'+fmt(stats?.max)+'</td><td>'+((Number.isFinite(Number(stats?.sampleCount)))?Number(stats.sampleCount):'—')+'</td><td>'+((Number.isFinite(Number(stats?.noDataCount)))?Number(stats.noDataCount):'—')+'</td></tr>').join('');
-      return '<section class="panel satellite-interval-card"><div class="panel-head"><div><p class="eyebrow">OBSERVATION INTERVAL '+(i+1)+'</p><h3>'+escape(dateLabel(interval.from))+' – '+escape(dateLabel(interval.to))+'</h3><p class="muted">'+available.length+' of 5 indices have mean values · '+sampleCount+' sampled pixels · '+noDataCount+' no-data pixels per index</p></div><span class="status-chip '+(available.length===5?'ok':'planned')+'">'+available.length+'/5 indices</span></div><div class="table-wrap"><table><thead><tr><th>Index</th><th>Mean</th><th>Median (P50)</th><th>Min</th><th>Max</th><th>Sample pixels</th><th>No-data</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+      const previousOutputs=i>0?(intervals[i-1]?.outputs||{}):null;
+      return '<section class="panel satellite-interval-card"><div class="panel-head"><div><p class="eyebrow">OBSERVATION INTERVAL '+(i+1)+'</p><h3>'+escape(dateLabel(interval.from))+' – '+escape(dateLabel(interval.to))+'</h3><p class="muted">'+available.length+' of 5 indices have mean values · '+sampleCount+' sampled pixels · '+noDataCount+' no-data pixels per index</p></div><span class="status-chip '+(available.length===5?'ok':'planned')+'">'+available.length+'/5 indices</span></div><div class="table-wrap"><table><thead><tr><th>Index</th><th>Mean</th><th>Median (P50)</th><th>Min</th><th>Max</th><th>Sample pixels</th><th>No-data</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+opticalAdvisory(outputs,previousOutputs)+'</section>';
     }).join(''):'';
     const validIntervals=Array.isArray(intervals)?intervals.length:0;
     const indexSet=new Set();
@@ -395,10 +438,13 @@ async function runCropMonitorSatellite(){
         const vv=outputs.B0?.stats||{},vh=outputs.B1?.stats||{};
         const intervalStart=item.interval?.from,intervalEnd=item.interval?.to;
         const sampleCount=Number(vv.sampleCount??vh.sampleCount),noData=Number(vv.noDataCount??vh.noDataCount);
+        const previousItem=index>0?intervals[index-1]:null;
+        const previousBands=previousItem?.outputs?.backscatter?.bands||{};
+        const previousVv=Number(previousBands.B0?.stats?.mean),previousVh=Number(previousBands.B1?.stats?.mean);
         return '<article class="satellite-interval-card"><div class="satellite-interval-head"><b>Observation interval '+(index+1)+'</b><span>'+escape(dateLabel(intervalStart))+'</span></div><div class="satellite-band-grid">'+
           '<div><small>VV backscatter · mean</small><b>'+fmt(vv.mean)+'</b><span>Median '+fmt(vv.percentiles?.['50.0'])+'</span></div>'+
           '<div><small>VH backscatter · mean</small><b>'+fmt(vh.mean)+'</b><span>Median '+fmt(vh.percentiles?.['50.0'])+'</span></div></div>'+
-          '<p class="satellite-interval-meta">'+escape(intervalStart?new Date(intervalStart).toISOString().slice(0,10):'Start unknown')+' to '+escape(intervalEnd?new Date(intervalEnd).toISOString().slice(0,10):'end unknown')+' · '+(Number.isFinite(sampleCount)?sampleCount+' sampled pixels':'pixel count not supplied')+(Number.isFinite(noData)?' · '+noData+' no-data pixels':'')+'</p></article>';
+          '<p class="satellite-interval-meta">'+escape(intervalStart?new Date(intervalStart).toISOString().slice(0,10):'Start unknown')+' to '+escape(intervalEnd?new Date(intervalEnd).toISOString().slice(0,10):'end unknown')+' · '+(Number.isFinite(sampleCount)?sampleCount+' sampled pixels':'pixel count not supplied')+(Number.isFinite(noData)?' · '+noData+' no-data pixels':'')+'</p>'+radarAdvisory(Number(vv.mean),Number(vh.mean),previousVv,previousVh)+'</article>';
       }).join('');
       const pixelCount=Number(data.data?.geometryPixelCount);
       output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-1 · PROVIDER RESPONSE</p><h3>Backscatter results</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(confirmed?'planned':'warning')+'">'+(confirmed?'Provider OK':'Review response')+'</span></div>'+
