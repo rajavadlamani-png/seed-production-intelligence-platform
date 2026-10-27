@@ -110,7 +110,7 @@
               <label for="demoPassword">Demo password</label>
               <input id="demoPassword" name="password" type="password" autocomplete="current-password" value="demo123" required>
               <p class="login-error hidden" id="loginError" role="alert">The username, password or selected role does not match the demo account.</p>
-              <button class="outline welcome-submit" type="submit">Enter sample demo <span>→</span></button>
+              <button class="outline welcome-submit" id="enterSampleDemo" type="button" onclick="document.body.classList.add('demo-authenticated');document.getElementById('welcomeGate').style.display='none';document.getElementById('managerView').classList.remove('hidden');document.getElementById('fieldView').classList.add('hidden');">Enter sample demo <span>→</span></button>
               <div class="demo-credentials"><b>Demo accounts</b><span>Production Manager: <code>manager</code></span><span>Territory Manager: <code>territory</code></span><span>Field Officer: <code>officer</code></span><small>Password for all accounts: <code>demo123</code></small></div>
             </form>
           </details>
@@ -167,6 +167,6 @@
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="supabase-config.js"></script>
-  <script defer src="app.js?v=demo-direct-v2"></script>
+  <script defer src="app.js?v=demo-button-fix-v3"></script>
 </body>
 </html>
