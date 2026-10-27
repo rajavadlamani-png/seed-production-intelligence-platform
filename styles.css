@@ -580,3 +580,17 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .satellite-advisory-item b,.satellite-advisory-next b{display:block;font-size:.9rem}
 .satellite-advisory-item p,.satellite-advisory-next p{margin:4px 0 0;line-height:1.55;font-size:.86rem;color:#3e5549}
 .satellite-advisory-next{margin-top:10px;padding:11px 12px;border-left:3px solid #b68b35;background:#fffdf6;border-radius:0 8px 8px 0}
+
+
+/* Whole-period satellite trend summary */
+.satellite-trend-summary{margin:16px 0 20px;padding:17px;border:1px solid #e5d8bd;border-radius:13px;background:#fffdf7;color:#203e30}
+.satellite-trend-summary .eyebrow{margin:0 0 7px;font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#80652e}
+.satellite-trend-summary h3{margin:0 0 7px;font-size:1.05rem}
+.satellite-trend-summary>p:not(.eyebrow){margin:0 0 12px;color:#4a5d51;line-height:1.55;font-size:.9rem}
+.satellite-trend-table{display:grid;gap:0;border:1px solid #e8e5dc;border-radius:9px;overflow:hidden;background:#fff}
+.satellite-trend-row{display:grid;grid-template-columns:.65fr 1.4fr .7fr;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #eeeae1;font-size:.85rem}
+.satellite-trend-row:last-child{border-bottom:0}
+.satellite-trend-row>span{font-weight:800;color:#355343}
+.satellite-trend-row>strong{text-align:right}
+.satellite-trend-row .trend-down{color:#a44434}.satellite-trend-row .trend-up{color:#27734d}.satellite-trend-row .trend-steady{color:#68766d}
+@media(max-width:540px){.satellite-trend-row{grid-template-columns:.55fr 1.2fr .7fr;font-size:.77rem;padding:8px 7px}}
