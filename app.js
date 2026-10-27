@@ -417,7 +417,6 @@ async function runCropMonitorSentinel2Image(){
   }finally{if(button)button.disabled=false;}
 }
 
-async 
 /* Combined read-only Sentinel-1 + Sentinel-2 comparison. */
 let latestSentinel1Response=null;
 let latestSentinel2Response=null;
@@ -433,7 +432,7 @@ function renderCombinedSatelliteComparison(){
   output.insertAdjacentHTML('beforeend','<section class="satellite-trend-summary combined-satellite-panel"><p class="eyebrow">COMBINED SATELLITE VALIDATION · VIEW ONLY</p><h3>Radar + optical timeline</h3><p>'+(both?'Both live connector responses are available.':'Run both Sentinel-1 and Sentinel-2 to complete the comparison.')+' Charts use provider-reported values; they do not diagnose crop condition or save a production observation.</p>'+chart(s2,false,'Sentinel-2 · NDVI mean',['NDVI'])+chart(s1,true,'Sentinel-1 · VV and VH mean',['VV mean','VH mean'])+'<div class="combined-date-check"><b>Date alignment</b><p>'+(both?nearest.length+' optical observations have a radar observation within 6 days. Use date-near pairs cautiously; these are not necessarily same-day acquisitions.':'Date-near pairs will be assessed after both connectors have run.')+'</p></div><div class="satellite-advisory-next"><b>Crop identification: what is possible?</b><p>Multi-date satellite patterns can support crop-type classification, including rice, but these bands and indices alone cannot reliably confirm crop identity. A credible classifier needs multi-date Sentinel-1 and Sentinel-2 features, crop-calendar/location context, and ground-truth labels from known fields. “Rice” remains the selected record’s declared crop, not a satellite-verified identification.</p></div><p class="muted">View-only diagnostic. No data saved to Supabase; no production observation or farmer attribution is created.</p></section>');
 }
 
-function runCropMonitorSatellite(){
+async function runCropMonitorSatellite(){
   const byId=id=>document.getElementById(id);
   const status=byId('cropSatelliteStatus'), output=byId('cropSatelliteResult'), button=byId('runCropSatellite');
   const endpoint='https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1';
