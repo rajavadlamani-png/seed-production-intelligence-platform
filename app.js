@@ -314,6 +314,7 @@ async function runCropMonitorSentinel2(){
     let data;try{data=raw?JSON.parse(raw):{};}catch(_){data={message:raw.slice(0,1200)};}
     if(!response.ok)throw new Error('HTTP '+response.status+(data.error||data.message?': '+(data.error||data.message):''));
 
+    latestSentinel2Response=data;
     // Worker response shape: data.data.data[] -> interval -> outputs -> index -> bands.B0.stats.
     const intervals=data?.data?.data;
     const indexKeys=['ndvi','ndmi','ndre','evi','savi'];
@@ -350,6 +351,7 @@ async function runCropMonitorSentinel2(){
       const geometryCount=data?.data?.geometryPixelCount??data?.geometryPixelCount;
       output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-2 · OPTICAL OBSERVATIONS</p><h3>Vegetation-index statistics</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(complete?'ok':'planned')+'">'+(complete?'Indices available':'Review response')+'</span></div><p class="satellite-readonly-note">Read-only provider statistics; not a crop-health diagnosis. Compare like-for-like dates and review crop stage, cloud masking and field conditions before agronomic decisions.</p><div class="satellite-summary-metrics"><div><small>Intervals returned</small><b>'+validIntervals+'</b></div><div><small>Indices found</small><b>'+indexSet.size+' / 5</b></div><div><small>Geometry pixels</small><b>'+(geometryCount??'—')+'</b></div></div>'+(validIntervals?opticalTrendSummary(intervals):'')+(validIntervals?cards:'<p class="satellite-readonly-note">The Worker responded successfully, but no interval statistics were found in the expected response field. Open the raw JSON for diagnosis.</p>')+'<details><summary>View full provider response (JSON)</summary><pre class="satellite-json">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
     }
+      renderCombinedSatelliteComparison();
   }catch(error){
     if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 request failed</b><small>'+escape(error?.message||'Unknown error')+'</small></div><span class="pill">Error</span></div>';
     if(output)output.innerHTML='<p class="satellite-readonly-note">No production observation was saved. Review the error and Worker logs before retrying.</p>';
@@ -413,7 +415,23 @@ async function runCropMonitorSentinel2Image(){
   }finally{if(button)button.disabled=false;}
 }
 
-async function runCropMonitorSatellite(){
+async 
+/* Combined read-only Sentinel-1 + Sentinel-2 comparison. */
+let latestSentinel1Response=null;
+let latestSentinel2Response=null;
+function renderCombinedSatelliteComparison(){
+  const output=document.getElementById('cropSatelliteResult');
+  if(!output||(!latestSentinel1Response&&!latestSentinel2Response))return;
+  const getSeries=(response,kind)=>{const intervals=response?.data?.data;if(!Array.isArray(intervals))return [];return intervals.map(item=>{const rawDate=item?.interval?.from;const date=rawDate?new Date(rawDate):null;let value=null,extra=null;if(kind==='optical'){value=Number(item?.outputs?.ndvi?.bands?.B0?.stats?.mean)}else{const bands=item?.outputs?.backscatter?.bands||{};value=Number(bands.B0?.stats?.mean);extra=Number(bands.B1?.stats?.mean)}return {date:date&&!Number.isNaN(date.getTime())?date:null,label:date&&!Number.isNaN(date.getTime())?date.toISOString().slice(0,10):'Date unavailable',value:Number.isFinite(value)?value:null,extra:Number.isFinite(extra)?extra:null}}).filter(x=>x.date&&x.value!==null)};
+  const s1=getSeries(latestSentinel1Response,'radar').sort((a,b)=>a.date-b.date),s2=getSeries(latestSentinel2Response,'optical').sort((a,b)=>a.date-b.date);
+  const fmt=x=>Number.isFinite(x)?x.toFixed(4):'—';
+  const chart=(series,withSecond,title,labels)=>{if(!series.length)return '<p class="satellite-readonly-note">No usable '+title+' observations are available yet. Run that connector first.</p>';const values=series.map(x=>x.value).concat(withSecond?series.map(x=>x.extra).filter(Number.isFinite):[]);const min=Math.min(...values),max=Math.max(...values),span=max-min||1;const xAt=i=>series.length===1?400:42+i*716/(series.length-1),yAt=v=>140-(v-min)/span*100;const line=arr=>arr.map((v,i)=>(i?'L':'M')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');const a='<path d="'+line(series.map(x=>x.value))+'" class="combined-line-a" fill="none" stroke-width="3"/>'+series.map((x,i)=>'<circle cx="'+xAt(i)+'" cy="'+yAt(x.value)+'" r="3.5" class="combined-dot-a"><title>'+x.label+': '+fmt(x.value)+'</title></circle>').join('');const b=withSecond?'<path d="'+line(series.map(x=>x.extra))+'" class="combined-line-b" fill="none" stroke-width="3"/>'+series.map((x,i)=>'<circle cx="'+xAt(i)+'" cy="'+yAt(x.extra)+'" r="3.5" class="combined-dot-b"><title>'+x.label+': '+fmt(x.extra)+'</title></circle>').join(''):'';return '<div class="combined-chart"><h4>'+title+'</h4><svg viewBox="0 0 800 190" role="img" aria-label="'+title+' time series"><line x1="42" y1="140" x2="758" y2="140" class="combined-axis"/><line x1="42" y1="40" x2="758" y2="40" class="combined-grid"/>'+a+b+series.map((x,i)=>(i===0||i===series.length-1||i===Math.floor(series.length/2))?'<text x="'+xAt(i)+'" y="165" text-anchor="middle">'+x.label.slice(5)+'</text>':'').join('')+'</svg><div class="combined-legend">'+labels.map(l=>'<span>'+l+'</span>').join('')+'</div><p class="muted">First: '+series[0].label+' · Last: '+series[series.length-1].label+' · '+series.length+' observations</p></div>'};
+  const both=!!(latestSentinel1Response&&latestSentinel2Response);
+  const nearest=s1.length&&s2.length?s2.map(o=>{const n=s1.reduce((best,r)=>Math.abs(r.date-o.date)<Math.abs(best.date-o.date)?r:best,s1[0]);return {days:Math.round(Math.abs(n.date-o.date)/86400000)}}).filter(x=>x.days<=6):[];
+  output.insertAdjacentHTML('beforeend','<section class="satellite-trend-summary combined-satellite-panel"><p class="eyebrow">COMBINED SATELLITE VALIDATION · VIEW ONLY</p><h3>Radar + optical timeline</h3><p>'+(both?'Both live connector responses are available.':'Run both Sentinel-1 and Sentinel-2 to complete the comparison.')+' Charts use provider-reported values; they do not diagnose crop condition or save a production observation.</p>'+chart(s2,false,'Sentinel-2 · NDVI mean',['NDVI'])+chart(s1,true,'Sentinel-1 · VV and VH mean',['VV mean','VH mean'])+'<div class="combined-date-check"><b>Date alignment</b><p>'+(both?nearest.length+' optical observations have a radar observation within 6 days. Use date-near pairs cautiously; these are not necessarily same-day acquisitions.':'Date-near pairs will be assessed after both connectors have run.')+'</p></div><div class="satellite-advisory-next"><b>Crop identification: what is possible?</b><p>Multi-date satellite patterns can support crop-type classification, including rice, but these bands and indices alone cannot reliably confirm crop identity. A credible classifier needs multi-date Sentinel-1 and Sentinel-2 features, crop-calendar/location context, and ground-truth labels from known fields. “Rice” remains the selected record’s declared crop, not a satellite-verified identification.</p></div><p class="muted">View-only diagnostic. No data saved to Supabase; no production observation or farmer attribution is created.</p></section>');
+}
+
+function runCropMonitorSatellite(){
   const byId=id=>document.getElementById(id);
   const status=byId('cropSatelliteStatus'), output=byId('cropSatelliteResult'), button=byId('runCropSatellite');
   const endpoint='https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1';
@@ -446,6 +464,7 @@ async function runCropMonitorSatellite(){
     const raw=await response.text();
     let data;try{data=raw?JSON.parse(raw):{};}catch(_){data={message:raw.slice(0,1200)};}
     if(!response.ok)throw new Error('HTTP '+response.status+(data.error||data.message?': '+(data.error||data.message):''));
+    latestSentinel1Response=data;
     const simulated=!!(data.simulated||data.status==='SIMULATED');
     const confirmed=data.status==='OK'&&!simulated;
     if(status)status.innerHTML='<div class="control-row"><div><b>'+(confirmed?'Worker returned status OK':'Worker responded; inspect status')+'</b><small>HTTP '+response.status+' · '+escape(data.provider||'provider not stated')+' · '+escape(data.measuredAt||data.requestedAt||'timestamp not supplied')+'</small></div><span class="pill">'+(confirmed?'Response OK':(simulated?'Simulation':'Review'))+'</span></div>';
@@ -474,6 +493,7 @@ async function runCropMonitorSatellite(){
         '<div class="satellite-readonly-note"><b>Interpretation limits</b><p>VV and VH are Sentinel-1 radar backscatter statistics, not NDVI and not a direct measurement of crop health or soil moisture. Values shown here are in the provider response’s numeric scale; they have not been converted to decibels or calibrated into crop-specific thresholds. The request returned '+intervals.length+' interval(s), which may be fewer than the days in the requested date range because imagery availability varies.</p><p>This test is not saved to Supabase or verified against a UUID-backed production field record. Provider response plotId: '+escape(data.plotId??'not returned')+' · acquisitionId: '+escape(data.acquisitionId??'not returned')+'.</p></div>'+
         '<details class="satellite-raw-response"><summary>View full provider response (JSON)</summary><pre style="white-space:pre-wrap;overflow:auto;max-height:360px;background:#f6f8f6;padding:12px;border-radius:10px;border:1px solid #dce5df">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
     }
+      renderCombinedSatelliteComparison();
   }catch(error){
     if(status)status.innerHTML='<div class="control-row"><div><b>Satellite request did not complete</b><small>'+escape(error&&error.message?error.message:String(error))+' · Check Worker deployment, CORS, request validation and Copernicus response.</small></div><span class="pill">Unavailable</span></div>';
   }finally{if(button)button.disabled=false;}
