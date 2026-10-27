@@ -872,4 +872,6 @@ demoLoginForm?.addEventListener('submit',event=>{
   notify('Demo workspace opened. Sample data only.');
 });
 
+// Open the public sample workspace directly; company sign-in remains available only by restoring the welcome gate.
+document.body.classList.add('demo-authenticated');
 render();
