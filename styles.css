@@ -570,3 +570,13 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .satellite-result-summary .satellite-readonly-note{margin-top:14px}
 .satellite-result-summary .satellite-readonly-note p{margin:7px 0 0}
 @media(min-width:680px){.satellite-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+
+/* Plain-language satellite advisory cards */
+.satellite-advisory{margin:14px 0 2px;padding:15px 16px;border:1px solid #dce7df;border-radius:12px;background:#f7faf7;color:#183c2d}
+.satellite-advisory .eyebrow{margin:0 0 10px;font-size:.69rem;letter-spacing:.08em;font-weight:800;color:#547361}
+.satellite-advisory-item{padding:9px 0;border-bottom:1px solid #e0e9e2}
+.satellite-advisory-item:last-of-type{border-bottom:0}
+.satellite-advisory-item b,.satellite-advisory-next b{display:block;font-size:.9rem}
+.satellite-advisory-item p,.satellite-advisory-next p{margin:4px 0 0;line-height:1.55;font-size:.86rem;color:#3e5549}
+.satellite-advisory-next{margin-top:10px;padding:11px 12px;border-left:3px solid #b68b35;background:#fffdf6;border-radius:0 8px 8px 0}
