@@ -50,6 +50,27 @@ function advisoryValue(stats,key){
   const value=stats?.[key]?.bands?.B0?.stats?.mean;
   return Number.isFinite(Number(value))?Number(value):null;
 }
+function opticalTrendSummary(intervals){
+  const keys=['ndvi','ndmi','ndre','evi','savi'];
+  const labels={ndvi:'NDVI (crop greenness)',ndmi:'NDMI (canopy moisture signal)',ndre:'NDRE (chlorophyll-related signal)',evi:'EVI (vegetation signal)',savi:'SAVI (soil-adjusted vegetation signal)'};
+  const value=(item,key)=>{const n=item?.outputs?.[key]?.bands?.B0?.stats?.mean;return Number.isFinite(Number(n))?Number(n):null};
+  if(!Array.isArray(intervals)||intervals.length<2)return '';
+  const first=intervals[0],last=intervals[intervals.length-1],changes=[];
+  keys.forEach(key=>{const a=value(first,key),b=value(last,key);if(a!==null&&b!==null&&Math.abs(a)>0.000001)changes.push({key,label:labels[key],a,b,delta:b-a,pct:(b-a)/Math.abs(a)*100})});
+  if(!changes.length)return '';
+  const declining=changes.filter(x=>x.pct<=-10),rising=changes.filter(x=>x.pct>=10);
+  let headline='Vegetation indicators show mixed changes';
+  let explanation='Compare the changes with crop stage, field operations and image quality before drawing a conclusion.';
+  if(declining.length>=3){
+    headline='Several vegetation indicators have declined';
+    explanation='From the first to the last available interval, '+declining.map(x=>x.key.toUpperCase()).join(', ')+' declined by at least 10%. This is a meaningful change in the satellite signal and warrants a field check. It does not, by itself, identify the cause or quantify crop loss.';
+  }else if(rising.length>=3){
+    headline='Several vegetation indicators have increased';
+    explanation='From the first to the last available interval, '+rising.map(x=>x.key.toUpperCase()).join(', ')+' increased by at least 10%. This may reflect canopy development or recovery; confirm that it matches the expected crop stage.';
+  }
+  const rows=changes.map(x=>'<div class="satellite-trend-row"><span>'+escape(x.key.toUpperCase())+'</span><b>'+x.a.toFixed(4)+' → '+x.b.toFixed(4)+'</b><strong class="'+(x.pct<=-10?'trend-down':x.pct>=10?'trend-up':'trend-steady')+'">'+(x.pct>0?'+':'')+x.pct.toFixed(1)+'%</strong></div>').join('');
+  return '<section class="satellite-trend-summary"><p class="eyebrow">WHOLE-PERIOD TREND · FIRST VS LAST INTERVAL</p><h3>'+escape(headline)+'</h3><p>'+escape(explanation)+'</p><div class="satellite-trend-table">'+rows+'</div><div class="satellite-advisory-next"><b>Recommended field check</b><p>Confirm the rice crop stage and whether harvest, drainage, irrigation or other field operations occurred during this period. Inspect representative areas for soil moisture, waterlogging, leaf colour, pest/disease symptoms and lodging. Do not apply fertiliser or crop-protection products based on these indices alone.</p></div></section>';
+}
 function opticalAdvisory(stats,previousStats){
   const ndvi=advisoryValue(stats,'ndvi'), ndmi=advisoryValue(stats,'ndmi'), ndre=advisoryValue(stats,'ndre');
   const previousNdvi=advisoryValue(previousStats,'ndvi');
@@ -327,7 +348,7 @@ async function runCropMonitorSentinel2(){
     if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 Worker returned status OK</b><small>HTTP '+response.status+' · '+escape(data.provider||'provider not supplied')+' · '+escape(data.timestamp||data.measuredAt||new Date().toISOString())+'</small></div><span class="pill">'+(complete?'Indices parsed':'Response received')+'</span></div>';
     if(output){
       const geometryCount=data?.data?.geometryPixelCount??data?.geometryPixelCount;
-      output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-2 · OPTICAL OBSERVATIONS</p><h3>Vegetation-index statistics</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(complete?'ok':'planned')+'">'+(complete?'Indices available':'Review response')+'</span></div><p class="satellite-readonly-note">Read-only provider statistics; not a crop-health diagnosis. Compare like-for-like dates and review crop stage, cloud masking and field conditions before agronomic decisions.</p><div class="satellite-summary-metrics"><div><small>Intervals returned</small><b>'+validIntervals+'</b></div><div><small>Indices found</small><b>'+indexSet.size+' / 5</b></div><div><small>Geometry pixels</small><b>'+(geometryCount??'—')+'</b></div></div>'+(validIntervals?cards:'<p class="satellite-readonly-note">The Worker responded successfully, but no interval statistics were found in the expected response field. Open the raw JSON for diagnosis.</p>')+'<details><summary>View full provider response (JSON)</summary><pre class="satellite-json">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
+      output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-2 · OPTICAL OBSERVATIONS</p><h3>Vegetation-index statistics</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(complete?'ok':'planned')+'">'+(complete?'Indices available':'Review response')+'</span></div><p class="satellite-readonly-note">Read-only provider statistics; not a crop-health diagnosis. Compare like-for-like dates and review crop stage, cloud masking and field conditions before agronomic decisions.</p><div class="satellite-summary-metrics"><div><small>Intervals returned</small><b>'+validIntervals+'</b></div><div><small>Indices found</small><b>'+indexSet.size+' / 5</b></div><div><small>Geometry pixels</small><b>'+(geometryCount??'—')+'</b></div></div>'+(validIntervals?opticalTrendSummary(intervals):'')+(validIntervals?cards:'<p class="satellite-readonly-note">The Worker responded successfully, but no interval statistics were found in the expected response field. Open the raw JSON for diagnosis.</p>')+'<details><summary>View full provider response (JSON)</summary><pre class="satellite-json">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
     }
   }catch(error){
     if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 request failed</b><small>'+escape(error?.message||'Unknown error')+'</small></div><span class="pill">Error</span></div>';
