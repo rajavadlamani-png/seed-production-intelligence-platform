@@ -94,6 +94,26 @@
           <div><span>04</span><section><b>Execute in the field</b><small>Field Officers update GPS, inspections and production progress.</small></section></div>
         </div>
         <div class="welcome-login">
+          <div class="demo-first-note"><b>Want to explore the prototype?</b><p>Open the sample demo below. No company account or Supabase sign-in is required.</p></div>
+          <details class="demo-details" open>
+            <summary>Open the sample demo — no company login required</summary>
+            <p class="demo-explainer">Sample records only. This preview does not connect to Supabase or provide secure authentication.</p>
+            <form id="demoLoginForm">
+              <label for="demoRole">Demo workspace role</label>
+              <select id="demoRole" name="role">
+                <option value="manager">Production Manager</option>
+                <option value="territory">Territory Manager</option>
+                <option value="officer">Field Officer</option>
+              </select>
+              <label for="demoUsername">Demo username</label>
+              <input id="demoUsername" name="username" autocomplete="username" value="manager" required>
+              <label for="demoPassword">Demo password</label>
+              <input id="demoPassword" name="password" type="password" autocomplete="current-password" value="demo123" required>
+              <p class="login-error hidden" id="loginError" role="alert">The username, password or selected role does not match the demo account.</p>
+              <button class="outline welcome-submit" type="submit">Enter sample demo <span>→</span></button>
+              <div class="demo-credentials"><b>Demo accounts</b><span>Production Manager: <code>manager</code></span><span>Territory Manager: <code>territory</code></span><span>Field Officer: <code>officer</code></span><small>Password for all accounts: <code>demo123</code></small></div>
+            </form>
+          </details>
           <span class="secure-pill">SECURE ACCESS · SUPABASE AUTH</span>
           <h2>Sign in to your workspace</h2>
           <p class="muted">Use your company email and password. Access is checked against your active company membership.</p>
@@ -126,25 +146,7 @@
             <p class="login-error hidden" id="newPasswordError" role="alert"></p>
             <button class="primary welcome-submit" id="saveNewPassword" type="submit">Save new password <span>→</span></button>
           </form>
-          <details class="demo-details">
-            <summary>Open the sample demo instead</summary>
-            <p class="demo-explainer">Sample records only. This preview does not connect to Supabase or provide secure authentication.</p>
-            <form id="demoLoginForm">
-              <label for="demoRole">Demo workspace role</label>
-              <select id="demoRole" name="role">
-                <option value="manager">Production Manager</option>
-                <option value="territory">Territory Manager</option>
-                <option value="officer">Field Officer</option>
-              </select>
-              <label for="demoUsername">Demo username</label>
-              <input id="demoUsername" name="username" autocomplete="username" value="manager" required>
-              <label for="demoPassword">Demo password</label>
-              <input id="demoPassword" name="password" type="password" autocomplete="current-password" value="demo123" required>
-              <p class="login-error hidden" id="loginError" role="alert">The username, password or selected role does not match the demo account.</p>
-              <button class="outline welcome-submit" type="submit">Enter sample demo <span>→</span></button>
-              <div class="demo-credentials"><b>Demo accounts</b><span>Production Manager: <code>manager</code></span><span>Territory Manager: <code>territory</code></span><span>Field Officer: <code>officer</code></span><small>Password for all accounts: <code>demo123</code></small></div>
-            </form>
-          </details>
+
         </div>      </div>
       <p class="welcome-disclaimer">Prototype only. Uses sample data in your browser. This public demo does not provide secure authentication, user isolation or server-side data storage. Do not enter real farmer or company information.</p>
     </div>
