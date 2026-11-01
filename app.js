@@ -24,7 +24,7 @@ let territoryAllocations=[
 ];
 let fieldSignedIn=false,fieldAuthStep='welcome',fieldMobile='',fieldTab='today',selectedFieldId=1,nearbyMessage='',askLanguage='English',askChat=[];
 let ramTestToken='',ramBusy=false,ramSpeakNextReply=false,ramRecognition=null;
-const ramLive={socket:null,stream:null,audioContext:null,source:null,processor:null,connected:false,connecting:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:''};
+const ramLive={socket:null,stream:null,outputContext:null,microphoneContext:null,source:null,processor:null,connected:false,connecting:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:''};
 const manager = document.getElementById('managerView'), field = document.getElementById('fieldView');
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
 const nav = [...document.querySelectorAll('.nav-item')];
@@ -343,15 +343,13 @@ function ramLiveSetStatus(message){
   const node=document.getElementById('ramLiveStatus');
   if(node)node.textContent=message;
 }
-function ramLivePrepareAudio(){
-  if(!window.AudioContext)throw new Error('This browser does not support Web Audio output.');
-  if(!ramLive.audioContext)ramLive.audioContext=new AudioContext();
-  const context=ramLive.audioContext;
-  if(context.state!=='running'){
-    const resumed=context.resume();
-    if(resumed&&typeof resumed.catch==='function')resumed.catch(error=>{ramLive.playbackError=error.message||String(error);ramLiveSetStatus('Audio output is blocked: '+ramLive.playbackError);});
-  }
-  return context;
+async function ramLivePrepareAudio(){
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)throw new Error('This browser does not support Web Audio output.');
+  if(!ramLive.outputContext||ramLive.outputContext.state==='closed')ramLive.outputContext=new AudioContextClass({sampleRate:24000});
+  if(ramLive.outputContext.state==='suspended')await ramLive.outputContext.resume();
+  if(ramLive.outputContext.state!=='running')throw new Error('Browser audio output did not enter the running state.');
+  return ramLive.outputContext;
 }
 function ramLiveStop(reason){
   const socket=ramLive.socket;
@@ -364,7 +362,8 @@ function ramLiveStop(reason){
   ramLive.playing.forEach(source=>{try{source.stop()}catch(_){}});
   ramLive.playing.clear();
   ramLive.playbackTime=0;
-  if(ramLive.audioContext){const context=ramLive.audioContext;ramLive.audioContext=null;context.close().catch(()=>{});}
+  if(ramLive.outputContext){const context=ramLive.outputContext;ramLive.outputContext=null;context.close().catch(()=>{});}
+  if(ramLive.microphoneContext){const context=ramLive.microphoneContext;ramLive.microphoneContext=null;context.close().catch(()=>{});}
   if(socket&&socket.readyState<2){try{socket.close(1000,'User ended Ram voice session')}catch(_){}}
   if(reason)ramLiveSetStatus(reason);
 }
@@ -384,35 +383,31 @@ function ramLiveEncodePcm(floatSamples,sampleRate){
   for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
-function ramLivePlayAudio(base64){
-  if(!ramLive.audioContext||!base64)return;
-  const binary=atob(base64),samples=new Int16Array(Math.floor(binary.length/2));
-  for(let i=0;i<samples.length;i++){const lo=binary.charCodeAt(i*2),hi=binary.charCodeAt(i*2+1);let value=(hi<<8)|lo;if(value&0x8000)value-=0x10000;samples[i]=value;}
+async function ramLivePlayAudio(base64){
+  if(!base64)return;
+  const context=await ramLivePrepareAudio();
+  const binary=atob(base64),bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  const samples=new Int16Array(bytes.buffer,bytes.byteOffset,Math.floor(bytes.byteLength/2));
   if(!samples.length)return;
-  const context=ramLive.audioContext;
-  ramLive.audioChunks++;ramLive.audioBytes+=binary.length;
-  if(context.state!=='running')context.resume().catch(error=>{ramLive.playbackError=error.message||String(error);ramLiveSetStatus('Gemini sent audio, but browser playback is blocked: '+ramLive.playbackError);});
-  try{
-    const buffer=context.createBuffer(1,samples.length,24000),channel=buffer.getChannelData(0);
-    for(let i=0;i<samples.length;i++)channel[i]=samples[i]/32768;
-    const source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
-    const startAt=Math.max(context.currentTime+0.025,ramLive.playbackTime);
-    ramLive.playbackTime=startAt+buffer.duration;
-    ramLive.playing.add(source);
-    source.onended=()=>ramLive.playing.delete(source);
-    source.start(startAt);
-    ramLiveSetStatus('Gemini audio received ('+ramLive.audioChunks+' chunks). Browser audio: '+context.state+'.');
-  }catch(error){
-    ramLive.playbackError=error.message||String(error);
-    ramLiveSetStatus('Gemini sent audio, but playback failed: '+ramLive.playbackError);
-  }
+  const buffer=context.createBuffer(1,samples.length,24000),channel=buffer.getChannelData(0);
+  for(let i=0;i<samples.length;i++)channel[i]=samples[i]/32768;
+  const source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
+  ramLive.playbackTime=Math.max(ramLive.playbackTime,context.currentTime+0.02);
+  source.start(ramLive.playbackTime);ramLive.playbackTime+=buffer.duration;
+  ramLive.playing.add(source);
+  source.onended=()=>{ramLive.playing.delete(source);if(ramLive.playing.size===0&&!ramLive.connected)ramLiveSetStatus('Gemini Live audio playback finished.');};
+  ramLive.audioChunks++;ramLive.audioBytes+=bytes.length;
+  ramLiveSetStatus('Gemini audio received ('+ramLive.audioChunks+' chunks). Browser audio: '+context.state+'.');
 }
 async function ramLiveStartMicrophone(){
   const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
   if(!ramLive.socket||ramLive.socket.readyState!==WebSocket.OPEN){stream.getTracks().forEach(track=>track.stop());return;}
   ramLive.stream=stream;
-  const context=ramLive.audioContext||new AudioContext();
-  ramLive.audioContext=context;
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)throw new Error('This browser does not support microphone audio capture.');
+  const context=new AudioContextClass();
+  ramLive.microphoneContext=context;
   await context.resume();
   const source=context.createMediaStreamSource(stream);
   const processor=context.createScriptProcessor(4096,1,1);
@@ -427,7 +422,7 @@ async function ramLiveStartMicrophone(){
   processor.connect(context.destination);
   ramLiveSetStatus('Connected. Speak naturally; Ram will respond aloud. Tap Stop voice conversation to finish.');
 }
-function ramLiveHandleServerMessage(message){
+async function ramLiveHandleServerMessage(message){
   if(message.setupComplete){
     ramLive.connected=true;ramLive.connecting=false;
     ramLiveStartMicrophone().then(()=>{
@@ -463,7 +458,7 @@ function ramLiveHandleServerMessage(message){
   for(const part of parts){
     if(part.text&&!content.outputTranscription?.text)ramLive.currentAssistantText+=part.text;
     const inline=part.inlineData||part.inline_data;
-    if(inline?.data&&String(inline.mimeType||inline.mime_type||'').startsWith('audio/pcm'))ramLivePlayAudio(inline.data);
+    if(inline?.data)await ramLivePlayAudio(inline.data);
   }
   if(content.turnComplete){
     if(!ramLive.audioChunks&&ramLive.currentAssistantText.trim())ramLiveSetStatus('Ram generated text, but Gemini sent no audio chunks in this turn.');
@@ -839,9 +834,8 @@ function fieldScreen(){
     if(ramLive.connected||ramLive.connecting){
       ramLiveStop('Ram voice session ended.');fieldScreen();return;
     }
-    try{ramLivePrepareAudio();}catch(error){ramLiveSetStatus('Could not initialise audio output: '+(error.message||String(error)));return;}
     ramLive.audioChunks=0;ramLive.audioBytes=0;ramLive.playbackError='';
-    ramLiveConnect();
+    ramLivePrepareAudio().then(()=>ramLiveConnect()).catch(error=>ramLiveSetStatus('Could not initialise audio output: '+(error.message||String(error))));
   });;field.querySelectorAll('[data-open-summary]').forEach(b=>b.addEventListener('click',()=>{fieldTab='summary';fieldScreen()}));
   field.querySelector('#mobileOfficer')?.addEventListener('change',e=>{selectedOfficer=e.target.value;selectedFieldId=null;fieldScreen()});field.querySelector('#signOutDemo')?.addEventListener('click',()=>{fieldSignedIn=false;fieldAuthStep='welcome';fieldMobile='';fieldScreen()});field.querySelector('#resetMobileDemo')?.addEventListener('click',()=>{records=structuredClone(SEED);selectedFieldId=1;fieldScreen();notify('Sample data reset.')});field.querySelector('#backManager')?.addEventListener('click',()=>{role='manager';page='overview';fieldMode=false;render()});
 }
