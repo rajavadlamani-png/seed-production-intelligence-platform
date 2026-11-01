@@ -617,3 +617,16 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .seed-navigation-bar button:disabled{opacity:.38;cursor:not-allowed}
 .seed-navigation-bar #seedNavLocation{font-size:10px;color:var(--muted);font-weight:600;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:620px){.seed-navigation-bar{top:60px;min-height:40px;padding:5px 14px;gap:8px}.seed-navigation-bar button{padding:7px 10px;font-size:10px}.seed-navigation-bar #seedNavLocation{font-size:9px;flex:1}}
+
+/* Ram live test connection: token stays in page memory and is never persisted. */
+.ram-token-row{display:flex;align-items:center;gap:6px}
+.ram-token-row input{flex:1;min-width:0;height:39px;padding:0 9px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);font:inherit;font-size:10px}
+.ram-token-row button{height:39px;padding:0 10px;border:0;border-radius:8px;background:var(--forest);color:#fff;font:700 10px Inter,sans-serif}
+.ram-token-row button:disabled{opacity:.45}
+.ram-token-row .ram-token-clear{background:#eef1e9;color:#405448}
+.ask-chat-row.assistant{align-self:flex-start;background:#edf4ec;color:#213c2c;white-space:pre-wrap}
+.ask-chat-row.notice{white-space:pre-wrap}
+.ask-chat-row p{white-space:pre-wrap;overflow-wrap:anywhere}
+.ram-live-mic{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:14px;border:0;border-radius:10px;background:#eef1e9;color:var(--forest);cursor:pointer}
+.ram-live-mic:disabled{opacity:.5;cursor:not-allowed}
+.ram-live-mic>span{font-size:23px}.ram-live-mic b{font-size:11px}.ram-live-mic small{font-size:9px}
