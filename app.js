@@ -31,7 +31,7 @@ let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectio
 function notify(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2800)}
 
 /* In-app navigation history: keeps manager and field-app routes in browser history. */
-let seedNavigationIndex=0;
+let seedNavigationIndex=0,seedNavigationStack=[];
 function seedNavigationRoute(){
   return {role,page,fieldMode,fieldTab,selectedOfficer,selectedTerritoryManager,selectedFieldId,fieldSignedIn};
 }
@@ -67,13 +67,14 @@ function recordSeedNavigation(){
   const route=seedNavigationRoute(),key=seedNavigationKey(route);
   if(!window.history.state?.seedHarvestRoute){
     window.history.replaceState({...window.history.state,seedHarvestRoute:route,seedHarvestNavigation:true},'',window.location.href);
-  }else if(seedNavigationIndex===0&&window.history.state.seedHarvestRoute){
-    // Existing in-app history state is retained on reload.
-  }
-  const current=window.history.state?.seedHarvestRoute;
-  if(!current||seedNavigationKey(current)!==key){
-    window.history.pushState({seedHarvestNavigation:true,seedHarvestRoute:route},'',window.location.href);
-    seedNavigationIndex++;
+    seedNavigationStack=[key];seedNavigationIndex=0;
+  }else{
+    const current=window.history.state.seedHarvestRoute;
+    if(seedNavigationKey(current)!==key){
+      window.history.pushState({seedHarvestNavigation:true,seedHarvestRoute:route},'',window.location.href);
+      seedNavigationStack=seedNavigationStack.slice(0,seedNavigationIndex+1);
+      seedNavigationStack.push(key);seedNavigationIndex=seedNavigationStack.length-1;
+    }else if(!seedNavigationStack.length){seedNavigationStack=[key];seedNavigationIndex=0;}
   }
   updateSeedNavigationBar();
 }
@@ -84,7 +85,8 @@ window.addEventListener('popstate',event=>{
   fieldTab=route.fieldTab||'today';selectedOfficer=route.selectedOfficer||'FA-01';
   selectedTerritoryManager=route.selectedTerritoryManager||'TM-01';
   selectedFieldId=route.selectedFieldId||1;fieldSignedIn=!!route.fieldSignedIn;
-  seedNavigationIndex=Math.max(0,seedNavigationIndex+(event.state.seedHarvestNavigation? -1:0));
+  const poppedKey=seedNavigationKey(route),knownIndex=seedNavigationStack.indexOf(poppedKey);
+  if(knownIndex>=0)seedNavigationIndex=knownIndex;else{seedNavigationStack.push(poppedKey);seedNavigationIndex=seedNavigationStack.length-1;}
   if(fieldMode)fieldScreen();else render();
   updateSeedNavigationBar();
 });
