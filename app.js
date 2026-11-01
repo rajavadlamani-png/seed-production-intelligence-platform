@@ -439,6 +439,10 @@ async function ramLiveHandleServerMessage(message){
     });
     return;
   }
+  if(message.setupError){
+    const detail=message.setupError.message||message.setupError.status||'Gemini rejected the Ram Live setup.';
+    askChat.push({role:'system',text:detail});ramLiveStop(detail);fieldScreen();return;
+  }
   if(message.error){
     const detail=message.error.message||'Gemini Live returned an error.';
     askChat.push({role:'system',text:detail});ramLiveStop(detail);fieldScreen();return;
@@ -472,7 +476,15 @@ async function ramLiveConnect(){
   const button=document.getElementById('ramVoiceButton');
   if(button){button.disabled=true;button.querySelector('b').textContent='Connecting…';}
   try{
-    const tokenResponse=await fetch('https://seed-ram-api-test-v1.raja-vadlamani.workers.dev/live-token',{method:'POST'});
+    const controller=new AbortController();
+    const tokenTimeout=setTimeout(()=>controller.abort(),10000);
+    let tokenResponse;
+    try{
+      tokenResponse=await fetch('https://seed-ram-api-test-v1.raja-vadlamani.workers.dev/live-token',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal});
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('Ram Live token request timed out.');
+      throw error;
+    }finally{clearTimeout(tokenTimeout);}
     const raw=await tokenResponse.text();let tokenData={};
     try{tokenData=raw?JSON.parse(raw):{}}catch(_){throw new Error('The Ram Live service returned an unreadable token response.');}
     if(!tokenResponse.ok||!tokenData.token)throw new Error(tokenData.error||tokenData.detail||('Live token request failed with HTTP '+tokenResponse.status));
@@ -757,6 +769,7 @@ async function runCropMonitorSatellite(){
 function fieldScreen(){
   if(fieldTab!=='ask'){
     if(ramLive.connected||ramLive.connecting)ramLiveStop('Voice session ended because you left Ask Ram.');
+    ramLive.pendingQuestion=null;ramBusy=false;
     ramLive.autoAttemptedForAsk=false;
   }
   recordSeedNavigation();
