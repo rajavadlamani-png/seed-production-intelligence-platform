@@ -488,10 +488,14 @@ async function ramLiveConnect(){
       socket.send(JSON.stringify({setup:{model:tokenData.model}}));
       ramLiveSetStatus('Secure token accepted. Waiting for Gemini Live setup…');
     };
-    socket.onmessage=event=>{
+    socket.onmessage=async event=>{
       if(ramLive.socket!==socket)return;
-      try{ramLiveHandleServerMessage(JSON.parse(event.data));}
-      catch(error){ramLiveStop('Could not process the Gemini Live response: '+(error.message||String(error)));fieldScreen();}
+      try{
+        let raw=event.data;
+        if(raw instanceof Blob)raw=await raw.text();
+        else if(raw instanceof ArrayBuffer)raw=new TextDecoder().decode(raw);
+        await ramLiveHandleServerMessage(JSON.parse(raw));
+      }catch(error){ramLiveStop('Could not process the Gemini Live response: '+(error.message||String(error)));fieldScreen();}
     };
     socket.onerror=()=>{if(ramLive.socket===socket){ramLiveStop('Gemini Live connection error. Check the Worker deployment and try again.');const b=document.getElementById('ramVoiceButton');if(b){b.disabled=false;b.querySelector('b').textContent='Start voice conversation';}}};
     socket.onclose=event=>{
