@@ -497,10 +497,11 @@ async function ramLiveConnect(){
       if(ramLive.socket!==socket)return;
       ramLiveStop(event.reason||('Gemini Live session closed (code '+event.code+').'));
       const b=document.getElementById('ramVoiceButton');if(b){b.disabled=false;b.querySelector('b').textContent='Start voice conversation';b.querySelector('small').textContent='Tap to reconnect';}
-      const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='LIVE TEST';
+      const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='LIVE';
     };
   }catch(error){
     ramLiveStop('Could not start Ram voice: '+(error.message||String(error)));
+    if(ramLive.pendingQuestion){ramLive.pendingQuestion=null;ramBusy=false;askChat.push({role:'system',text:'Ram could not connect. Check microphone permission and try again.'});fieldScreen();}
     if(button){button.disabled=false;button.querySelector('b').textContent='Start voice conversation';}
   }
 }
@@ -516,6 +517,7 @@ async function sendRamQuestion(question){
     return;
   }
   ramLive.pendingQuestion=value;
+  ramLive.autoAttemptedForAsk=false;
   fieldScreen();
 }
 function applySatelliteBoundary(points,plotId,source){
