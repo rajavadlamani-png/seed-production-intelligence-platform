@@ -435,7 +435,7 @@ async function ramLiveHandleServerMessage(message){
       const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='CONNECTED';
     }).catch(error=>{
       ramLiveStop('Microphone could not start: '+(error.message||String(error))+' Check microphone permission and try again.');
-      const button=document.getElementById('ramVoiceButton');if(button){button.querySelector('b').textContent='Start voice conversation';button.querySelector('small').textContent='Tap to retry';}
+      const button=document.getElementById('ramVoiceButton');if(button){button.disabled=false;button.querySelector('b').textContent='Start voice conversation';button.querySelector('small').textContent='Tap to retry';}
     });
     return;
   }
