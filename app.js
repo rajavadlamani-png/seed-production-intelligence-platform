@@ -29,6 +29,66 @@ const nav = [...document.querySelectorAll('.nav-item')];
 const toast = document.getElementById('toast');
 let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectionId=null, satelliteRequestGeometry=null;
 function notify(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2800)}
+
+/* In-app navigation history: keeps manager and field-app routes in browser history. */
+let seedNavigationIndex=0;
+function seedNavigationRoute(){
+  return {role,page,fieldMode,fieldTab,selectedOfficer,selectedTerritoryManager,selectedFieldId,fieldSignedIn};
+}
+function seedNavigationKey(route){
+  return [route.fieldMode?'field':'manager',route.role,route.page,route.fieldTab,route.selectedOfficer,route.selectedTerritoryManager,route.selectedFieldId,route.fieldSignedIn].join('|');
+}
+function ensureSeedNavigationBar(){
+  let bar=document.getElementById('seedNavigationBar');
+  if(!bar){
+    bar=document.createElement('nav');
+    bar.id='seedNavigationBar';
+    bar.className='seed-navigation-bar';
+    bar.setAttribute('aria-label','Page navigation');
+    bar.innerHTML='<button type="button" id="seedNavBack" aria-label="Go back">← <span>Back</span></button><span id="seedNavLocation" aria-live="polite">Workspace</span><button type="button" id="seedNavForward" aria-label="Go forward"><span>Forward</span> →</button>';
+    const topbar=document.querySelector('.topbar');
+    if(topbar)topbar.insertAdjacentElement('afterend',bar);else document.body.prepend(bar);
+    bar.querySelector('#seedNavBack').addEventListener('click',()=>{if(seedNavigationIndex>0)window.history.back()});
+    bar.querySelector('#seedNavForward').addEventListener('click',()=>{if(seedNavigationIndex<window.history.length)window.history.forward()});
+  }
+  return bar;
+}
+function updateSeedNavigationBar(){
+  const bar=ensureSeedNavigationBar(),route=seedNavigationRoute();
+  const names={overview:'Overview',fields:'Farmer & field roster',inspections:'Inspections',planning:'Planning & allocation',production:'Production & lots',reports:'Reports',today:'Today',satellite:'Satellite observations',summary:'Field summary',ask:'Ask Ram',more:'More',fields:'Fields'};
+  const label=route.fieldMode?(names[route.fieldTab]||'Field workspace'):(names[route.page]||'Workspace');
+  const location=bar.querySelector('#seedNavLocation');
+  if(location)location.textContent=(route.fieldMode?'Field app · ':'Management · ')+label;
+  const back=bar.querySelector('#seedNavBack'),forward=bar.querySelector('#seedNavForward');
+  if(back){back.disabled=seedNavigationIndex<=0;back.setAttribute('aria-disabled',String(back.disabled))}
+  if(forward){forward.disabled=seedNavigationIndex>=window.history.length-1;forward.setAttribute('aria-disabled',String(forward.disabled))}
+}
+function recordSeedNavigation(){
+  const route=seedNavigationRoute(),key=seedNavigationKey(route);
+  if(!window.history.state?.seedHarvestRoute){
+    window.history.replaceState({...window.history.state,seedHarvestRoute:route,seedHarvestNavigation:true},'',window.location.href);
+  }else if(seedNavigationIndex===0&&window.history.state.seedHarvestRoute){
+    // Existing in-app history state is retained on reload.
+  }
+  const current=window.history.state?.seedHarvestRoute;
+  if(!current||seedNavigationKey(current)!==key){
+    window.history.pushState({seedHarvestNavigation:true,seedHarvestRoute:route},'',window.location.href);
+    seedNavigationIndex++;
+  }
+  updateSeedNavigationBar();
+}
+window.addEventListener('popstate',event=>{
+  const route=event.state?.seedHarvestRoute;
+  if(!route)return;
+  role=route.role||'manager';page=route.page||'overview';fieldMode=!!route.fieldMode;
+  fieldTab=route.fieldTab||'today';selectedOfficer=route.selectedOfficer||'FA-01';
+  selectedTerritoryManager=route.selectedTerritoryManager||'TM-01';
+  selectedFieldId=route.selectedFieldId||1;fieldSignedIn=!!route.fieldSignedIn;
+  seedNavigationIndex=Math.max(0,seedNavigationIndex+(event.state.seedHarvestNavigation? -1:0));
+  if(fieldMode)fieldScreen();else render();
+  updateSeedNavigationBar();
+});
+
 function scoped(){if(role==='officer')return records.filter(r=>r.officer===selectedOfficer);if(role==='territory')return records.filter(r=>r.territoryManager===selectedTerritoryManager);if(role==='aggregator')return records.filter(r=>r.aggregator==='AG-01');return records}
 const TEAM_BY_TERRITORY={'TM-01':['FA-01','FA-02'],'TM-02':['FA-03','FA-04']};
 const HEALTH_GRADES=['Excellent','Good','Average','Poor','Not recorded'];
@@ -501,6 +561,7 @@ async function runCropMonitorSatellite(){
 }
 
 function fieldScreen(){
+  recordSeedNavigation();
   fieldMode=true;document.body.classList.add('field-mode');const list=records.filter(r=>r.officer===selectedOfficer);manager.classList.add('hidden');field.classList.remove('hidden');
   // The standalone satellite/KML test is intentionally accessible without the field-app demo sign-in gate.
   if(!fieldSignedIn && fieldTab!=='satellite'){
@@ -680,7 +741,7 @@ f.elements.stage.value=initialStage||r.stage;f.elements.status.value=r.status;f.
 f.querySelectorAll('[data-stage-panel]').forEach(panel=>{const n=+panel.dataset.stagePanel,data=(r.inspectionReports||{})[n]||(n===1?r.stageOne:null)||{};panel.querySelectorAll('[name]').forEach(input=>input.value=data[input.name]||(n===1?(r.parentSeed?.[input.name]||''):''));loadApplications(panel,data.inputApplications);panel.dataset.photoData=data.fieldPhotoData||'';panel.dataset.photoName=data.fieldPhotoName||'';const preview=panel.querySelector('.field-photo-preview');preview.classList.toggle('hidden',!data.fieldPhotoData);if(data.fieldPhotoData){preview.querySelector('img').src=data.fieldPhotoData;preview.querySelector('[data-photo-name]').textContent=data.fieldPhotoName||'Selected photo'}});
 syncReportForm(f);dlg.showModal()
 }
-function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.remove('hidden');field.classList.add('hidden');renderManager()}}
+function render(){recordSeedNavigation();if(fieldMode)fieldScreen();else{stopGps();manager.classList.remove('hidden');field.classList.add('hidden');renderManager()}}
 nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=false;render()}));
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';showMasterImport=true;render()});
