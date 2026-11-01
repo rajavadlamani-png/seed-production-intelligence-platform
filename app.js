@@ -61,7 +61,7 @@ function updateSeedNavigationBar(){
   if(location)location.textContent=(route.fieldMode?'Field app · ':'Management · ')+label;
   const back=bar.querySelector('#seedNavBack'),forward=bar.querySelector('#seedNavForward');
   if(back){back.disabled=seedNavigationIndex<=0;back.setAttribute('aria-disabled',String(back.disabled))}
-  if(forward){forward.disabled=seedNavigationIndex>=window.history.length-1;forward.setAttribute('aria-disabled',String(forward.disabled))}
+  if(forward){forward.disabled=seedNavigationIndex>=seedNavigationStack.length-1;forward.setAttribute('aria-disabled',String(forward.disabled))}
 }
 function recordSeedNavigation(){
   const route=seedNavigationRoute(),key=seedNavigationKey(route);
