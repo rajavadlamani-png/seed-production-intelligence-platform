@@ -839,6 +839,8 @@ function fieldScreen(){
     if(ramLive.connected||ramLive.connecting){
       ramLiveStop('Ram voice session ended.');fieldScreen();return;
     }
+    try{ramLivePrepareAudio();}catch(error){ramLiveSetStatus('Could not initialise audio output: '+(error.message||String(error)));return;}
+    ramLive.audioChunks=0;ramLive.audioBytes=0;ramLive.playbackError='';
     ramLiveConnect();
   });;field.querySelectorAll('[data-open-summary]').forEach(b=>b.addEventListener('click',()=>{fieldTab='summary';fieldScreen()}));
   field.querySelector('#mobileOfficer')?.addEventListener('change',e=>{selectedOfficer=e.target.value;selectedFieldId=null;fieldScreen()});field.querySelector('#signOutDemo')?.addEventListener('click',()=>{fieldSignedIn=false;fieldAuthStep='welcome';fieldMobile='';fieldScreen()});field.querySelector('#resetMobileDemo')?.addEventListener('click',()=>{records=structuredClone(SEED);selectedFieldId=1;fieldScreen();notify('Sample data reset.')});field.querySelector('#backManager')?.addEventListener('click',()=>{role='manager';page='overview';fieldMode=false;render()});
