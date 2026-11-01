@@ -419,7 +419,7 @@ function ramLiveHandleServerMessage(message){
         ramLive.socket?.send(JSON.stringify({realtimeInput:{text:'Greet me briefly and invite my Paddy hybrid seed production question.'}}));
       }
       const button=document.getElementById('ramVoiceButton');
-      if(button){button.querySelector('b').textContent='Stop voice conversation';button.querySelector('small').textContent='Tap to end the microphone and live session';}
+      if(button){button.disabled=false;button.querySelector('b').textContent='Stop voice conversation';button.querySelector('small').textContent='Tap to end the microphone and live session';}
       const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='CONNECTED';
     }).catch(error=>{
       ramLiveStop('Microphone could not start: '+(error.message||String(error))+' Check microphone permission and try again.');
@@ -442,7 +442,7 @@ function ramLiveHandleServerMessage(message){
   if(content.outputTranscription?.text)ramLive.currentAssistantText+=content.outputTranscription.text;
   const parts=content.modelTurn?.parts||[];
   for(const part of parts){
-    if(part.text)ramLive.currentAssistantText+=part.text;
+    if(part.text&&!content.outputTranscription?.text)ramLive.currentAssistantText+=part.text;
     const inline=part.inlineData||part.inline_data;
     if(inline?.data&&String(inline.mimeType||inline.mime_type||'').startsWith('audio/pcm'))ramLivePlayAudio(inline.data);
   }
