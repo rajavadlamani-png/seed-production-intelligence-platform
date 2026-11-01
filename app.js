@@ -23,8 +23,8 @@ let territoryAllocations=[
  {id:'TM-02',name:'Territory Manager 2',acres:'',volume:'',released:false}
 ];
 let fieldSignedIn=false,fieldAuthStep='welcome',fieldMobile='',fieldTab='today',selectedFieldId=1,nearbyMessage='',askLanguage='English',askChat=[];
-let ramTestToken='',ramBusy=false,ramSpeakNextReply=false,ramRecognition=null;
-const ramLive={socket:null,stream:null,outputContext:null,microphoneContext:null,source:null,processor:null,connected:false,connecting:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:''};
+let ramBusy=false,ramSpeakNextReply=false,ramRecognition=null;
+const ramLive={socket:null,stream:null,outputContext:null,microphoneContext:null,source:null,processor:null,connected:false,connecting:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:'',pendingQuestion:null,autoAttemptedForAsk:false};
 const manager = document.getElementById('managerView'), field = document.getElementById('fieldView');
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
 const nav = [...document.querySelectorAll('.nav-item')];
@@ -332,8 +332,7 @@ function askRamScreen(current){
     return '<div class="ask-chat-row '+role+'"><small>'+label+'</small><p>'+escape(item.text)+'</p></div>';
   }).join(''):'<div class="ask-chat-empty"><span>✳</span><b>Start a conversation with Ram</b><p>Ask a question about Paddy hybrid seed production and the approved SeedWorks SOP.</p></div>';
   const liveSupported=!!(window.WebSocket&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.AudioContext);
-  const liveActive=ramLive.connected||ramLive.connecting;
-  return '<button type="button" class="ask-ram-back" data-bottom="inspections">← Back to Inspections</button><div class="mobile-page-heading"><p class="eyebrow">FIELD OFFICER SUPPORT · TEST</p><h1>Ask Ram</h1><p>Gemini Live voice conversation · Paddy SOP test environment</p></div><section class="ask-ram-hero"><img class="ask-ram-avatar" src="assets/ask-ram-avatar.svg" alt="Ask Ram field assistant"><div><span class="ask-ram-status">PADDY SOP · LIVE TEST</span><h2>Namaste, I’m Ram.</h2><p>Talk naturally with me about Paddy hybrid seed production.</p></div></section><section class="ask-ram-controls"><label for="askLanguage">Preferred conversation language</label><select id="askLanguage">'+languages.map(x=>'<option '+(askLanguage===x?'selected':'')+'>'+escape(x)+'</option>').join('')+'</select><label for="ramTestTokenInput" style="margin-top:12px">Private test token</label><div class="ram-token-row"><input id="ramTestTokenInput" type="password" autocomplete="off" placeholder="'+(ramTestToken?'Token entered for this page session':'Paste RAM_TEST_TOKEN here')+'" value="" '+(ramTestToken?'disabled':'')+'><button type="button" id="ramTokenSave" '+(ramTestToken?'disabled':'')+'>Enter</button><button type="button" id="ramTokenClear" class="ram-token-clear" '+(!ramTestToken?'disabled':'')+'>Clear</button></div><p class="ask-ram-connection">'+(ramTestToken?'Private test token is held in page memory only.':'Enter the test token to start. Do not share it with anyone.')+'</p></section><section class="ask-chat-panel"><div class="ask-chat-heading"><div><h2>Ask Ram · Live conversation</h2><p>Two-way audio streamed directly to Gemini Live using a short-lived token.</p></div><span>'+(ramLive.connected?'CONNECTED':ramLive.connecting?'CONNECTING':'LIVE TEST')+'</span></div><div class="ask-chat-scope">'+(current?'Selected demo field: <b>'+escape(current.fieldNo)+' · '+escape(current.village)+'</b>':'No field selected')+' · Ram answers from the approved Paddy SOP knowledge pack, not farmer records.</div><p id="ramLiveStatus" class="ask-ram-connection" role="status">'+(ramLive.connected?'Voice session connected. You can speak now.':ramLive.connecting?'Connecting securely to Gemini Live…':liveSupported?'Tap Start voice conversation and allow microphone access.':'This browser does not support the required live audio features.')+'</p><div class="ask-chat-messages" id="askChatMessages" aria-live="polite">'+transcript+(ramBusy?'<div class="ask-chat-row notice"><small>RAM</small><p>Listening / responding…</p></div>':'')+'</div><div class="ask-chat-suggestions"><small>TRY A QUESTION</small>'+examples.map((x,i)=>'<button type="button" data-chat-example="'+i+'">'+escape(x)+'</button>').join('')+'</div><form class="ask-chat-compose" id="askChatForm"><textarea id="askChatInput" rows="2" placeholder="Type a question to Ram…" maxlength="800" required></textarea><button type="submit" aria-label="Send message" '+(ramBusy?'disabled':'')+'>↑</button></form><button type="button" class="ask-ram-mic ram-live-mic" id="ramVoiceButton" '+(!liveSupported||!ramTestToken?'disabled':'')+'><span>🎙</span><b>'+(ramLive.connected?'Stop voice conversation':ramLive.connecting?'Connecting…':'Start voice conversation')+'</b><small>'+(ramLive.connected?'Tap to end the microphone and live session':ramLive.connecting?'Please wait while the secure session starts':'Real-time microphone input and spoken Gemini response')+'</small></button><p class="ask-chat-local-note">Live audio uses Gemini Live. Microphone audio is streamed for this session; the permanent Gemini API key stays on the Worker. Do not enter real farmer personal data.</p></section><section class="ask-ram-boundary"><b>Testing boundary</b><p>Ram is connected to the approved Paddy SOP test knowledge pack. This is not a production service and does not approve field actions or prescribe chemical doses.</p></section>';
+  return '<button type="button" class="ask-ram-back" data-bottom="inspections">← Back to Inspections</button><div class="mobile-page-heading"><p class="eyebrow">FIELD OFFICER SUPPORT · TEST</p><h1>Ask Ram</h1><p>Gemini Live voice conversation · Paddy SOP test environment</p></div><section class="ask-ram-hero"><img class="ask-ram-avatar" src="assets/ask-ram-avatar.svg" alt="Ask Ram field assistant"><div><span class="ask-ram-status">PADDY SOP · LIVE TEST</span><h2>Namaste, I’m Ram.</h2><p>Talk naturally with me about Paddy hybrid seed production.</p></div></section><section class="ask-ram-controls"><label for="askLanguage">Preferred conversation language</label><select id="askLanguage">'+languages.map(x=>'<option '+(askLanguage===x?'selected':'')+'>'+escape(x)+'</option>').join('')+'</select><p class="ask-ram-connection">Ram connects securely to Gemini Live when you open this screen. Your browser may ask for microphone permission.</p></section><section class="ask-chat-panel"><div class="ask-chat-heading"><div><h2>Ask Ram · Live conversation</h2><p>Two-way audio streamed directly to Gemini Live using a short-lived token.</p></div><span>'+(ramLive.connected?'CONNECTED':ramLive.connecting?'CONNECTING':'LIVE')+'</span></div><div class="ask-chat-scope">'+(current?'Selected demo field: <b>'+escape(current.fieldNo)+' · '+escape(current.village)+'</b>':'No field selected')+' · Ram answers from the approved Paddy SOP knowledge pack, not farmer records.</div><p id="ramLiveStatus" class="ask-ram-connection" role="status">'+(ramLive.connected?'Voice session connected. You can speak now.':ramLive.connecting?'Connecting securely to Gemini Live…':liveSupported?'Opening Ram and requesting microphone access…':'This browser does not support the required live audio features.')+'</p><div class="ask-chat-messages" id="askChatMessages" aria-live="polite">'+transcript+(ramBusy?'<div class="ask-chat-row notice"><small>RAM</small><p>Listening / responding…</p></div>':'')+'</div><div class="ask-chat-suggestions"><small>TRY A QUESTION</small>'+examples.map((x,i)=>'<button type="button" data-chat-example="'+i+'">'+escape(x)+'</button>').join('')+'</div><form class="ask-chat-compose" id="askChatForm"><textarea id="askChatInput" rows="2" placeholder="Type a question to Ram…" maxlength="800" required></textarea><button type="submit" aria-label="Send message" '+(ramBusy?'disabled':'')+'>↑</button></form><button type="button" class="ask-ram-mic ram-live-mic" id="ramVoiceButton" '+(!liveSupported?'disabled':'')+'><span>🎙</span><b>'+(ramLive.connected?'Stop voice conversation':ramLive.connecting?'Connecting…':'Start voice conversation')+'</b><small>'+(ramLive.connected?'Tap to end the microphone and live session':ramLive.connecting?'Please wait while the secure session starts':'Real-time microphone input and spoken Gemini response')+'</small></button><p class="ask-chat-local-note">Live audio uses Gemini Live directly. The permanent Gemini API key stays on the Worker; no visitor token is required. Do not enter real farmer personal data.</p></section><section class="ask-ram-boundary"><b>Testing boundary</b><p>Ram is connected to the approved Paddy SOP test knowledge pack. This is not a production service and does not approve field actions or prescribe chemical doses.</p></section>';
 }
 
 function ramSpeechLanguage(){
@@ -427,11 +426,10 @@ async function ramLiveHandleServerMessage(message){
     ramLive.connected=true;ramLive.connecting=false;
     ramLiveStartMicrophone().then(()=>{
       ramLiveSetStatus('Connected. Speak naturally; Ram will respond aloud.');
-      if(askLanguage!=='English'){
-        ramLive.socket?.send(JSON.stringify({realtimeInput:{text:'Please conduct this conversation in '+askLanguage+'. Greet me briefly and invite my Paddy hybrid seed production question.'}}));
-      }else{
-        ramLive.socket?.send(JSON.stringify({realtimeInput:{text:'Greet me briefly and invite my Paddy hybrid seed production question.'}}));
-      }
+      const openingText=ramLive.pendingQuestion;
+      ramLive.pendingQuestion=null;
+      const prompt=openingText||('Greet me briefly in '+askLanguage+' and invite the user to ask a question about Paddy hybrid seed production. Do not recite SOP facts until asked.');
+      ramLive.socket?.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:prompt}]}],turnComplete:true}}));
       const button=document.getElementById('ramVoiceButton');
       if(button){button.disabled=false;button.querySelector('b').textContent='Stop voice conversation';button.querySelector('small').textContent='Tap to end the microphone and live session';}
       const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='CONNECTED';
@@ -470,14 +468,11 @@ async function ramLiveHandleServerMessage(message){
 }
 async function ramLiveConnect(){
   if(ramLive.connecting||ramLive.connected)return;
-  if(!ramTestToken){ramLiveSetStatus('Enter the private test token first.');return;}
   ramLive.connecting=true;ramLiveSetStatus('Requesting a short-lived Gemini Live token…');
   const button=document.getElementById('ramVoiceButton');
   if(button){button.disabled=true;button.querySelector('b').textContent='Connecting…';}
   try{
-    const tokenResponse=await fetch('https://seed-ram-api-test-v1.raja-vadlamani.workers.dev/live-token',{
-      method:'POST',headers:{'x-ram-test-token':ramTestToken}
-    });
+    const tokenResponse=await fetch('https://seed-ram-api-test-v1.raja-vadlamani.workers.dev/live-token',{method:'POST'});
     const raw=await tokenResponse.text();let tokenData={};
     try{tokenData=raw?JSON.parse(raw):{}}catch(_){throw new Error('The Ram Live service returned an unreadable token response.');}
     if(!tokenResponse.ok||!tokenData.token)throw new Error(tokenData.error||tokenData.detail||('Live token request failed with HTTP '+tokenResponse.status));
@@ -485,7 +480,7 @@ async function ramLiveConnect(){
     const socket=new WebSocket(url);ramLive.socket=socket;
     socket.onopen=()=>{
       if(ramLive.socket!==socket)return;
-      socket.send(JSON.stringify({setup:{model:tokenData.model}}));
+      socket.send(JSON.stringify({setup:{model:'models/gemini-3.8-live',generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{}}}));
       ramLiveSetStatus('Secure token accepted. Waiting for Gemini Live setup…');
     };
     socket.onmessage=async event=>{
@@ -510,33 +505,18 @@ async function ramLiveConnect(){
   }
 }
 async function sendRamQuestion(question){
-  if(!ramTestToken){askChat.push({role:'system',text:'Please enter the private test token before asking Ram.'});fieldScreen();return;}
-  if(ramBusy)return;
-  if(ramLive.connected&&ramLive.socket?.readyState===WebSocket.OPEN){
-    askChat.push({role:'user',text:question});ramBusy=true;
-    ramLive.socket.send(JSON.stringify({realtimeInput:{text:question}}));fieldScreen();return;
-  }
+  const value=String(question||'').trim();
+  if(!value||ramBusy)return;
+  askChat.push({role:'user',text:value});
   ramBusy=true;
-  askChat.push({role:'user',text:question});
-  fieldScreen();
-  try{
-    const response=await fetch('https://seed-ram-api-test-v1.raja-vadlamani.workers.dev/api/ram',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-ram-test-token':ramTestToken},
-      body:JSON.stringify({question})
-    });
-    const raw=await response.text();
-    let data={};
-    try{data=raw?JSON.parse(raw):{};}catch(_){throw new Error('The Ram service returned an unreadable response.');}
-    if(!response.ok)throw new Error(data.error||data.message||('Ram service returned HTTP '+response.status));
-    if(!data.answer)throw new Error('Ram returned no answer. Please try again.');
-    askChat.push({role:'assistant',text:data.answer});
-  }catch(error){
-    askChat.push({role:'system',text:'Connection issue: '+(error&&error.message?error.message:String(error))});
-  }finally{
-    ramBusy=false;
+  if(ramLive.connected&&ramLive.socket?.readyState===WebSocket.OPEN){
+    ramLive.currentUserText='';
+    ramLive.socket.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:value}]}],turnComplete:true}}));
     fieldScreen();
+    return;
   }
+  ramLive.pendingQuestion=value;
+  fieldScreen();
 }
 function applySatelliteBoundary(points,plotId,source){
   const clean=points.map(p=>({lon:Number(p.lon??p.lng),lat:Number(p.lat)})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat)&&Math.abs(p.lon)<=180&&Math.abs(p.lat)<=90);
@@ -773,7 +753,10 @@ async function runCropMonitorSatellite(){
 }
 
 function fieldScreen(){
-  if(fieldTab!=='ask'&&(ramLive.connected||ramLive.connecting))ramLiveStop('Voice session ended because you left Ask Ram.');
+  if(fieldTab!=='ask'){
+    if(ramLive.connected||ramLive.connecting)ramLiveStop('Voice session ended because you left Ask Ram.');
+    ramLive.autoAttemptedForAsk=false;
+  }
   recordSeedNavigation();
   fieldMode=true;document.body.classList.add('field-mode');const list=records.filter(r=>r.officer===selectedOfficer);manager.classList.add('hidden');field.classList.remove('hidden');
   // The standalone satellite/KML test is intentionally accessible without the field-app demo sign-in gate.
@@ -831,16 +814,20 @@ function fieldScreen(){
     Object.entries(values).forEach(([id,value])=>{const input=field.querySelector('#'+id);if(input)input.value=value});
     const note=field.querySelector('#satelliteReferenceNote');
     if(note)note.textContent='Reference test only: PLOT-R002 bounds from the existing Rice Seed Climate Ledger / ANVORA connector test. This is not the current selected farmer field.';
-  });field.querySelector('#askLanguage')?.addEventListener('change',e=>{askLanguage=e.target.value;fieldScreen()});field.querySelectorAll('[data-chat-example]').forEach(b=>b.addEventListener('click',()=>{const input=field.querySelector('#askChatInput');if(input){input.value=['What should I do in my current inspection stage?','How do I record separate male and female parent seed lots?','How do I report fertilizer or pesticide use?','What details are needed for harvest and dispatch?'][Number(b.dataset.chatExample)]||'';input.focus()}}));field.querySelector('#ramTokenSave')?.addEventListener('click',()=>{const input=field.querySelector('#ramTestTokenInput');const value=input?.value.trim();if(!value){notify('Enter the test token first.');return;}ramTestToken=value;fieldScreen();notify('Test token entered for this page session.');});
-  field.querySelector('#ramTokenClear')?.addEventListener('click',()=>{if(ramLive.connected||ramLive.connecting)ramLiveStop('Voice session ended because the test token was cleared.');ramTestToken='';fieldScreen();notify('Test token cleared.');});
-  field.querySelector('#askChatForm')?.addEventListener('submit',e=>{e.preventDefault();const input=field.querySelector('#askChatInput'),text=input.value.trim();if(!text||ramBusy)return;sendRamQuestion(text);});
+  });field.querySelector('#askLanguage')?.addEventListener('change',e=>{askLanguage=e.target.value;fieldScreen()});field.querySelectorAll('[data-chat-example]').forEach(b=>b.addEventListener('click',()=>{const input=field.querySelector('#askChatInput');if(input){input.value=['What should I do in my current inspection stage?','How do I record separate male and female parent seed lots?','How do I report fertilizer or pesticide use?','What details are needed for harvest and dispatch?'][Number(b.dataset.chatExample)]||'';input.focus()}}));field.querySelector('#askChatForm')?.addEventListener('submit',e=>{e.preventDefault();const input=field.querySelector('#askChatInput'),text=input.value.trim();if(!text||ramBusy)return;sendRamQuestion(text);});
   field.querySelector('#ramVoiceButton')?.addEventListener('click',()=>{
     if(ramLive.connected||ramLive.connecting){
       ramLiveStop('Ram voice session ended.');fieldScreen();return;
     }
     ramLive.audioChunks=0;ramLive.audioBytes=0;ramLive.playbackError='';
     ramLivePrepareAudio().then(()=>ramLiveConnect()).catch(error=>ramLiveSetStatus('Could not initialise audio output: '+(error.message||String(error))));
-  });;field.querySelectorAll('[data-open-summary]').forEach(b=>b.addEventListener('click',()=>{fieldTab='summary';fieldScreen()}));
+  });
+  if(fieldTab==='ask'&&!ramLive.connected&&!ramLive.connecting&&!ramLive.autoAttemptedForAsk){
+    ramLive.autoAttemptedForAsk=true;
+    ramLive.audioChunks=0;ramLive.audioBytes=0;ramLive.playbackError='';
+    ramLivePrepareAudio().then(()=>ramLiveConnect()).catch(error=>ramLiveSetStatus('Could not initialise audio output: '+(error.message||String(error))));
+  }
+  field.querySelectorAll('[data-open-summary]').forEach(b=>b.addEventListener('click',()=>{fieldTab='summary';fieldScreen()}));
   field.querySelector('#mobileOfficer')?.addEventListener('change',e=>{selectedOfficer=e.target.value;selectedFieldId=null;fieldScreen()});field.querySelector('#signOutDemo')?.addEventListener('click',()=>{fieldSignedIn=false;fieldAuthStep='welcome';fieldMobile='';fieldScreen()});field.querySelector('#resetMobileDemo')?.addEventListener('click',()=>{records=structuredClone(SEED);selectedFieldId=1;fieldScreen();notify('Sample data reset.')});field.querySelector('#backManager')?.addEventListener('click',()=>{role='manager';page='overview';fieldMode=false;render()});
 }
 function findNearestAssignedField(){if(!navigator.geolocation){nearbyMessage='Location is unavailable. Choose a farmer or field from your assigned list.';fieldScreen();return}nearbyMessage='Checking your location…';fieldScreen();navigator.geolocation.getCurrentPosition(pos=>{const list=records.filter(r=>r.officer===selectedOfficer&&r.boundaryPoints?.length>=3);if(!list.length){nearbyMessage='No assigned field boundaries have been saved yet, so nearby matching is not available. Choose your field from the list.';fieldScreen();return}const here={lat:pos.coords.latitude,lon:pos.coords.longitude};list.sort((a,b)=>distanceMeters(here,centroid(a.boundaryPoints))-distanceMeters(here,centroid(b.boundaryPoints)));selectedFieldId=list[0].id;nearbyMessage=`Nearest saved assigned boundary selected: ${list[0].fieldNo} · ${Math.round(distanceMeters(here,centroid(list[0].boundaryPoints)))} m away.`;fieldScreen()},()=>{nearbyMessage='Could not access your location. Allow location access or choose from your assignments.';fieldScreen()},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})}
