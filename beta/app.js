@@ -995,12 +995,94 @@ function previewInspection(id,stage){
   dlg.innerHTML=`<div class="dialog-heading"><div><p class="eyebrow">PREVIEW ONLY · ENTRY LOCKED</p><h2>${escape(STAGES[stage-1])}</h2><p class="muted">${r?`${escape(r.name)} · ${escape(r.fieldNo)} · ${escape(r.village)}, ${escape(r.district)}`:'No farmer selected · general report preview'}</p></div><button type="button" class="dialog-close" data-preview-close aria-label="Close preview">×</button></div><div class="preview-lock-banner"><span>🔒</span><p>${r?'Complete the previous inspection report before entering this stage. Nothing in this preview can be edited or saved.':'You are viewing this report and its choices. Select a farmer in the field selector to edit or save it.'}</p></div>${stageSopSnapshot(stage-1)}<div class="preview-fields">${cards}</div><div class="dialog-actions"><button type="button" class="primary" data-preview-close>Close preview</button></div>`;
   dlg.querySelectorAll('[data-preview-close]').forEach(b=>b.onclick=()=>dlg.close());dlg.showModal()
 }
-function reportControl(x){
-const [type,name,label,options,extra]=x,wide=extra==='wide'?' wide-field':'',cond=extra&&extra!=='wide'?extra.split('='):null;
-let control=type==='select'?'<select name="'+name+'"><option value="">Select</option>'+options.map(o=>'<option>'+escape(o)+'</option>').join('')+'</select>':type==='textarea'?'<textarea name="'+name+'" rows="3"></textarea>':type==='readonly'?'<input name="'+name+'" type="text" readonly placeholder="Calculated after saving PPI days">':'<input name="'+name+'" type="'+type+'" min="0" step="0.01">';if(type==='text'&&name.endsWith('Lot'))control='<div class="parent-lot-control"><input name="'+name+'" type="text" placeholder="Scan QR or enter lot number"><button type="button" class="small-action" data-qrscan="'+name+'">Scan packet QR</button></div>';
-return '<label class="'+wide+(cond?' conditional-field hidden':'')+'"'+(cond?' data-condition="'+cond[0]+'" data-equals="'+cond[1]+'"':'')+'><span>'+escape(label)+(options?'':'')+(type==='number'&&typeof options==='string'?' <small>('+options+')</small>':'')+'</span>'+control+'</label>';
+function reportControl(x,voiceEnabled=false){
+const [type,name,label,options,extra]=x,wide=extra==='wide',cond=extra&&extra!=='wide'?extra.split('='):null,voiceable=voiceEnabled&&['text','number','select','textarea'].includes(type);
+let control=type==='select'?'<select name="'+name+'"><option value="">Select</option>'+options.map(o=>'<option>'+escape(o)+'</option>').join('')+'</select>':type==='textarea'?'<textarea name="'+name+'" rows="3"></textarea>':type==='readonly'?'<input name="'+name+'" type="text" readonly placeholder="Calculated after saving PPI days">':'<input name="'+name+'" type="'+type+'" min="0" step="0.01">';
+if(type==='text'&&name.endsWith('Lot'))control='<div class="parent-lot-control"><input name="'+name+'" type="text" placeholder="Scan QR or enter lot number"><button type="button" class="small-action" data-qrscan="'+name+'">Scan packet QR</button></div>';
+const labelClass=(wide?' wide-field':'')+(!voiceable&&cond?' conditional-field hidden':'');
+const condAttrs=cond?' data-condition="'+cond[0]+'" data-equals="'+cond[1]+'"':'';
+if(voiceable){
+ const wrapperClass='voice-entry-field'+(wide?' wide-field':'')+(cond?' conditional-field hidden':'');
+ return '<div class="'+wrapperClass+'"'+condAttrs+'><label><span>'+escape(label)+'</span>'+control+'</label><button type="button" class="voice-entry-trigger" data-voice-field="'+name+'" aria-label="Speak value for '+escape(label)+'">🎙</button><div class="voice-entry-status" data-voice-status="'+name+'" aria-live="polite"></div></div>';
 }
-function reportPanel(i){return '<section class="stage-panel '+(i?'hidden':'')+'" data-stage-panel="'+(i+1)+'"><div class="form-section-title"><b>0'+(i+1)+'</b><span><strong>'+escape(STAGES[i])+'</strong><small>Paddy reference report</small></span></div>'+stageSopSnapshot(i)+'<div class="form-grid">'+REPORT_FIELDS[i].map(reportControl).join('')+'</div><section class="application-log"><div class="application-log-head"><div><b>Fertilizer & agrochemical use</b><small>Optional · record each application used for this stage</small></div><button type="button" class="small-action" data-add-application>Add application</button></div><div class="application-rows"></div></section><section class="field-photo-block"><label class="photo-picker"><span aria-hidden="true">▧</span><b>Take or choose a field / leaf photo</b><small>Optional · a clear leaf and whole-field view can help later review</small><input type="file" accept="image/*" capture="environment" data-field-photo></label><div class="field-photo-preview hidden"><img alt="Local field photo preview"><div><b data-photo-name>Photo selected</b><small>Saved in this browser session only. No upload or AI diagnosis is connected.</small></div></div><p class="photo-ai-note">AI pest and disease assessment is deferred. This prototype does not upload or analyse photos.</p></section>'+(i===0?'<p class="isolation-note">Parent details are separate for M-1, M-2, M-3 and female. Parent data from an imported demo master row pre-fills this report when present; QR scans and manual entry are also available. Isolation observations are routed for human review. This prototype does not decide crop-specific statutory compliance.</p>':'')+'</section>'}
+return '<label class="'+labelClass+'"'+condAttrs+'><span>'+escape(label)+(typeof options==='string'?' <small>('+escape(options)+')</small>':'')+'</span>'+control+'</label>';
+}
+function reportPanel(i){
+const voiceGuide=i===0?'<section class="report-voice-guide"><div><b>Voice-assisted entry · First Inspection</b><p>Tap the microphone beside a field, speak its value, review the transcript, then choose “Use this value.” Your report remains a draft until you save it.</p><small>The browser speech service may process audio. This app does not save audio recordings.</small></div><label>Speech language<select data-report-voice-language><option value="en-IN">English (India)</option><option value="te-IN">Telugu (India)</option><option value="hi-IN">Hindi (India)</option></select></label><p class="report-voice-support" data-report-voice-support role="status"></p></section>':'';
+return '<section class="stage-panel '+(i?'hidden':'')+'" data-stage-panel="'+(i+1)+'"><div class="form-section-title"><b>0'+(i+1)+'</b><span><strong>'+escape(STAGES[i])+'</strong><small>Paddy reference report</small></span></div>'+stageSopSnapshot(i)+voiceGuide+'<div class="form-grid">'+REPORT_FIELDS[i].map(x=>reportControl(x,i===0)).join('')+'</div><section class="application-log"><div class="application-log-head"><div><b>Fertilizer & agrochemical use</b><small>Optional · record each application used for this stage</small></div><button type="button" class="small-action" data-add-application>Add application</button></div><div class="application-rows"></div></section><section class="field-photo-block"><label class="photo-picker"><span aria-hidden="true">▧</span><b>Take or choose a field / leaf photo</b><small>Optional · a clear leaf and whole-field view can help later review</small><input type="file" accept="image/*" capture="environment" data-field-photo></label><div class="field-photo-preview hidden"><img alt="Local field photo preview"><div><b data-photo-name>Photo selected</b><small>Saved in this browser session only. No upload or AI diagnosis is connected.</small></div></div><p class="photo-ai-note">AI pest and disease assessment is deferred. This prototype does not upload or analyse photos.</p></section>'+(i===0?'<p class="isolation-note">Parent details are separate for M-1, M-2, M-3 and female. Parent data from an imported demo master row pre-fills this report when present; QR scans and manual entry are also available. Isolation observations are routed for human review. This prototype does not decide crop-specific statutory compliance.</p>':'')+'</section>';
+}
+let inspectionSpeechRecognition=null;
+function reportVoiceSupported(){return typeof window.SpeechRecognition==='function'||typeof window.webkitSpeechRecognition==='function'}
+function setReportVoiceAvailability(dialog){
+ const supported=reportVoiceSupported();
+ dialog.querySelectorAll('.voice-entry-trigger').forEach(button=>button.hidden=!supported);
+ const status=dialog.querySelector('[data-report-voice-support]');
+ if(status)status.textContent=supported?'For each value, speak one field at a time. Review every result before saving.':'Voice entry is not available in this browser. You can type the values normally.';
+}
+function reportSpokenDigits(text){
+ const tokens=String(text||'').toLowerCase().replace(/[.,!?]/g,' ').trim().split(/\s+/).filter(Boolean);
+ const digits={zero:'0',oh:'0',o:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',ate:'8',nine:'9'};
+ if(tokens.length&&tokens.every(token=>digits[token]!==undefined||/^\\d$/.test(token)))return tokens.map(token=>digits[token]??token).join('');
+ return '';
+}
+function reportSpokenNumber(text){
+ const source=String(text||'').trim();
+ const numeric=source.match(/-?\d+(?:[.,]\d+)?/);
+ if(numeric)return numeric[0].replace(',','.');
+ const tokens=source.toLowerCase().replace(/[,:!?]/g,' ').split(/\s+/).filter(Boolean);
+ const digit=reportSpokenDigits(tokens.join(' '));if(digit)return digit;
+ const small={zero:0,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,seventeen:17,eighteen:18,nineteen:19,twenty:20,thirty:30,forty:40,fifty:50,sixty:60,seventy:70,eighty:80,ninety:90};
+ let whole=0,tens=0,fraction='',afterPoint=false,seen=false;
+ for(const token of tokens){
+  if(['acres','acre','days','day','meters','metres','rows','row','of'].includes(token))continue;
+  if(token==='point'||token==='dot'){afterPoint=true;seen=true;continue}
+  if(token==='and')continue;
+  if(small[token]===undefined)return null;
+  const value=small[token];seen=true;
+  if(afterPoint){fraction+=String(value);continue}
+  if(value>=20){tens+=value}else if(value<10&&tens){whole+=tens+value;tens=0}else whole+=value;
+ }
+ if(!seen)return null;
+ whole+=tens;
+ return String(whole)+(fraction?'.'+fraction:'');
+}
+function normalizeReportSpeech(transcript,input){
+ const type=input.tagName==='SELECT'?'select':input.type;
+ if(input.name==='contactNumber'){
+  const digits=reportSpokenDigits(transcript);return digits||String(transcript||'').trim();
+ }
+ if(type==='number')return reportSpokenNumber(transcript);
+ if(type==='select'){
+  const value=String(transcript||'').trim().toLowerCase();
+  const option=[...input.options].find(item=>item.value&&item.textContent.trim().toLowerCase()===value)
+    ||[...input.options].find(item=>item.value&&value.includes(item.textContent.trim().toLowerCase()));
+  return option?.value??null;
+ }
+ return String(transcript||'').trim();
+}
+function startReportFieldVoice(form,fieldName){
+ const SpeechRecognitionClass=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SpeechRecognitionClass){notify('Voice recognition is not available in this browser.');return}
+ if(inspectionSpeechRecognition){try{inspectionSpeechRecognition.abort()}catch(_){}inspectionSpeechRecognition=null}
+ const input=form.elements.namedItem(fieldName),status=form.querySelector('[data-voice-status="'+fieldName+'"]'),language=form.querySelector('[data-report-voice-language]')?.value||'en-IN';
+ if(!input||!status)return;
+ const recognition=new SpeechRecognitionClass();inspectionSpeechRecognition=recognition;status.textContent='Starting microphone…';status.dataset.transcript='';
+ recognition.lang=language;recognition.continuous=false;recognition.interimResults=false;recognition.maxAlternatives=1;
+ recognition.onstart=()=>{status.textContent='Listening… speak the value for '+(input.closest('label')?.querySelector('span')?.textContent||fieldName)+'.'};
+ recognition.onresult=event=>{
+  const transcript=event.results?.[0]?.[0]?.transcript?.trim()||'';
+  if(!transcript){status.textContent='No words were recognized. Try again or type the value.';return}
+  status.dataset.transcript=transcript;
+  status.innerHTML='<span>Heard: “'+escape(transcript)+'”</span><button type="button" class="voice-use-button" data-voice-use="'+fieldName+'">Use this value</button><button type="button" class="voice-clear-button" data-voice-clear="'+fieldName+'">Try again</button>';
+ };
+ recognition.onerror=event=>{
+  if(event.error==='aborted')return;
+  const message=event.error==='not-allowed'||event.error==='service-not-allowed'?'Microphone access was blocked. Allow it in browser settings and try again.':event.error==='no-speech'?'No speech was detected. Try again closer to the microphone.':'Voice recognition failed ('+event.error+'). You can type this value instead.';
+  status.textContent=message;
+ };
+ recognition.onend=()=>{if(inspectionSpeechRecognition===recognition)inspectionSpeechRecognition=null};
+ try{recognition.start()}catch(error){status.textContent='Could not start voice recognition. Try again or type the value.';inspectionSpeechRecognition=null}
+}
 function applicationRow(value={}){return '<div class="application-row"><label><span>Application type</span><select data-app="type"><option value="">Choose type</option>'+['Fertilizer','Insecticide','Fungicide','Herbicide','Other agrochemical'].map(x=>'<option '+(value.type===x?'selected':'')+'>'+x+'</option>').join('')+'</select></label><label><span>Product name</span><input data-app="product" type="text" placeholder="Enter product"></label><label><span>Quantity</span><input data-app="quantity" type="number" min="0" step="0.01" placeholder="0"></label><label><span>Unit</span><input data-app="unit" type="text" placeholder="kg, L, ml, g"></label><label class="wide-field"><span>Purpose / target (optional)</span><input data-app="purpose" type="text" placeholder="Reason for application"></label><button type="button" class="remove-application" aria-label="Remove application">Remove</button></div>'}
 function loadApplications(panel,rows){const host=panel.querySelector('.application-rows');host.innerHTML=(rows?.length?rows:[{}]).map(applicationRow).join('')}
 function syncReportForm(f){const stage=+f.elements.stage.value;f.querySelectorAll('[data-stage-panel]').forEach(p=>p.classList.toggle('hidden',+p.dataset.stagePanel!==stage));f.querySelectorAll('.conditional-field').forEach(l=>{const source=f.elements[l.dataset.condition];l.classList.toggle('hidden',!source||source.value!==l.dataset.equals)})}
@@ -1019,7 +1101,7 @@ function editInspection(id,initialStage){
 const r=records.find(x=>x.id===id);if(!r)return;activeInspectionId=id;let dlg=document.getElementById('inspectionDialog');
 if(!dlg){
 document.body.insertAdjacentHTML('beforeend','<dialog class="field-dialog" id="inspectionDialog"><form method="dialog"><div class="dialog-heading"><div><p class="eyebrow">SAGEHARVEST · FIELD VISIT</p><h2>Inspection report</h2><p class="muted" id="inspectionFarmer"></p></div><button class="dialog-close" value="cancel" aria-label="Close">×</button></div><div class="shared-context" id="sharedContext"></div><div class="form-grid inspection-meta"><label><span>M.R. number</span><input name="mrNumber" type="text" placeholder="Enter if assigned"></label><label><span>Contract number</span><input name="contractNumber" type="text" placeholder="Enter if assigned"></label><div class="report-stage-pill"><small>SELECTED REPORT</small><b id="inspectionStageName"></b><input name="stage" type="hidden" value="1"></div><label><span>Inspection date</span><input name="inspectionDate" type="date"></label><label><span>Field status</span><select name="status"><option>On track</option><option>Due</option><option>Follow-up</option></select></label></div>'+STAGES.map((_,i)=>reportPanel(i)).join('')+'<p class="dialog-note">Save a draft to continue later. Choose Complete report to confirm this stage and unlock the next one. Reports are saved to the shared company database. Photos stay on this device and are not uploaded.</p><div class="dialog-actions report-actions"><button class="outline" value="cancel">Close</button><button class="outline" value="draft">Save draft</button><button class="primary" value="complete">Complete report & unlock next</button></div></form></dialog>');
-dlg=document.getElementById('inspectionDialog');const f=dlg.querySelector('form');f.elements.stage.addEventListener('change',()=>syncReportForm(f));f.addEventListener('change',e=>{syncReportForm(f);if(e.target.matches('[data-field-photo]')){const panel=e.target.closest('[data-stage-panel]'),file=e.target.files?.[0];if(!panel||!file)return;if(!file.type.startsWith('image/')){notify('Choose an image file.');return}const reader=new FileReader();reader.onload=()=>{panel.dataset.photoData=reader.result;panel.dataset.photoName=file.name;const preview=panel.querySelector('.field-photo-preview');preview.classList.remove('hidden');preview.querySelector('img').src=reader.result;preview.querySelector('[data-photo-name]').textContent=file.name};reader.readAsDataURL(file)}});f.addEventListener('click',e=>{const scan=e.target.closest('[data-qrscan]');if(scan)startParentQrScan(scan.dataset.qrscan);if(e.target.closest('[data-add-application]')){const panel=e.target.closest('[data-stage-panel]');panel.querySelector('.application-rows').insertAdjacentHTML('beforeend',applicationRow())}if(e.target.closest('.remove-application')){const host=e.target.closest('.application-rows');e.target.closest('.application-row').remove();if(!host.children.length)host.innerHTML=applicationRow()}});
+dlg=document.getElementById('inspectionDialog');const f=dlg.querySelector('form');f.elements.stage.addEventListener('change',()=>syncReportForm(f));f.addEventListener('change',e=>{syncReportForm(f);if(e.target.matches('[data-field-photo]')){const panel=e.target.closest('[data-stage-panel]'),file=e.target.files?.[0];if(!panel||!file)return;if(!file.type.startsWith('image/')){notify('Choose an image file.');return}const reader=new FileReader();reader.onload=()=>{panel.dataset.photoData=reader.result;panel.dataset.photoName=file.name;const preview=panel.querySelector('.field-photo-preview');preview.classList.remove('hidden');preview.querySelector('img').src=reader.result;preview.querySelector('[data-photo-name]').textContent=file.name};reader.readAsDataURL(file)}});dlg.addEventListener('close',()=>{if(inspectionSpeechRecognition){try{inspectionSpeechRecognition.abort()}catch(_){}inspectionSpeechRecognition=null}});setReportVoiceAvailability(dlg);f.addEventListener('click',e=>{const voice=e.target.closest('[data-voice-field]');if(voice){e.preventDefault();e.stopPropagation();startReportFieldVoice(f,voice.dataset.voiceField);return}const use=e.target.closest('[data-voice-use]');if(use){const name=use.dataset.voiceUse,input=f.elements.namedItem(name),status=f.querySelector('[data-voice-status="'+name+'"]'),transcript=status?.dataset.transcript||'',value=normalizeReportSpeech(transcript,input);if(value===null||value===''){notify('Could not safely map that speech to this field. Please type it instead.');return}input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));status.textContent='Added to the draft. Check the field before saving.';return}const clear=e.target.closest('[data-voice-clear]');if(clear){const status=f.querySelector('[data-voice-status="'+clear.dataset.voiceClear+'"]');if(status){status.textContent='';status.dataset.transcript=''}return}const scan=e.target.closest('[data-qrscan]');if(scan)startParentQrScan(scan.dataset.qrscan);if(e.target.closest('[data-add-application]')){const panel=e.target.closest('[data-stage-panel]');panel.querySelector('.application-rows').insertAdjacentHTML('beforeend',applicationRow())}if(e.target.closest('.remove-application')){const host=e.target.closest('.application-rows');e.target.closest('.application-row').remove();if(!host.children.length)host.innerHTML=applicationRow()}});
 dlg.querySelector('form').addEventListener('submit',async event=>{
   const result=event.submitter?.value;if(!['draft','complete'].includes(result))return;event.preventDefault();
   const saveButton=event.submitter,activeRecord=records.find(x=>x.id===activeInspectionId);if(!activeRecord)return;saveButton.disabled=true;
