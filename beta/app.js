@@ -10,6 +10,8 @@ let requestedCompanyName = seedworksFieldApp ? 'SeedWorks' : '';
 let records = [], pendingMasterRows=null;
 let role = seedworksFieldApp ? 'officer' : 'manager', selectedOfficer = 'FA-01', selectedTerritoryManager = 'TM-01', page = 'overview', fieldMode = seedworksFieldApp;
 let fieldSignedIn=false,fieldAuthStep='welcome',fieldMobile='',fieldTab='today',selectedFieldId=null,nearbyMessage='',askLanguage='English',askChat=[];
+let ramBusy=false,ramSpeakNextReply=false,ramRecognition=null;
+const ramLive={socket:null,stream:null,outputContext:null,microphoneContext:null,source:null,processor:null,connected:false,connecting:false,voiceConnected:false,voiceRequested:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:'',pendingQuestion:null,autoAttemptedForAsk:false};
 const manager = document.getElementById('managerView'), field = document.getElementById('fieldView');
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
 const nav = [...document.querySelectorAll('.nav-item')];
@@ -23,7 +25,7 @@ if(seedworksFieldApp){
   document.getElementById('authTitle').textContent='Sign in to SeedWorks Field';
   document.querySelector('.auth-gate-card>.muted').textContent='Use your approved SeedWorks account to open the field app.';
 }
-let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectionId=null;
+let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectionId=null, satelliteRequestGeometry=null;
 function notify(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2800)}
 function setAuthStatus(message,isError=true){const node=document.getElementById('betaAuthStatus');if(node){node.textContent=message;node.classList.toggle('is-error',isError)}}
 function setRecoveryStatus(message,isError=true){const node=document.getElementById('recoveryStatus');if(node){node.textContent=message;node.classList.toggle('is-error',isError)}}
@@ -191,18 +193,524 @@ function fieldSummaryScreen(r){
   return '<div class="mobile-page-heading"><p class="eyebrow">SEASON FIELD CLOSE-OUT · ALL SIX REPORTS COMPLETE</p><h1>Final field summary</h1><p>Review the recorded area, dispatch, seed quality and production metrics for this field.</p></div><section class="summary-field-card"><div><small>FARMER · SEASON FIELD</small><b>'+escape(r.name)+' · '+escape(r.fieldNo)+'</b><span>'+escape(r.village)+', '+escape(r.district)+' · '+escape(r.crop)+' · '+escape(r.hybrid)+'</span></div><span class="summary-complete-badge">✓ 6 / 6 complete</span></section><section class="summary-metric-grid">'+metric('Net GPS area',shown(netGpsAcres,'acres'),'Final payment area · Pre-Harvesting Report')+metric('Productivity per acre',escape(productivity),'Dispatched seed weight ÷ net GPS area')+metric('Dispatched seed weight',shown(harvest.dispatchSeedWeight,unit),'From Harvesting Report')+metric('Seed moisture',shown(harvest.seedMoisture,'%'),'As recorded at dispatch')+metric('Seed quality status',shown(harvest.qualityStatus),'Field officer assessment')+metric('Dispatch challan · DC',shown(harvest.dcNumber))+metric('Seed dispatch · STN',shown(harvest.dispatchNumber))+metric('Dispatch date',shown(harvest.dispatchDate))+'</section><section class="summary-note"><b>Recorded values only</b><p>Productivity is calculated only when both net GPS area and dispatched seed weight are entered with a weight unit. This prototype does not verify dispatch, moisture, quality, or production data with company systems.</p></section><section class="summary-stage-list"><h2>Inspection completion</h2>'+STAGES.map((name,i)=>'<div><span>✓</span><b>'+escape(name)+'</b><small>'+escape((r.inspectionReports||{})[i+1]?.inspectionDate||'Date not recorded')+'</small></div>').join('')+'</section><button type="button" class="outline" data-bottom="inspections">← Back to inspection stages</button>';
 }
 
+function advisoryValue(stats,key){
+  const value=stats?.[key]?.bands?.B0?.stats?.mean;
+  return Number.isFinite(Number(value))?Number(value):null;
+}
+function opticalTrendSummary(intervals){
+  const keys=['ndvi','ndmi','ndre','evi','savi'];
+  const labels={ndvi:'NDVI (crop greenness)',ndmi:'NDMI (canopy moisture signal)',ndre:'NDRE (chlorophyll-related signal)',evi:'EVI (vegetation signal)',savi:'SAVI (soil-adjusted vegetation signal)'};
+  const value=(item,key)=>{const n=item?.outputs?.[key]?.bands?.B0?.stats?.mean;return Number.isFinite(Number(n))?Number(n):null};
+  if(!Array.isArray(intervals)||intervals.length<2)return '';
+  const first=intervals[0],last=intervals[intervals.length-1],changes=[];
+  keys.forEach(key=>{const a=value(first,key),b=value(last,key);if(a!==null&&b!==null&&Math.abs(a)>0.000001)changes.push({key,label:labels[key],a,b,delta:b-a,pct:(b-a)/Math.abs(a)*100})});
+  if(!changes.length)return '';
+  const declining=changes.filter(x=>x.pct<=-10),rising=changes.filter(x=>x.pct>=10);
+  let headline='Vegetation indicators show mixed changes';
+  let explanation='Compare the changes with crop stage, field operations and image quality before drawing a conclusion.';
+  if(declining.length>=3){
+    headline='Several vegetation indicators have declined';
+    explanation='From the first to the last available interval, '+declining.map(x=>x.key.toUpperCase()).join(', ')+' declined by at least 10%. This is a meaningful change in the satellite signal and warrants a field check. It does not, by itself, identify the cause or quantify crop loss.';
+  }else if(rising.length>=3){
+    headline='Several vegetation indicators have increased';
+    explanation='From the first to the last available interval, '+rising.map(x=>x.key.toUpperCase()).join(', ')+' increased by at least 10%. This may reflect canopy development or recovery; confirm that it matches the expected crop stage.';
+  }
+  const rows=changes.map(x=>'<div class="satellite-trend-row"><span>'+escape(x.key.toUpperCase())+'</span><b>'+x.a.toFixed(4)+' → '+x.b.toFixed(4)+'</b><strong class="'+(x.pct<=-10?'trend-down':x.pct>=10?'trend-up':'trend-steady')+'">'+(x.pct>0?'+':'')+x.pct.toFixed(1)+'%</strong></div>').join('');
+  return '<section class="satellite-trend-summary"><p class="eyebrow">WHOLE-PERIOD TREND · FIRST VS LAST INTERVAL</p><h3>'+escape(headline)+'</h3><p>'+escape(explanation)+'</p><div class="satellite-trend-table">'+rows+'</div><div class="satellite-advisory-next"><b>Recommended field check</b><p>Confirm the rice crop stage and whether harvest, drainage, irrigation or other field operations occurred during this period. Inspect representative areas for soil moisture, waterlogging, leaf colour, pest/disease symptoms and lodging. Do not apply fertiliser or crop-protection products based on these indices alone.</p></div></section>';
+}
+function opticalAdvisory(stats,previousStats){
+  const ndvi=advisoryValue(stats,'ndvi'), ndmi=advisoryValue(stats,'ndmi'), ndre=advisoryValue(stats,'ndre');
+  const previousNdvi=advisoryValue(previousStats,'ndvi');
+  const items=[];
+  if(ndvi===null){
+    items.push({title:'Crop vigour',text:'NDVI was not available for this observation, so crop vigour cannot be assessed from this interval.'});
+  }else{
+    let text=ndvi<0.2?'The vegetation signal is low or sparse. Bare soil, early crop stage, harvested ground, water or weak crop growth can all produce this pattern.':ndvi<0.4?'The vegetation signal is moderate. Whether this is expected depends on crop type, growth stage and field conditions.':'The vegetation signal is relatively strong, which is consistent with a greener or denser canopy; it does not by itself prove the crop is stress-free.';
+    if(previousNdvi!==null){
+      const delta=ndvi-previousNdvi;
+      if(delta<=-0.08) text+=' NDVI has fallen noticeably versus the previous interval; check the field for stress or a normal stage transition.';
+      else if(delta>=0.08) text+=' NDVI has risen noticeably versus the previous interval, which may indicate canopy development or recovery.';
+      else text+=' NDVI is broadly stable versus the previous interval.';
+    }
+    items.push({title:'Crop vigour (NDVI)',text});
+  }
+  if(ndmi===null){
+    items.push({title:'Canopy moisture signal (NDMI)',text:'NDMI was not available. No moisture interpretation can be made from this interval.'});
+  }else{
+    items.push({title:'Canopy moisture signal (NDMI)',text:ndmi<0?'NDMI is below zero, which can be consistent with a relatively low vegetation-moisture signal, but soil background, crop stage and canopy density can affect it. Check soil and plant moisture directly.':'NDMI is above zero, indicating a positive vegetation-moisture signal. Compare with the same field over time; this is not a direct soil-moisture measurement.'});
+  }
+  if(ndre!==null) items.push({title:'Chlorophyll-related signal (NDRE)',text:'NDRE mean is '+ndre.toFixed(3)+'. Interpret it against earlier observations of this same crop and growth stage; it cannot identify a specific nutrient deficiency on its own.'});
+  return '<section class="satellite-advisory"><p class="eyebrow">PLAIN-LANGUAGE INTERPRETATION · SCREENING ONLY</p>'+items.map(x=>'<div class="satellite-advisory-item"><b>'+escape(x.title)+'</b><p>'+escape(x.text)+'</p></div>').join('')+'<div class="satellite-advisory-next"><b>What to do next</b><p>Inspect the field before taking corrective action. Check crop stage, soil moisture, waterlogging, weeds, nutrient symptoms, pests and disease. Satellite indices cannot confirm a pest, disease, lodging event or a specific nutrient problem by themselves.</p></div></section>';
+}
+function radarAdvisory(vv,vh,previousVv,previousVh){
+  const items=[];
+  function trend(label,current,previous){
+    if(!Number.isFinite(current)) return label+' value is unavailable.';
+    if(!Number.isFinite(previous)) return label+' mean is '+current.toFixed(4)+'. A single radar value is not enough to diagnose crop condition or soil moisture.';
+    const change=current-previous, pct=Math.abs(previous)>0.000001?Math.abs(change/previous)*100:null;
+    if(pct!==null&&pct>=20) return label+' changed by about '+pct.toFixed(0)+'% versus the previous interval. This is a notable radar-signal change, not a diagnosis; rainfall, surface wetness, vegetation structure and acquisition conditions can affect it.';
+    return label+' is broadly stable versus the previous interval. This alone does not establish that the crop is healthy or free from stress.';
+  }
+  items.push(trend('VV backscatter',vv,previousVv));
+  items.push(trend('VH backscatter',vh,previousVh));
+  return '<section class="satellite-advisory"><p class="eyebrow">PLAIN-LANGUAGE INTERPRETATION · RADAR SIGNAL</p>'+items.map(t=>'<div class="satellite-advisory-item"><p>'+escape(t)+'</p></div>').join('')+'<div class="satellite-advisory-next"><b>What to do next</b><p>Compare several usable observations and check rainfall/irrigation records. Confirm possible water stress, waterlogging or lodging in the field; VV/VH alone cannot confirm any of these conditions.</p></div></section>';
+}
+
 function askRamScreen(current){
   const languages=['English','Hindi','Marathi','Telugu','Kannada','Tamil','Gujarati','Bengali','Punjabi','Urdu','Odia','Malayalam','Other language'];
-  const examples=['What should I do in my current inspection stage?','How do I record separate male and female parent seed lots?','How do I report fertilizer or pesticide use?','What details are needed for harvest and dispatch?'];
-  const transcript=askChat.length?askChat.map(item=>item.role==='user'?'<div class="ask-chat-row user"><small>YOU · LOCAL PREVIEW</small><p>'+escape(item.text)+'</p></div>':'<div class="ask-chat-row notice"><small>ASK RAM · NOT CONNECTED</small><p>Your message is shown here only to preview the chat. No AI answer was generated or sent.</p></div>').join(''):'<div class="ask-chat-empty"><span>✳</span><b>Your field support chat</b><p>Ask about inspections, approved SOP guidance, GPS area capture, input records, or harvest reporting for your assigned work.</p><small>AI responses will appear here after Google AI is connected.</small></div>';
-  return '<button type="button" class="ask-ram-back" data-bottom="inspections">← Back to Inspections</button><div class="mobile-page-heading"><p class="eyebrow">FIELD OFFICER SUPPORT · PREVIEW</p><h1>Ask Ram</h1><p>Conversational support for the field officer’s assigned work, with voice support planned.</p></div><section class="ask-ram-hero"><img class="ask-ram-avatar" src="assets/ask-ram-avatar.svg" alt="Illustrated Ask Ram field assistant"><div><span class="ask-ram-status">GOOGLE AI · PLANNED</span><h2>Namaste, I’m Ram.</h2><p>Get help with your field activities, inspection records and stage guides.</p></div></section><section class="ask-ram-controls"><label for="askLanguage">Preferred language</label><select id="askLanguage">'+languages.map(x=>'<option '+(askLanguage===x?'selected':'')+'>'+escape(x)+'</option>').join('')+'</select><button type="button" class="ask-ram-mic" disabled aria-disabled="true"><span>🎙</span><b>Start voice conversation</b><small>Available after Google AI is connected</small></button><p class="ask-ram-connection">Voice capture, spoken replies and multilingual answers are not active yet. No audio is recorded or sent.</p></section><section class="ask-chat-panel"><div class="ask-chat-heading"><div><h2>Ask Ram · Chat</h2><p>Ask a question about your field officer activities.</p></div><span>AI OFFLINE</span></div><div class="ask-chat-scope">'+(current?'Current assigned field: <b>'+escape(current.fieldNo)+' · '+escape(current.village)+'</b>':'No field selected')+' · secure role scope will apply after sign-in services are connected.</div><div class="ask-chat-messages" aria-live="polite">'+transcript+'</div><div class="ask-chat-suggestions"><small>SUGGESTED QUESTIONS</small>'+examples.map((x,i)=>'<button type="button" data-chat-example="'+i+'">'+escape(x)+'</button>').join('')+'</div><form class="ask-chat-compose" id="askChatForm"><textarea id="askChatInput" rows="2" placeholder="Type a question about your assigned work…" maxlength="800" required></textarea><button type="submit" aria-label="Send message">↑</button></form><p class="ask-chat-local-note">Prototype chat preview only. Messages stay in this browser session; they are not sent to an AI or saved.</p></section><section class="ask-ram-boundary"><b>Planned connection</b><p>Google AI can be connected later for conversational answers and voice in supported languages. Future answers should use approved Sage Harvest SOP content, respect the officer’s assigned scope, and route uncertain guidance to the territory manager.</p></section>';
+  const examples=['What is the recommended seedling age for transplanting?','When should nick prediction begin?','At what moisture should female plants be harvested?','What are the symptoms of stem borer?'];
+  const transcript=askChat.length?askChat.map(item=>{
+    const role=item.role==='user'?'user':item.role==='assistant'?'assistant':'notice';
+    const label=role==='user'?'YOU':role==='assistant'?'RAM':'SYSTEM';
+    return '<div class="ask-chat-row '+role+'"><small>'+label+'</small><p>'+escape(item.text)+'</p></div>';
+  }).join(''):'<div class="ask-chat-empty"><span>✳</span><b>Start a conversation with Ram</b><p>Ask a question about Paddy hybrid seed production and the approved SeedWorks SOP.</p></div>';
+  const liveSupported=!!(window.WebSocket&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.AudioContext);
+  return '<button type="button" class="ask-ram-back" data-bottom="inspections">← Back to Inspections</button><div class="mobile-page-heading"><p class="eyebrow">FIELD OFFICER SUPPORT</p><h1>Ask Ram</h1><p>Live voice and chat support for field work</p></div><section class="ask-ram-hero"><img class="ask-ram-avatar" src="assets/ask-ram-avatar.svg" alt="Ask Ram field assistant"><div><span class="ask-ram-status">APPROVED SEEDWORKS PADDY SOP</span><h2>Namaste, I’m Ram.</h2><p>Talk naturally with me about Paddy hybrid seed production.</p></div></section><section class="ask-ram-controls"><label for="askLanguage">Preferred conversation language</label><select id="askLanguage">'+languages.map(x=>'<option '+(askLanguage===x?'selected':'')+'>'+escape(x)+'</option>').join('')+'</select><p class="ask-ram-connection">Type a question or start voice conversation. Your browser will ask for microphone access when you choose voice.</p></section><section class="ask-chat-panel"><div class="ask-chat-heading"><div><h2>Ask Ram · Live conversation</h2><p>Two-way audio streamed directly to Gemini Live using a short-lived token.</p></div><span>'+(ramLive.connected?'CONNECTED':ramLive.connecting?'CONNECTING':'LIVE')+'</span></div><div class="ask-chat-scope">'+(current?'Selected field: <b>'+escape(current.fieldNo)+' · '+escape(current.village)+'</b>':'No field selected')+' · Ram answers from the approved Paddy SOP knowledge pack, not farmer records.</div><p id="ramLiveStatus" class="ask-ram-connection" role="status">'+(ramLive.connected?'Voice session connected. You can speak now.':ramLive.connecting?'Connecting securely to Gemini Live…':liveSupported?'Ready. Type a question or start a voice conversation.':'Voice needs a browser with microphone and audio support.')+'</p><div class="ask-chat-messages" id="askChatMessages" aria-live="polite">'+transcript+(ramBusy?'<div class="ask-chat-row notice"><small>RAM</small><p>Listening / responding…</p></div>':'')+'</div><div class="ask-chat-suggestions"><small>TRY A QUESTION</small>'+examples.map((x,i)=>'<button type="button" data-chat-example="'+i+'">'+escape(x)+'</button>').join('')+'</div><form class="ask-chat-compose" id="askChatForm"><textarea id="askChatInput" rows="2" placeholder="Type a question to Ram…" maxlength="800" required></textarea><button type="submit" aria-label="Send message" '+(ramBusy?'disabled':'')+'>↑</button></form><button type="button" class="ask-ram-mic ram-live-mic" id="ramVoiceButton" '+(!liveSupported?'disabled':'')+'><span>🎙</span><b>'+(ramLive.connected&&ramLive.voiceConnected?'Stop voice conversation':ramLive.connecting?'Connecting…':'Start voice conversation')+'</b><small>'+(ramLive.connected&&ramLive.voiceConnected?'Tap to end the microphone and live session':ramLive.connecting?'Please wait while the secure session starts':ramLive.connected?'Tap to enable microphone voice':'Real-time microphone input and spoken Gemini response')+'</small></button><p class="ask-chat-local-note">Live audio uses Gemini Live directly. The permanent Gemini API key stays on the Worker; no visitor token is required. Your field record is not attached to the question. Avoid typing personal farmer information.</p></section><section class="ask-ram-boundary"><b>Testing boundary</b><p>Ram answers from the approved SeedWorks Paddy SOP knowledge pack. Confirm field decisions with your Territory Manager; Ram does not replace approved agronomic review.</p></section>';
+}
+
+function ramSpeechLanguage(){
+  return ({English:'en-IN',Hindi:'hi-IN',Marathi:'mr-IN',Telugu:'te-IN',Kannada:'kn-IN',Tamil:'ta-IN',Gujarati:'gu-IN',Bengali:'bn-IN',Punjabi:'pa-IN',Urdu:'ur-IN',Odia:'or-IN',Malayalam:'ml-IN'})[askLanguage]||'en-IN';
+}
+function ramLiveSetStatus(message){
+  const node=document.getElementById('ramLiveStatus');
+  if(node)node.textContent=message;
+}
+async function ramLivePrepareAudio(){
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)throw new Error('This browser does not support Web Audio output.');
+  if(!ramLive.outputContext||ramLive.outputContext.state==='closed')ramLive.outputContext=new AudioContextClass({sampleRate:24000});
+  if(ramLive.outputContext.state==='suspended')await ramLive.outputContext.resume();
+  if(ramLive.outputContext.state!=='running')throw new Error('Browser audio output did not enter the running state.');
+  return ramLive.outputContext;
+}
+function ramLiveStop(reason){
+  const socket=ramLive.socket;
+  ramLive.voiceConnected=false;ramLive.voiceRequested=false;
+  ramLive.socket=null;
+  ramLive.connected=false;
+  ramLive.connecting=false;
+  if(ramLive.processor){try{ramLive.processor.disconnect()}catch(_){}ramLive.processor.onaudioprocess=null;ramLive.processor=null;}
+  if(ramLive.source){try{ramLive.source.disconnect()}catch(_){}ramLive.source=null;}
+  if(ramLive.stream){ramLive.stream.getTracks().forEach(track=>track.stop());ramLive.stream=null;}
+  ramLive.playing.forEach(source=>{try{source.stop()}catch(_){}});
+  ramLive.playing.clear();
+  ramLive.playbackTime=0;
+  if(ramLive.outputContext){const context=ramLive.outputContext;ramLive.outputContext=null;context.close().catch(()=>{});}
+  if(ramLive.microphoneContext){const context=ramLive.microphoneContext;ramLive.microphoneContext=null;context.close().catch(()=>{});}
+  if(socket&&socket.readyState<2){try{socket.close(1000,'User ended Ram voice session')}catch(_){}}
+  if(reason)ramLiveSetStatus(reason);
+}
+function ramLiveEncodePcm(floatSamples,sampleRate){
+  const outputLength=Math.max(1,Math.floor(floatSamples.length*16000/sampleRate));
+  const bytes=new Uint8Array(outputLength*2);
+  const view=new DataView(bytes.buffer);
+  const ratio=sampleRate/16000;
+  for(let i=0;i<outputLength;i++){
+    const position=i*ratio,lower=Math.floor(position),upper=Math.min(lower+1,floatSamples.length-1);
+    const fraction=position-lower;
+    let sample=floatSamples[lower]+(floatSamples[upper]-floatSamples[lower])*fraction;
+    sample=Math.max(-1,Math.min(1,sample));
+    view.setInt16(i*2,sample<0?sample*32768:sample*32767,true);
+  }
+  let binary='';
+  for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+  return btoa(binary);
+}
+async function ramLivePlayAudio(base64){
+  if(!base64)return;
+  const context=await ramLivePrepareAudio();
+  const binary=atob(base64),bytes=new Uint8Array(binary.length);
+  for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+  const samples=new Int16Array(bytes.buffer,bytes.byteOffset,Math.floor(bytes.byteLength/2));
+  if(!samples.length)return;
+  const buffer=context.createBuffer(1,samples.length,24000),channel=buffer.getChannelData(0);
+  for(let i=0;i<samples.length;i++)channel[i]=samples[i]/32768;
+  const source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
+  ramLive.playbackTime=Math.max(ramLive.playbackTime,context.currentTime+0.02);
+  source.start(ramLive.playbackTime);ramLive.playbackTime+=buffer.duration;
+  ramLive.playing.add(source);
+  source.onended=()=>{ramLive.playing.delete(source);if(ramLive.playing.size===0&&!ramLive.connected)ramLiveSetStatus('Gemini Live audio playback finished.');};
+  ramLive.audioChunks++;ramLive.audioBytes+=bytes.length;
+  ramLiveSetStatus('Gemini audio received ('+ramLive.audioChunks+' chunks). Browser audio: '+context.state+'.');
+}
+async function ramLiveStartMicrophone(){
+  const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+  if(!ramLive.socket||ramLive.socket.readyState!==WebSocket.OPEN){stream.getTracks().forEach(track=>track.stop());return;}
+  ramLive.stream=stream;
+  const AudioContextClass=window.AudioContext||window.webkitAudioContext;
+  if(!AudioContextClass)throw new Error('This browser does not support microphone audio capture.');
+  const context=new AudioContextClass();
+  ramLive.microphoneContext=context;
+  await context.resume();
+  const source=context.createMediaStreamSource(stream);
+  const processor=context.createScriptProcessor(4096,1,1);
+  ramLive.source=source;ramLive.processor=processor;
+  processor.onaudioprocess=event=>{
+    if(!ramLive.connected||!ramLive.socket||ramLive.socket.readyState!==WebSocket.OPEN)return;
+    const input=event.inputBuffer.getChannelData(0);
+    const data=ramLiveEncodePcm(input,context.sampleRate);
+    ramLive.socket.send(JSON.stringify({realtimeInput:{audio:{data,mimeType:'audio/pcm;rate=16000'}}}));
+  };
+  source.connect(processor);
+  processor.connect(context.destination);
+  ramLiveSetStatus('Connected. Speak naturally; Ram will respond aloud. Tap Stop voice conversation to finish.');
+}
+async function ramLiveHandleServerMessage(message){
+  if(message.setupComplete){
+    ramLive.connected=true;ramLive.connecting=false;
+    const microphoneReady=ramLive.voiceRequested?ramLiveStartMicrophone():Promise.resolve();
+    microphoneReady.then(()=>{
+      ramLive.voiceConnected=!!ramLive.voiceRequested;
+      ramLiveSetStatus(ramLive.voiceConnected?'Connected. Speak naturally; Ram will respond aloud.':'Ram is connected. Type your next question here.');
+      const openingText=ramLive.pendingQuestion;
+      ramLive.pendingQuestion=null;
+      const prompt=openingText||('Greet me briefly in '+askLanguage+' and invite the user to ask a question about Paddy hybrid seed production. Do not recite SOP facts until asked.');
+      ramLive.socket?.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:prompt}]}],turnComplete:true}}));
+      const button=document.getElementById('ramVoiceButton');
+      if(button){button.disabled=false;button.querySelector('b').textContent=ramLive.voiceConnected?'Stop voice conversation':'Start voice conversation';button.querySelector('small').textContent=ramLive.voiceConnected?'Tap to end the microphone and live session':'Tap to enable microphone voice';}
+      const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='CONNECTED';
+    }).catch(error=>{
+      ramLiveStop('Microphone could not start: '+(error.message||String(error))+' Check microphone permission and try again.');
+      const button=document.getElementById('ramVoiceButton');if(button){button.disabled=false;button.querySelector('b').textContent='Start voice conversation';button.querySelector('small').textContent='Tap to retry';}
+    });
+    return;
+  }
+  if(message.setupError){
+    const detail=message.setupError.message||message.setupError.status||'Gemini rejected the Ram Live setup.';
+    askChat.push({role:'system',text:detail});ramLiveStop(detail);fieldScreen();return;
+  }
+  if(message.error){
+    const detail=message.error.message||'Gemini Live returned an error.';
+    askChat.push({role:'system',text:detail});ramLiveStop(detail);fieldScreen();return;
+  }
+  const content=message.serverContent;
+  if(!content)return;
+  if(content.interrupted){
+    ramLive.playing.forEach(source=>{try{source.stop()}catch(_){}});
+    ramLive.playing.clear();ramLive.playbackTime=0;
+    ramLive.currentAssistantText='';
+  }
+  if(content.inputTranscription?.text)ramLive.currentUserText+=content.inputTranscription.text;
+  if(content.outputTranscription?.text)ramLive.currentAssistantText+=content.outputTranscription.text;
+  const parts=content.modelTurn?.parts||[];
+  for(const part of parts){
+    if(part.text&&!content.outputTranscription?.text)ramLive.currentAssistantText+=part.text;
+    const inline=part.inlineData||part.inline_data;
+    if(inline?.data)await ramLivePlayAudio(inline.data);
+  }
+  if(content.turnComplete){
+    if(!ramLive.audioChunks&&ramLive.currentAssistantText.trim())ramLiveSetStatus('Ram generated text, but Gemini sent no audio chunks in this turn.');
+    if(ramLive.currentUserText.trim())askChat.push({role:'user',text:ramLive.currentUserText.trim()});
+    if(ramLive.currentAssistantText.trim())askChat.push({role:'assistant',text:ramLive.currentAssistantText.trim()});
+    ramLive.currentUserText='';ramLive.currentAssistantText='';ramBusy=false;
+    fieldScreen();
+  }
+}
+async function ramLiveConnect(requestVoice=false){
+  if(requestVoice)ramLive.voiceRequested=true;
+  if(ramLive.connecting||ramLive.connected){if(requestVoice&&ramLive.connected&&!ramLive.voiceConnected){ramLiveStartMicrophone().then(()=>{ramLive.voiceConnected=true;ramLiveSetStatus('Connected. Speak naturally; Ram will respond aloud.')}).catch(error=>ramLiveSetStatus('Microphone could not start: '+(error.message||String(error))));}return;}
+  ramLive.connecting=true;ramLiveSetStatus('Requesting a short-lived Gemini Live token…');
+  const button=document.getElementById('ramVoiceButton');
+  if(button){button.disabled=true;button.querySelector('b').textContent='Connecting…';}
+  try{
+    const controller=new AbortController();
+    const tokenTimeout=setTimeout(()=>controller.abort(),10000);
+    let tokenResponse;
+    try{
+      tokenResponse=await fetch('https://seed-ram-api-test-v1.raja-vadlamani.workers.dev/live-token',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal});
+    }catch(error){
+      if(error?.name==='AbortError')throw new Error('Ram Live token request timed out.');
+      throw error;
+    }finally{clearTimeout(tokenTimeout);}
+    const raw=await tokenResponse.text();let tokenData={};
+    try{tokenData=raw?JSON.parse(raw):{}}catch(_){throw new Error('The Ram Live service returned an unreadable token response.');}
+    if(!tokenResponse.ok||!tokenData.token)throw new Error(tokenData.error||tokenData.detail||('Live token request failed with HTTP '+tokenResponse.status));
+    const url='wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContentConstrained?access_token='+encodeURIComponent(tokenData.token);
+    const socket=new WebSocket(url);ramLive.socket=socket;
+    socket.onopen=()=>{
+      if(ramLive.socket!==socket)return;
+      socket.send(JSON.stringify({setup:{model:'models/gemini-3.8-live',generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:'Charon'}}}},inputAudioTranscription:{},outputAudioTranscription:{},sessionResumption:{}}}));
+      ramLiveSetStatus('Secure token accepted. Waiting for Gemini Live setup…');
+    };
+    socket.onmessage=async event=>{
+      if(ramLive.socket!==socket)return;
+      try{
+        let raw=event.data;
+        if(raw instanceof Blob)raw=await raw.text();
+        else if(raw instanceof ArrayBuffer)raw=new TextDecoder().decode(raw);
+        await ramLiveHandleServerMessage(JSON.parse(raw));
+      }catch(error){ramLiveStop('Could not process the Gemini Live response: '+(error.message||String(error)));fieldScreen();}
+    };
+    socket.onerror=()=>{if(ramLive.socket===socket){ramLiveStop('Gemini Live connection error. Check the Worker deployment and try again.');const b=document.getElementById('ramVoiceButton');if(b){b.disabled=false;b.querySelector('b').textContent='Start voice conversation';}}};
+    socket.onclose=event=>{
+      if(ramLive.socket!==socket)return;
+      ramLiveStop(event.reason||('Gemini Live session closed (code '+event.code+').'));
+      const b=document.getElementById('ramVoiceButton');if(b){b.disabled=false;b.querySelector('b').textContent='Start voice conversation';b.querySelector('small').textContent='Tap to reconnect';}
+      const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='LIVE';
+    };
+  }catch(error){
+    ramLiveStop('Could not start Ram voice: '+(error.message||String(error)));
+    if(ramLive.pendingQuestion){ramLive.pendingQuestion=null;ramBusy=false;askChat.push({role:'system',text:'Ram could not connect. Check microphone permission and try again.'});fieldScreen();}
+    if(button){button.disabled=false;button.querySelector('b').textContent='Start voice conversation';}
+  }
+}
+async function sendRamQuestion(question){
+  const value=String(question||'').trim();
+  if(!value||ramBusy)return;
+  askChat.push({role:'user',text:value});
+  ramBusy=true;
+  if(ramLive.connected&&ramLive.socket?.readyState===WebSocket.OPEN){
+    ramLive.currentUserText='';
+    ramLive.socket.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:value}]}],turnComplete:true}}));
+    fieldScreen();
+    return;
+  }
+  ramLive.pendingQuestion=value;
+  ramLive.voiceRequested=false;
+  ramLive.autoAttemptedForAsk=false;
+  fieldScreen();
+  ramLivePrepareAudio().then(()=>ramLiveConnect(false)).catch(error=>{ramLiveStop('Could not initialise Ram audio: '+(error.message||String(error)));fieldScreen()});
+}
+function applySatelliteBoundary(points,plotId,source){
+  const clean=points.map(p=>({lon:Number(p.lon??p.lng),lat:Number(p.lat)})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat)&&Math.abs(p.lon)<=180&&Math.abs(p.lat)<=90);
+  if(clean.length>1&&clean[0].lon===clean[clean.length-1].lon&&clean[0].lat===clean[clean.length-1].lat)clean.pop();
+  const unique=new Set(clean.map(p=>p.lon.toFixed(8)+','+p.lat.toFixed(8)));
+  if(clean.length<3||unique.size<3)throw new Error('A valid boundary with at least 3 distinct GPS points is required.');
+  const lons=clean.map(p=>p.lon),lats=clean.map(p=>p.lat);
+  const west=Math.min(...lons),east=Math.max(...lons),south=Math.min(...lats),north=Math.max(...lats);
+  if(west===east||south===north)throw new Error('The boundary does not cover a valid geographic area.');
+  const ring=clean.map(p=>[p.lon,p.lat]);ring.push([...ring[0]]);
+  satelliteRequestGeometry={type:'Polygon',coordinates:[ring]};
+  const values={satellitePlotId:String(plotId||'FIELD-BOUNDARY'),satelliteWest:west.toFixed(6),satelliteSouth:south.toFixed(6),satelliteEast:east.toFixed(6),satelliteNorth:north.toFixed(6)};
+  Object.entries(values).forEach(([id,value])=>{const input=document.getElementById(id);if(input)input.value=value});
+  const note=document.getElementById('satelliteReferenceNote');
+  if(note)note.textContent=source+' loaded. The request will include the full polygon plus its bounding box, so pixels outside the field can be excluded by the provider.';
+}
+
+
+async function runCropMonitorSentinel2(){
+  const byId=id=>document.getElementById(id);
+  const status=byId('cropSatelliteStatus'), output=byId('cropSatelliteResult'), button=byId('runCropSatellite2');
+  const endpoint='https://seed-intelligence-eo.raja-vadlamani.workers.dev/api/sentinel2';
+  const plotId=(byId('satellitePlotId')?.value||'').trim();
+  const west=Number(byId('satelliteWest')?.value), south=Number(byId('satelliteSouth')?.value), east=Number(byId('satelliteEast')?.value), north=Number(byId('satelliteNorth')?.value);
+  const fromValue=byId('satelliteFrom')?.value, toValue=byId('satelliteTo')?.value;
+  if(!plotId||![west,south,east,north].every(Number.isFinite)||west>=east||south>=north||west < -180||east > 180||south < -90||north > 90||!fromValue||!toValue||fromValue>toValue){
+    if(status)status.innerHTML='<div class="control-row"><div><b>Check the request fields</b><small>Enter a plot reference, valid boundary coordinates, and a valid date range.</small></div><span class="pill">Check input</span></div>';
+    return;
+  }
+  const from=new Date(fromValue+'T00:00:00.000Z').toISOString();
+  const to=new Date(toValue+'T23:59:59.999Z').toISOString();
+  const bbox=[west,south,east,north];
+  const centerLat=(south+north)/2;
+  const resx=10/(111320*Math.cos(centerLat*Math.PI/180));
+  const resy=10/110574;
+  const payload={
+    input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}},data:[{type:'sentinel-2-l2a',dataFilter:{maxCloudCoverage:20,mosaickingOrder:'leastCC'}}]},
+    aggregation:{timeRange:{from,to},aggregationInterval:{of:'P5D'},resx,resy},
+    calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}},
+    acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},
+    requestedAt:new Date().toISOString(),clientVersion:'SEED-PRODUCTION-MONITOR-EO-0.2'
+  };
+  if(button)button.disabled=true;
+  if(status)status.innerHTML='<div class="control-row"><div><b>Requesting Sentinel-2 optical statistics</b><small>Using the separate Seed Intelligence Worker. No provider credentials are exposed in the browser.</small></div><span class="pill">Running…</span></div>';
+  if(output)output.innerHTML='';
+  try{
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
+    const raw=await response.text();
+    let data;try{data=raw?JSON.parse(raw):{};}catch(_){data={message:raw.slice(0,1200)};}
+    if(!response.ok)throw new Error('HTTP '+response.status+(data.error||data.message?': '+(data.error||data.message):''));
+
+    latestSentinel2Response=data;
+    // Worker response shape: data.data.data[] -> interval -> outputs -> index -> bands.B0.stats.
+    const intervals=data?.data?.data;
+    const indexKeys=['ndvi','ndmi','ndre','evi','savi'];
+    const indexLabels={ndvi:'NDVI',ndmi:'NDMI',ndre:'NDRE',evi:'EVI',savi:'SAVI'};
+    const fmt=value=>Number.isFinite(Number(value))?Number(value).toFixed(4):'—';
+    const dateLabel=value=>{
+      if(!value)return 'Date unavailable';
+      const d=new Date(value);
+      return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+    };
+    const cards=Array.isArray(intervals)?intervals.map((item,i)=>{
+      const interval=item?.interval||{};
+      const outputs=item?.outputs||{};
+      const allStats=indexKeys.map(key=>{
+        const stats=outputs?.[key]?.bands?.B0?.stats||outputs?.[key]?.bands?.B0||{};
+        return {key,label:indexLabels[key],stats};
+      });
+      const available=allStats.filter(x=>Number.isFinite(Number(x.stats?.mean)));
+      const sampleCount=Math.max(0,...allStats.map(x=>Number(x.stats?.sampleCount)||0));
+      const noDataCount=Math.max(0,...allStats.map(x=>Number(x.stats?.noDataCount)||0));
+      const rows=allStats.map(({key,label,stats})=>'<tr><td><b>'+label+'</b></td><td>'+fmt(stats?.mean)+'</td><td>'+fmt(stats?.['50.0']??stats?.percentiles?.['50.0']??stats?.median)+'</td><td>'+fmt(stats?.min)+'</td><td>'+fmt(stats?.max)+'</td><td>'+((Number.isFinite(Number(stats?.sampleCount)))?Number(stats.sampleCount):'—')+'</td><td>'+((Number.isFinite(Number(stats?.noDataCount)))?Number(stats.noDataCount):'—')+'</td></tr>').join('');
+      const previousOutputs=i>0?(intervals[i-1]?.outputs||{}):null;
+      return '<section class="panel satellite-interval-card"><div class="panel-head"><div><p class="eyebrow">OBSERVATION INTERVAL '+(i+1)+'</p><h3>'+escape(dateLabel(interval.from))+' – '+escape(dateLabel(interval.to))+'</h3><p class="muted">'+available.length+' of 5 indices have mean values · '+sampleCount+' sampled pixels · '+noDataCount+' no-data pixels per index</p></div><span class="status-chip '+(available.length===5?'ok':'planned')+'">'+available.length+'/5 indices</span></div><div class="table-wrap"><table><thead><tr><th>Index</th><th>Mean</th><th>Median (P50)</th><th>Min</th><th>Max</th><th>Sample pixels</th><th>No-data</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+opticalAdvisory(outputs,previousOutputs)+'</section>';
+    }).join(''):'';
+    const validIntervals=Array.isArray(intervals)?intervals.length:0;
+    const indexSet=new Set();
+    if(Array.isArray(intervals))intervals.forEach(item=>indexKeys.forEach(key=>{
+      const stats=item?.outputs?.[key]?.bands?.B0?.stats||{};
+      if(Number.isFinite(Number(stats.mean)))indexSet.add(key);
+    }));
+    const complete=validIntervals>0&&indexKeys.every(key=>indexSet.has(key));
+    if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 Worker returned status OK</b><small>HTTP '+response.status+' · '+escape(data.provider||'provider not supplied')+' · '+escape(data.timestamp||data.measuredAt||new Date().toISOString())+'</small></div><span class="pill">'+(complete?'Indices parsed':'Response received')+'</span></div>';
+    if(output){
+      const geometryCount=data?.data?.geometryPixelCount??data?.geometryPixelCount;
+      output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-2 · OPTICAL OBSERVATIONS</p><h3>Vegetation-index statistics</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(complete?'ok':'planned')+'">'+(complete?'Indices available':'Review response')+'</span></div><p class="satellite-readonly-note">Read-only provider statistics; not a crop-health diagnosis. Compare like-for-like dates and review crop stage, cloud masking and field conditions before agronomic decisions.</p><div class="satellite-summary-metrics"><div><small>Intervals returned</small><b>'+validIntervals+'</b></div><div><small>Indices found</small><b>'+indexSet.size+' / 5</b></div><div><small>Geometry pixels</small><b>'+(geometryCount??'—')+'</b></div></div>'+(validIntervals?opticalTrendSummary(intervals):'')+(validIntervals?cards:'<p class="satellite-readonly-note">The Worker responded successfully, but no interval statistics were found in the expected response field. Open the raw JSON for diagnosis.</p>')+'<details><summary>View full provider response (JSON)</summary><pre class="satellite-json">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
+    }
+      renderCombinedSatelliteComparison();
+  }catch(error){
+    if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 request failed</b><small>'+escape(error?.message||'Unknown error')+'</small></div><span class="pill">Error</span></div>';
+    if(output)output.innerHTML='<p class="satellite-readonly-note">No production observation was saved. Review the error and Worker logs before retrying.</p>';
+  }finally{if(button)button.disabled=false;}
+}
+
+
+async function runCropMonitorSentinel2Image(){
+  const byId=id=>document.getElementById(id);
+  const status=byId('cropSatelliteStatus'), output=byId('cropSatelliteResult'), button=byId('runCropSatelliteImage');
+  const endpoint='https://seed-intelligence-imagery.raja-vadlamani.workers.dev/api/sentinel2/image';
+  const west=Number(byId('satelliteWest')?.value), south=Number(byId('satelliteSouth')?.value), east=Number(byId('satelliteEast')?.value), north=Number(byId('satelliteNorth')?.value);
+  const fromValue=byId('satelliteFrom')?.value, toValue=byId('satelliteTo')?.value;
+  const mode=byId('satelliteImageMode')?.value||'true-colour';
+  if(![west,south,east,north].every(Number.isFinite)||west>=east||south>=north||west < -180||east > 180||south < -90||north > 90||!fromValue||!toValue||fromValue>toValue){
+    if(status)status.innerHTML='<div class="control-row"><div><b>Check the imagery request fields</b><small>Enter valid boundary coordinates and a valid date range first.</small></div><span class="pill">Check input</span></div>';
+    return;
+  }
+  if(button)button.disabled=true;
+  if(status)status.innerHTML='<div class="control-row"><div><b>Requesting Sentinel-2 satellite image</b><small>Using the new imagery Worker. This test does not save a production observation.</small></div><span class="pill">Loading…</span></div>';
+  try{
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'image/png, application/json'},body:JSON.stringify({bbox:[west,south,east,north],from:fromValue,to:toValue,mode,width:768,height:768})});
+    const type=response.headers.get('content-type')||'';
+    if(!response.ok||!type.includes('image/')){
+      const raw=await response.text();
+      let details=raw;try{const parsed=JSON.parse(raw);details=parsed.details||parsed.error||raw;}catch(_){}
+      throw new Error('HTTP '+response.status+': '+String(details).slice(0,900));
+    }
+    const blob=await response.blob();
+    const imageUrl=URL.createObjectURL(blob);
+    const oldImage=byId('sentinel2ImageryPreview');
+    if(oldImage?.dataset.objectUrl)URL.revokeObjectURL(oldImage.dataset.objectUrl);
+    if(status)status.innerHTML='<div class="control-row"><div><b>Satellite image received successfully</b><small>'+escape(mode)+' · '+escape(fromValue)+' to '+escape(toValue)+' · '+Math.round(blob.size/1024)+' KB · Copernicus Sentinel-2</small></div><span class="pill">Image received</span></div>';
+    if(output){
+      const previous=byId('sentinel2ImageryCard');
+      if(previous)previous.remove();
+      const card=document.createElement('section');
+      card.id='sentinel2ImageryCard';
+      card.className='panel satellite-interval-card';
+      const heading=document.createElement('h3');
+      heading.textContent='Sentinel-2 satellite imagery · '+mode;
+      const note=document.createElement('p');
+      note.className='satellite-readonly-note';
+      note.textContent='Copernicus imagery for the selected bounding box and date range. This is a visual reference, not a crop-health diagnosis.';
+      const image=document.createElement('img');
+      image.id='sentinel2ImageryPreview';
+      image.alt='Copernicus Sentinel-2 '+mode+' satellite image';
+      image.src=imageUrl;
+      image.dataset.objectUrl=imageUrl;
+      image.style.width='100%';
+      image.style.maxWidth='768px';
+      image.style.height='auto';
+      image.style.display='block';
+      image.style.borderRadius='12px';
+      image.style.marginTop='12px';
+      card.append(heading,note,image);
+      output.prepend(card);
+    }
+  }catch(error){
+    if(status)status.innerHTML='<div class="control-row"><div><b>Sentinel-2 imagery request failed</b><small>'+escape(error?.message||'Unknown error')+'</small></div><span class="pill">Error</span></div>';
+  }finally{if(button)button.disabled=false;}
+}
+
+/* Combined read-only Sentinel-1 + Sentinel-2 comparison. */
+let latestSentinel1Response=null;
+let latestSentinel2Response=null;
+function renderCombinedSatelliteComparison(){
+  const output=document.getElementById('cropSatelliteResult');
+  if(!output||(!latestSentinel1Response&&!latestSentinel2Response))return;
+  const getSeries=(response,kind)=>{const intervals=response?.data?.data;if(!Array.isArray(intervals))return [];return intervals.map(item=>{const rawDate=item?.interval?.from;const date=rawDate?new Date(rawDate):null;let value=null,extra=null;if(kind==='optical'){value=Number(item?.outputs?.ndvi?.bands?.B0?.stats?.mean)}else{const bands=item?.outputs?.backscatter?.bands||{};value=Number(bands.B0?.stats?.mean);extra=Number(bands.B1?.stats?.mean)}return {date:date&&!Number.isNaN(date.getTime())?date:null,label:date&&!Number.isNaN(date.getTime())?date.toISOString().slice(0,10):'Date unavailable',value:Number.isFinite(value)?value:null,extra:Number.isFinite(extra)?extra:null}}).filter(x=>x.date&&x.value!==null)};
+  const s1=getSeries(latestSentinel1Response,'radar').sort((a,b)=>a.date-b.date),s2=getSeries(latestSentinel2Response,'optical').sort((a,b)=>a.date-b.date);
+  const fmt=x=>Number.isFinite(x)?x.toFixed(4):'—';
+  const chart=(series,withSecond,title,labels)=>{if(!series.length)return '<p class="satellite-readonly-note">No usable '+title+' observations are available yet. Run that connector first.</p>';const values=series.map(x=>x.value).concat(withSecond?series.map(x=>x.extra).filter(Number.isFinite):[]);const min=Math.min(...values),max=Math.max(...values),span=max-min||1;const xAt=i=>series.length===1?400:42+i*716/(series.length-1),yAt=v=>140-(v-min)/span*100;const line=arr=>arr.map((v,i)=>(i?'L':'M')+xAt(i).toFixed(1)+','+yAt(v).toFixed(1)).join(' ');const a='<path d="'+line(series.map(x=>x.value))+'" class="combined-line-a" fill="none" stroke-width="3"/>'+series.map((x,i)=>'<circle cx="'+xAt(i)+'" cy="'+yAt(x.value)+'" r="3.5" class="combined-dot-a"><title>'+x.label+': '+fmt(x.value)+'</title></circle>').join('');const b=withSecond?'<path d="'+line(series.map(x=>x.extra))+'" class="combined-line-b" fill="none" stroke-width="3"/>'+series.map((x,i)=>'<circle cx="'+xAt(i)+'" cy="'+yAt(x.extra)+'" r="3.5" class="combined-dot-b"><title>'+x.label+': '+fmt(x.extra)+'</title></circle>').join(''):'';return '<div class="combined-chart"><h4>'+title+'</h4><svg viewBox="0 0 800 190" role="img" aria-label="'+title+' time series"><line x1="42" y1="140" x2="758" y2="140" class="combined-axis"/><line x1="42" y1="40" x2="758" y2="40" class="combined-grid"/>'+a+b+series.map((x,i)=>(i===0||i===series.length-1||i===Math.floor(series.length/2))?'<text x="'+xAt(i)+'" y="165" text-anchor="middle">'+x.label.slice(5)+'</text>':'').join('')+'</svg><div class="combined-legend">'+labels.map(l=>'<span>'+l+'</span>').join('')+'</div><p class="muted">First: '+series[0].label+' · Last: '+series[series.length-1].label+' · '+series.length+' observations</p></div>'};
+  const both=!!(latestSentinel1Response&&latestSentinel2Response);
+  const nearest=s1.length&&s2.length?s2.map(o=>{const n=s1.reduce((best,r)=>Math.abs(r.date-o.date)<Math.abs(best.date-o.date)?r:best,s1[0]);return {days:Math.round(Math.abs(n.date-o.date)/86400000)}}).filter(x=>x.days<=6):[];
+  output.insertAdjacentHTML('beforeend','<section class="satellite-trend-summary combined-satellite-panel"><p class="eyebrow">COMBINED SATELLITE VALIDATION · VIEW ONLY</p><h3>Radar + optical timeline</h3><p>'+(both?'Both live connector responses are available.':'Run both Sentinel-1 and Sentinel-2 to complete the comparison.')+' Charts use provider-reported values; they do not diagnose crop condition or save a production observation.</p>'+chart(s2,false,'Sentinel-2 · NDVI mean',['NDVI'])+chart(s1,true,'Sentinel-1 · VV and VH mean',['VV mean','VH mean'])+'<div class="combined-date-check"><b>Date alignment</b><p>'+(both?nearest.length+' optical observations have a radar observation within 6 days. Use date-near pairs cautiously; these are not necessarily same-day acquisitions.':'Date-near pairs will be assessed after both connectors have run.')+'</p></div><div class="satellite-advisory-next"><b>Crop identification: what is possible?</b><p>Multi-date satellite patterns can support crop-type classification, including rice, but these bands and indices alone cannot reliably confirm crop identity. A credible classifier needs multi-date Sentinel-1 and Sentinel-2 features, crop-calendar/location context, and ground-truth labels from known fields. “Rice” remains the selected record’s declared crop, not a satellite-verified identification.</p></div><p class="muted">View-only diagnostic. No data saved to Supabase; no production observation or farmer attribution is created.</p></section>');
+}
+
+async function runCropMonitorSatellite(){
+  const byId=id=>document.getElementById(id);
+  const status=byId('cropSatelliteStatus'), output=byId('cropSatelliteResult'), button=byId('runCropSatellite');
+  const endpoint='https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1';
+  const plotId=(byId('satellitePlotId')?.value||'').trim();
+  const west=Number(byId('satelliteWest')?.value), south=Number(byId('satelliteSouth')?.value), east=Number(byId('satelliteEast')?.value), north=Number(byId('satelliteNorth')?.value);
+  const fromValue=byId('satelliteFrom')?.value, toValue=byId('satelliteTo')?.value;
+  if(!plotId||![west,south,east,north].every(Number.isFinite)||west>=east||south>=north||west < -180||east > 180||south < -90||north > 90||!fromValue||!toValue||fromValue>toValue){
+    if(status)status.innerHTML='<div class="control-row"><div><b>Check the request fields</b><small>Enter a plot reference, valid bounding box, and a start/end date range.</small></div><span class="pill">Needs input</span></div>';
+    return;
+  }
+  const bbox=[west,south,east,north];
+  const from=new Date(fromValue+'T00:00:00.000Z').toISOString();
+  const to=new Date(toValue+'T23:59:59.999Z').toISOString();
+  const evalscript='//VERSION=3\nfunction setup(){return {input:[{bands:["VV","VH","dataMask"]}],output:[{id:"backscatter",bands:2,sampleType:"FLOAT32"},{id:"dataMask",bands:1}]};}\nfunction evaluatePixel(samples){return {backscatter:[samples.VV,samples.VH],dataMask:[samples.dataMask]};}';
+  // Sentinel Hub resolution units must match the bounds CRS. The bbox is in degrees (CRS84), so convert target metres to approximate degrees at the field latitude.
+  const centerLat=(south+north)/2;
+  const resx=10/(111320*Math.cos(centerLat*Math.PI/180));
+  const resy=10/110574;
+  const requestBody={
+    input:{bounds:{bbox,...(satelliteRequestGeometry?{geometry:satelliteRequestGeometry}:{}),properties:{crs:'http://www.opengis.net/def/crs/OGC/1.3/CRS84'}},data:[{type:'sentinel-1-grd',dataFilter:{},processing:{orthorectify:true,backCoeff:'GAMMA0_TERRAIN'}}]},
+    aggregation:{timeRange:{from,to},aggregationInterval:{of:'P1D'},evalscript,resx,resy},
+    calculations:{default:{statistics:{default:{percentiles:{k:[10,50,90]}}}}}
+  };
+  const payload={operation:'sentinel1-statistics',...requestBody,providerEndpoint:'https://sh.dataspace.copernicus.eu/statistics/v1',acquisition:{plotId,acquisitionId:null,acquisitionDateTime:null,requestedBbox:bbox},requestedAt:new Date().toISOString(),clientVersion:'SEED-PRODUCTION-MONITOR-EO-0.1'};
+  if(button)button.disabled=true;
+  if(status)status.innerHTML='<div class="control-row"><div><b>Requesting Sentinel-1 statistics</b><small>Sending the request to the existing ANVORA Worker; no provider credentials are exposed in the browser.</small></div><span class="pill">Running…</span></div>';
+  if(output)output.innerHTML='';
+  try{
+    const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload)});
+    const raw=await response.text();
+    let data;try{data=raw?JSON.parse(raw):{};}catch(_){data={message:raw.slice(0,1200)};}
+    if(!response.ok)throw new Error('HTTP '+response.status+(data.error||data.message?': '+(data.error||data.message):''));
+    latestSentinel1Response=data;
+    const simulated=!!(data.simulated||data.status==='SIMULATED');
+    const confirmed=data.status==='OK'&&!simulated;
+    if(status)status.innerHTML='<div class="control-row"><div><b>'+(confirmed?'Worker returned status OK':'Worker responded; inspect status')+'</b><small>HTTP '+response.status+' · '+escape(data.provider||'provider not stated')+' · '+escape(data.measuredAt||data.requestedAt||'timestamp not supplied')+'</small></div><span class="pill">'+(confirmed?'Response OK':(simulated?'Simulation':'Review'))+'</span></div>';
+    if(output){
+      const intervals=Array.isArray(data.data?.data)?data.data.data:[];
+      const fmt=(value,digits=4)=>Number.isFinite(Number(value))?Number(value).toFixed(digits):'—';
+      const dateLabel=value=>value?new Date(value).toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'Date not supplied';
+      const statCard=(label,value,detail='')=>'<div class="satellite-stat-card"><small>'+escape(label)+'</small><b>'+escape(value)+'</b>'+(detail?'<span>'+escape(detail)+'</span>':'')+'</div>';
+      const intervalHtml=intervals.map((item,index)=>{
+        const outputs=item.outputs?.backscatter?.bands||{};
+        const vv=outputs.B0?.stats||{},vh=outputs.B1?.stats||{};
+        const intervalStart=item.interval?.from,intervalEnd=item.interval?.to;
+        const sampleCount=Number(vv.sampleCount??vh.sampleCount),noData=Number(vv.noDataCount??vh.noDataCount);
+        const previousItem=index>0?intervals[index-1]:null;
+        const previousBands=previousItem?.outputs?.backscatter?.bands||{};
+        const previousVv=Number(previousBands.B0?.stats?.mean),previousVh=Number(previousBands.B1?.stats?.mean);
+        return '<article class="satellite-interval-card"><div class="satellite-interval-head"><b>Observation interval '+(index+1)+'</b><span>'+escape(dateLabel(intervalStart))+'</span></div><div class="satellite-band-grid">'+
+          '<div><small>VV backscatter · mean</small><b>'+fmt(vv.mean)+'</b><span>Median '+fmt(vv.percentiles?.['50.0'])+'</span></div>'+
+          '<div><small>VH backscatter · mean</small><b>'+fmt(vh.mean)+'</b><span>Median '+fmt(vh.percentiles?.['50.0'])+'</span></div></div>'+
+          '<p class="satellite-interval-meta">'+escape(intervalStart?new Date(intervalStart).toISOString().slice(0,10):'Start unknown')+' to '+escape(intervalEnd?new Date(intervalEnd).toISOString().slice(0,10):'end unknown')+' · '+(Number.isFinite(sampleCount)?sampleCount+' sampled pixels':'pixel count not supplied')+(Number.isFinite(noData)?' · '+noData+' no-data pixels':'')+'</p>'+radarAdvisory(Number(vv.mean),Number(vh.mean),previousVv,previousVh)+'</article>';
+      }).join('');
+      const pixelCount=Number(data.data?.geometryPixelCount);
+      output.innerHTML='<section class="satellite-result-summary"><div class="satellite-result-title"><div><p class="eyebrow">SENTINEL-1 · PROVIDER RESPONSE</p><h3>Backscatter results</h3><p>Requested field reference: '+escape(plotId)+'</p></div><span class="status-chip '+(confirmed?'planned':'warning')+'">'+(confirmed?'Provider OK':'Review response')+'</span></div>'+
+        '<div class="satellite-stat-grid">'+statCard('Provider',data.provider||'Not supplied')+statCard('Intervals returned',String(intervals.length),fromValue+' to '+toValue)+statCard('Geometry pixel count',Number.isFinite(pixelCount)?String(pixelCount):'Not supplied','Provider-reported count')+statCard('Response time',Number.isFinite(Number(data.elapsedMs))?data.elapsedMs+' ms':'Not supplied')+'</div>'+
+        (intervalHtml?'<h4 class="satellite-results-subhead">Available observation intervals</h4>'+intervalHtml:'<p class="satellite-readonly-note">The provider returned status OK but no interval statistics were found in the expected response structure.</p>')+
+        '<div class="satellite-readonly-note"><b>Interpretation limits</b><p>VV and VH are Sentinel-1 radar backscatter statistics, not NDVI and not a direct measurement of crop health or soil moisture. Values shown here are in the provider response’s numeric scale; they have not been converted to decibels or calibrated into crop-specific thresholds. The request returned '+intervals.length+' interval(s), which may be fewer than the days in the requested date range because imagery availability varies.</p><p>This test is not saved to Supabase or verified against a UUID-backed production field record. Provider response plotId: '+escape(data.plotId??'not returned')+' · acquisitionId: '+escape(data.acquisitionId??'not returned')+'.</p></div>'+
+        '<details class="satellite-raw-response"><summary>View full provider response (JSON)</summary><pre style="white-space:pre-wrap;overflow:auto;max-height:360px;background:#f6f8f6;padding:12px;border-radius:10px;border:1px solid #dce5df">'+escape(JSON.stringify(data,null,2))+'</pre></details></section>';
+    }
+      renderCombinedSatelliteComparison();
+  }catch(error){
+    if(status)status.innerHTML='<div class="control-row"><div><b>Satellite request did not complete</b><small>'+escape(error&&error.message?error.message:String(error))+' · Check Worker deployment, CORS, request validation and Copernicus response.</small></div><span class="pill">Unavailable</span></div>';
+  }finally{if(button)button.disabled=false;}
 }
 
 function fieldScreen(){
+  if(fieldTab!=='ask'){if(ramLive.connected||ramLive.connecting)ramLiveStop('Voice session ended because you left Ask Ram.');ramLive.pendingQuestion=null;ramBusy=false;ramLive.autoAttemptedForAsk=false;}
   fieldMode=true;document.body.classList.add('field-mode');const list=records.filter(r=>r.officer===selectedOfficer);manager.classList.add('hidden');field.classList.remove('hidden');
   if(!fieldSignedIn){
     const otp=fieldAuthStep==='otp';
-    field.innerHTML=`<div class="field-brand-band"><a href="#" class="field-brand-lockup" aria-label="Sage Harvest"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"></a><div class="field-brand-meta"><b>SEED PRODUCTION MONITOR</b><span>FIELD OPERATIONS · KHARIF 2026</span></div><span class="field-demo-pill">DEMO</span></div><div class="field-onboarding"><div class="welcome-mark">✳</div><p class="eyebrow">${otp?'PHONE VERIFICATION':'WELCOME TO SAGEHARVEST'}</p><h1>${otp?'Verify your number':'Field work, made simple.'}</h1><p class="welcome-copy">${otp?'Enter the six-digit demo code to continue.':'Sign in to see your assigned farmers, select a field and record one inspection at a time.'}</p><form id="fieldAuthForm" class="auth-card">${otp?`<label for="demoOtp">One-time passcode</label><input id="demoOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" required><small>Prototype demo code: <b>123456</b></small><button class="primary" type="submit">Verify and open app <span>→</span></button><button class="text-button auth-back" type="button" id="authBack">Change mobile number</button>`:`<label for="fieldMobile">Mobile number</label><div class="mobile-entry"><span>+91</span><input id="fieldMobile" type="tel" inputmode="tel" autocomplete="tel" value="${escape(fieldMobile)}" placeholder="Enter mobile number" minlength="10" maxlength="15" required></div><button class="primary" type="submit">Continue <span>→</span></button><small>Phone sign-in is a demo only. No verification message will be sent.</small>`}</form><div class="ask-ram-welcome"><img src="assets/ask-ram-avatar.svg" alt="Illustrated Ask Ram field assistant"><div><b>Ask Ram · Voice & chat support</b><small>Multilingual field assistance is planned. Google AI is not connected yet.</small></div><em>COMING SOON</em></div><div class="auth-trust">🔒 Company beta · shared records</div></div><div class="field-brand-footer"><span>DEVELOPED BY</span><b>SAGE HARVEST</b><i>Seed Production Monitor</i></div>`;
+    field.innerHTML=`<div class="field-brand-band"><a href="#" class="field-brand-lockup" aria-label="Sage Harvest"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"></a><div class="field-brand-meta"><b>SEED PRODUCTION MONITOR</b><span>FIELD OPERATIONS · KHARIF 2026</span></div><span class="field-demo-pill">DEMO</span></div><div class="field-onboarding"><div class="welcome-mark">✳</div><p class="eyebrow">${otp?'PHONE VERIFICATION':'WELCOME TO SAGEHARVEST'}</p><h1>${otp?'Verify your number':'Field work, made simple.'}</h1><p class="welcome-copy">${otp?'Enter the six-digit demo code to continue.':'Sign in to see your assigned farmers, select a field and record one inspection at a time.'}</p><form id="fieldAuthForm" class="auth-card">${otp?`<label for="demoOtp">One-time passcode</label><input id="demoOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" required><small>Prototype demo code: <b>123456</b></small><button class="primary" type="submit">Verify and open app <span>→</span></button><button class="text-button auth-back" type="button" id="authBack">Change mobile number</button>`:`<label for="fieldMobile">Mobile number</label><div class="mobile-entry"><span>+91</span><input id="fieldMobile" type="tel" inputmode="tel" autocomplete="tel" value="${escape(fieldMobile)}" placeholder="Enter mobile number" minlength="10" maxlength="15" required></div><button class="primary" type="submit">Continue <span>→</span></button><small>Phone sign-in is a demo only. No verification message will be sent.</small>`}</form><div class="ask-ram-welcome"><img src="assets/ask-ram-avatar.svg" alt="Illustrated Ask Ram field assistant"><div><b>Ask Ram · Voice & chat support</b><small>Ask Ram voice and chat connects to the approved Paddy SOP service.</small></div><em>AVAILABLE</em></div><div class="auth-trust">🔒 Company beta · shared records</div></div><div class="field-brand-footer"><span>DEVELOPED BY</span><b>SAGE HARVEST</b><i>Seed Production Monitor</i></div>`;
     applyFieldCompanyBranding();field.querySelector('#fieldAuthForm').onsubmit=e=>{e.preventDefault();if(!otp){fieldMobile=field.querySelector('#fieldMobile').value.trim();fieldAuthStep='otp';fieldScreen()}else if(field.querySelector('#demoOtp').value==='123456'){fieldSignedIn=true;fieldAuthStep='welcome';fieldTab='today';fieldScreen()}else notify('For this demo, enter 123456.')};field.querySelector('#authBack')?.addEventListener('click',()=>{fieldAuthStep='welcome';fieldScreen()});return;
   }
   let current=list.find(r=>r.id===selectedFieldId)||null;const allStagesComplete=!!current&&STAGES.every((_,i)=>current.completedStages?.includes(i+1));
@@ -215,13 +723,59 @@ function fieldScreen(){
   if(fieldTab==='today')content=`<div class="today-welcome"><div><p class="eyebrow">FIELD OFFICER WORKSPACE</p><h1>Good day, ${escape(fieldOfficerDisplayName())}.</h1><p>Your assigned work for Kharif 2026.</p></div><div class="today-count"><b>${list.length}</b><small>assigned fields</small></div></div><div class="field-summary"><div><strong>${list.length}</strong><small>Assigned fields</small></div><div><strong>${list.filter(r=>r.status!=='On track').length}</strong><small>Due / follow-up</small></div><div><strong>${list.filter(r=>r.sapLot).length}</strong><small>SAP lots ready</small></div></div>${askRamLauncher}${chooser}${current?oneField:''}`;
   else if(fieldTab==='fields')content=`<div class="mobile-page-heading"><p class="eyebrow">FIELD DIRECTORY</p><h1>My assigned fields</h1><p>Choose one farmer and lot to work on.</p></div>${chooser}${current?oneField:''}`;
   else if(fieldTab==='inspections')content=`<div class="mobile-page-heading"><p class="eyebrow">INSPECTION WORK · APPROX. 150-DAY CROP SEASON</p><h1>${current?'Your inspection journey':'Inspection reports'}</h1><p>${current?`Six reports for ${escape(current.fieldNo)} · ${escape(current.name)}. Preview every stage; select an available stage to enter it.`:'Browse the six inspection reports and their fields and choices. Select a farmer above to enter or save data.'}</p></div>${chooser}${journey}`;
-  else if(fieldTab==='satellite')content=`<div class="mobile-page-heading"><p class="eyebrow">FIELD VALIDATION · VIEW ONLY</p><h1>Satellite observations</h1><p>Read-only validation notes for the selected field. No satellite provider is connected.</p></div>${current?`<section class="selected-field-card"><div class="selected-field-top"><span class="field-kicker">SELECTED FIELD</span><span class="status-chip planned">VIEW ONLY</span></div><h2>${escape(current.name)}</h2><p>${escape(current.village)} · ${escape(current.district)}</p><div class="field-crop-line">${escape(current.crop)} · ${escape(current.hybrid)} · Kharif 2026</div><div class="field-id-grid"><div><small>SEASON FIELD NO.</small><b>${escape(current.fieldNo)}</b></div><div><small>SAP LOT</small><b class="lot-pending">${current.sapLot?escape(current.sapLot):'Awaiting SAP'}</b></div></div></section><section class="satellite-empty"><span aria-hidden="true">◉</span><p class="eyebrow">SATELLITE FEED · NOT CONNECTED</p><h2>No observations available</h2><p>When an approved satellite service is connected, this page can show imagery dates, field boundary coverage, vegetation or crop-vigor indicators, moisture observations, and alerts for human review.</p><div class="satellite-readonly-note">This screen is view only. No imagery, satellite measurements, or validation results are being displayed or generated in this prototype.</div></section>`:chooser}<section class="panel"><h2>What this report will contain</h2><ul class="satellite-list"><li>Observation date and imagery source</li><li>Field boundary match and coverage status</li><li>Crop vigor / vegetation observations</li><li>Moisture indicators and review alerts</li><li>Human review status</li></ul></section>`;
+  else if(fieldTab==='satellite')content=`<div class="mobile-page-heading"><p class="eyebrow">FIELD VALIDATION · SENTINEL-1 & SENTINEL-2</p><h1>Satellite observations</h1><p>Live Sentinel-1 radar and Sentinel-2 optical observations for the selected field.</p></div>${current?`<section class="selected-field-card"><div class="selected-field-top"><span class="field-kicker">SELECTED FIELD</span><span class="status-chip planned">VIEW ONLY</span></div><h2>${escape(current.name)}</h2><p>${escape(current.village)} · ${escape(current.district)}</p><div class="field-crop-line">${escape(current.crop)} · ${escape(current.hybrid)} · Kharif 2026</div><div class="field-id-grid"><div><small>SEASON FIELD NO.</small><b>${escape(current.fieldNo)}</b></div><div><small>SAP LOT</small><b class="lot-pending">${current.sapLot?escape(current.sapLot):'Awaiting SAP'}</b></div></div></section><section class="panel satellite-connector-panel"><div class="panel-head"><div><p class="eyebrow">COPERNICUS SATELLITE CONNECTORS</p><h2>Sentinel-1 and Sentinel-2 live connectors</h2><p class="muted">Sentinel-1 uses the existing ANVORA Worker. Sentinel-2 uses the separate Seed Intelligence Worker. Credentials remain server-side.</p></div><span class="status-chip planned">LIVE DATA</span></div><p class="satellite-readonly-note">Provide a field boundary using a KML file or the GPS walk already recorded for this field in the mobile app. The current Worker request uses the boundary’s bounding box; recorded acres alone cannot locate a field. Results are read only and are not saved as inspection data.</p><div class="satellite-boundary-inputs"><label class="satellite-file-label">Upload field boundary (.kml)<input id="satelliteKmlFile" type="file" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml"></label><button type="button" class="outline" id="useCurrentGpsBoundary">Use this field’s captured GPS boundary</button><small id="satelliteBoundaryStatus" class="muted">No boundary loaded yet.</small></div><form id="cropSatelliteForm" class="satellite-request-form"><div class="satellite-coordinate-grid"><input id="satellitePlotId" type="hidden" value="">
+<input id="satelliteWest" type="hidden" value="">
+<input id="satelliteSouth" type="hidden" value="">
+<input id="satelliteEast" type="hidden" value="">
+<input id="satelliteNorth" type="hidden" value="">
+<label>From date<input id="satelliteFrom" type="date" required></label>
+<label>To date<input id="satelliteTo" type="date" required></label></div><div class="hero-actions"><button class="primary" id="runCropSatellite" type="submit" disabled>Run Sentinel-1 observation →</button><button class="outline" id="runCropSatellite2" type="button" disabled>Run Sentinel-2 indices →</button><label class="satellite-image-mode-label">Image view<select id="satelliteImageMode"><option value="true-colour">True colour</option><option value="false-colour">False colour (vegetation)</option><option value="ndvi">NDVI visualisation</option></select></label><button class="outline" id="runCropSatelliteImage" type="button" disabled>View Sentinel-2 imagery →</button></div><p id="satelliteReferenceNote" class="muted tiny">Load the selected field GPS boundary or upload a KML to run the live connectors.</p></form><div id="cropSatelliteStatus" class="control-list" aria-live="polite" style="margin-top:14px"><div class="control-row"><div><b>Ready to connect</b><small>The request will be sent to the existing Worker endpoint.</small></div><span class="pill">Ready</span></div></div><div id="cropSatelliteResult" style="margin-top:12px"></div></section>`:chooser}<section class="panel"><h2>What this report will contain</h2><ul class="satellite-list"><li>Provider response status and available observation intervals</li><li>Sentinel-1 VV and VH radar backscatter statistics</li><li>Sentinel-2 NDVI, NDMI, NDRE, EVI and SAVI indices, when returned by the provider</li><li>Provider-reported pixel counts and no-data counts</li><li>Full response details for technical review</li><li>Human interpretation required before agronomic decisions</li></ul></section>`;
   else if(fieldTab==='ask')content=askRamScreen(current);
   else if(fieldTab==='summary')content=current&&allStagesComplete?fieldSummaryScreen(current):`<div class="mobile-page-heading"><p class="eyebrow">FINAL FIELD REPORT</p><h1>Summary not ready</h1><p>Complete all six inspection reports to open the final field summary.</p></div><button type="button" class="outline" data-bottom="inspections">Back to inspections</button>`;
-  else content=`<div class="mobile-page-heading"><p class="eyebrow">PREFERENCES</p><h1>More</h1><p>App information and beta controls.</p></div><button class="satellite-more-card" type="button" data-open-satellite><span class="satellite-more-icon">◉</span><span><b>Satellite validation report</b><small>View-only field observations and validation status</small></span><strong>→</strong></button><section class="settings-card"><div><small>SIGNED IN AS</small><b>${escape(fieldMobile||'Demo field officer')}</b></div><div><small>FIELD OFFICER</small><select id="mobileOfficer">${['FA-01','FA-02','FA-03','FA-04'].map(x=>`<option ${x===selectedOfficer?'selected':''}>${x}</option>`).join('')}</select></div><div class="prototype-note"><b>Company beta · shared records</b><p>Field assignments are workflow filters. Company members share the same beta records. SAP and satellite services are not connected.</p></div><button class="ask-ram-launcher" type="button" data-open-ask-ram><img src="assets/ask-ram-avatar.svg" alt="Illustrated Ask Ram field assistant"><div><b>Ask Ram</b><small>Voice, chat & language support · planned</small></div><strong>→</strong></button>${allStagesComplete?'<button class=\"outline more-nav-link\" type=\"button\" data-open-summary>▤ Final field summary</button>':''}<button class="outline" id="signOutDemo">Sign out</button><button class="outline" id="backManager">Management workspace</button></section>`;
-  field.innerHTML=`<div class="field-brand-band"><a href="#" class="field-brand-lockup" aria-label="Sage Harvest"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"></a><div class="field-brand-meta"><b>SEED PRODUCTION MONITOR</b><span>FIELD OPERATIONS · KHARIF 2026</span></div><span class="field-demo-pill">DEMO</span></div><div class="field-app-shell">${fieldTab==='ask'?'':`<button type="button" class="ask-ram-global-banner" data-open-ask-ram><img src="assets/ask-ram-avatar.svg" alt=""><span class="ask-ram-banner-copy"><b>Ask Ram</b><small>Your field support companion · voice & chat preview</small></span><span class="ask-ram-banner-tag">OPEN <strong>→</strong></span></button>`}${content}<div class="field-brand-footer"><span>DEVELOPED BY</span><b>SAGE HARVEST</b><i>Seed Production Monitor</i></div><nav class="bottom-nav" aria-label="Field app navigation"><button class="${fieldTab==='today'?'active':''}" data-bottom="today"><span>⌂</span>Today</button><button class="${fieldTab==='fields'?'active':''}" data-bottom="fields"><span>⌖</span>Fields</button><button class="${fieldTab==='inspections'?'active':''}" data-bottom="inspections"><span>☷</span>Reports</button><button class="${fieldTab==='ask'?'active':''}" data-bottom="ask"><span>✳</span>Ask Ram</button><button class="${['more','satellite','summary'].includes(fieldTab)?'active':''}" data-bottom="more"><span>•••</span>More</button></nav></div>`;
+  else content=`<div class="mobile-page-heading"><p class="eyebrow">PREFERENCES</p><h1>More</h1><p>App information and beta controls.</p></div><button class="satellite-more-card" type="button" data-open-satellite><span class="satellite-more-icon">◉</span><span><b>Satellite validation report</b><small>View-only field observations and validation status</small></span><strong>→</strong></button><section class="settings-card"><div><small>SIGNED IN AS</small><b>${escape(fieldMobile||'Demo field officer')}</b></div><div><small>FIELD OFFICER</small><select id="mobileOfficer">${['FA-01','FA-02','FA-03','FA-04'].map(x=>`<option ${x===selectedOfficer?'selected':''}>${x}</option>`).join('')}</select></div><div class="prototype-note"><b>Company beta · shared records</b><p>Field assignments are workflow filters. Company members share the same beta records. SAP is not connected. Satellite observations are available from the field report.</p></div><button class="ask-ram-launcher" type="button" data-open-ask-ram><img src="assets/ask-ram-avatar.svg" alt="Illustrated Ask Ram field assistant"><div><b>Ask Ram</b><small>Voice and chat guidance from the approved Paddy SOP</small></div><strong>→</strong></button>${allStagesComplete?'<button class=\"outline more-nav-link\" type=\"button\" data-open-summary>▤ Final field summary</button>':''}<button class="outline" id="signOutDemo">Sign out</button><button class="outline" id="backManager">Management workspace</button></section>`;
+  field.innerHTML=`<div class="field-brand-band"><a href="#" class="field-brand-lockup" aria-label="Sage Harvest"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"></a><div class="field-brand-meta"><b>SEED PRODUCTION MONITOR</b><span>FIELD OPERATIONS · KHARIF 2026</span></div><span class="field-demo-pill">DEMO</span></div><div class="field-app-shell">${fieldTab==='ask'?'':`<button type="button" class="ask-ram-global-banner" data-open-ask-ram><img src="assets/ask-ram-avatar.svg" alt=""><span class="ask-ram-banner-copy"><b>Ask Ram</b><small>SOP voice and chat support · open Ask Ram</small></span><span class="ask-ram-banner-tag">OPEN <strong>→</strong></span></button>`}${content}<div class="field-brand-footer"><span>DEVELOPED BY</span><b>SAGE HARVEST</b><i>Seed Production Monitor</i></div><nav class="bottom-nav" aria-label="Field app navigation"><button class="${fieldTab==='today'?'active':''}" data-bottom="today"><span>⌂</span>Today</button><button class="${fieldTab==='fields'?'active':''}" data-bottom="fields"><span>⌖</span>Fields</button><button class="${fieldTab==='inspections'?'active':''}" data-bottom="inspections"><span>☷</span>Reports</button><button class="${fieldTab==='ask'?'active':''}" data-bottom="ask"><span>✳</span>Ask Ram</button><button class="${['more','satellite','summary'].includes(fieldTab)?'active':''}" data-bottom="more"><span>•••</span>More</button></nav></div>`;
+  if(fieldTab==='satellite'&&current){
+    const today=new Date().toISOString().slice(0,10),from=new Date(Date.now()-60*86400000).toISOString().slice(0,10);
+    const dateFrom=field.querySelector('#satelliteFrom'),dateTo=field.querySelector('#satelliteTo');
+    if(dateFrom&&!dateFrom.value)dateFrom.value=from;if(dateTo&&!dateTo.value)dateTo.value=today;
+    const points=(current.boundaryPoints||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))).map(p=>({lat:Number(p.lat),lon:Number(p.lon)}));
+    const note=field.querySelector('#satelliteBoundaryStatus');
+    if(points.length>=3){
+      try{applySatelliteBoundary(points,current.fieldNo,'Saved GPS boundary');if(note)note.textContent='Using '+current.fieldNo+' saved GPS boundary ('+points.length+' points).';field.querySelectorAll('#runCropSatellite,#runCropSatellite2,#runCropSatelliteImage').forEach(b=>b.disabled=false)}catch(error){if(note)note.textContent=error.message||'The saved boundary is not usable.'}
+    }else if(note)note.textContent='No saved GPS boundary yet. Capture this field’s boundary or upload a KML file.';
+  }
   field.querySelectorAll('[data-bottom]').forEach(b=>b.onclick=()=>{fieldTab=b.dataset.bottom;nearbyMessage='';fieldScreen()});field.querySelector('#assignedField')?.addEventListener('change',e=>{selectedFieldId=e.target.value||null;fieldScreen()});field.querySelector('#findNearby')?.addEventListener('click',findNearestAssignedField);field.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>editInspection(b.dataset.inspect));field.querySelectorAll('[data-gps]').forEach(b=>b.onclick=()=>openGpsPanel(b.dataset.gps));field.querySelector('[data-open-journey]')?.addEventListener('click',()=>{fieldTab='inspections';fieldScreen()});
-  field.querySelectorAll('[data-stage-select]').forEach(b=>b.addEventListener('click',()=>{const stage=+b.dataset.stageSelect;if(!current||b.dataset.locked==='true')previewInspection(current?.id,stage);else editInspection(current.id,stage)}));field.querySelectorAll('[data-open-ask-ram]').forEach(b=>b.addEventListener('click',()=>{fieldTab='ask';fieldScreen()}));field.querySelector('[data-open-satellite]')?.addEventListener('click',()=>{fieldTab='satellite';fieldScreen()});field.querySelector('#askLanguage')?.addEventListener('change',e=>{askLanguage=e.target.value;fieldScreen()});field.querySelectorAll('[data-chat-example]').forEach(b=>b.addEventListener('click',()=>{const input=field.querySelector('#askChatInput');if(input){input.value=['What should I do in my current inspection stage?','How do I record separate male and female parent seed lots?','How do I report fertilizer or pesticide use?','What details are needed for harvest and dispatch?'][Number(b.dataset.chatExample)]||'';input.focus()}}));field.querySelector('#askChatForm')?.addEventListener('submit',e=>{e.preventDefault();const input=field.querySelector('#askChatInput'),text=input.value.trim();if(!text)return;askChat.push({role:'user',text});askChat.push({role:'notice'});fieldScreen()});field.querySelectorAll('[data-open-summary]').forEach(b=>b.addEventListener('click',()=>{fieldTab='summary';fieldScreen()}));
+  field.querySelectorAll('[data-stage-select]').forEach(b=>b.addEventListener('click',()=>{const stage=+b.dataset.stageSelect;if(!current||b.dataset.locked==='true')previewInspection(current?.id,stage);else editInspection(current.id,stage)}));field.querySelectorAll('[data-open-ask-ram]').forEach(b=>b.addEventListener('click',()=>{fieldTab='ask';fieldScreen()}));field.querySelector('[data-open-satellite]')?.addEventListener('click',()=>{fieldTab='satellite';fieldScreen()});
+  field.querySelector('#cropSatelliteForm')?.addEventListener('submit',e=>{e.preventDefault();runCropMonitorSatellite()});
+  field.querySelector('#runCropSatellite2')?.addEventListener('click',()=>runCropMonitorSentinel2());
+  field.querySelector('#runCropSatelliteImage')?.addEventListener('click',()=>runCropMonitorSentinel2Image());
+  field.querySelector('#satelliteKmlFile')?.addEventListener('change',async e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    const note=field.querySelector('#satelliteBoundaryStatus');
+    try{
+      if(!/\.kml$/i.test(file.name))throw new Error('Please choose a .kml file.');
+      const xmlText=await file.text(),xml=new DOMParser().parseFromString(xmlText,'application/xml');
+      if(xml.querySelector('parsererror'))throw new Error('The KML file could not be read.');
+      const outer=xml.getElementsByTagNameNS('*','outerBoundaryIs')[0];
+      const coordsNode=outer?.getElementsByTagNameNS('*','coordinates')[0]||xml.getElementsByTagNameNS('*','coordinates')[0];
+      const coords=(coordsNode?.textContent||'').trim().split(/\s+/).map(pair=>pair.split(',')).filter(parts=>parts.length>=2).map(parts=>({lon:Number(parts[0]),lat:Number(parts[1])})).filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat)&&Math.abs(p.lon)<=180&&Math.abs(p.lat)<=90);
+      if(coords.length<3)throw new Error('No valid outer field-boundary polygon coordinates found in the KML.');
+      applySatelliteBoundary(coords,file.name.replace(/\.kml$/i,''),'KML file');
+      field.querySelectorAll('#runCropSatellite,#runCropSatellite2,#runCropSatelliteImage').forEach(b=>b.disabled=false);
+      if(note)note.textContent='Loaded '+file.name+' ('+coords.length+' outer-boundary coordinates). Full polygon and bounding box are ready.';
+    }catch(err){if(note)note.textContent=err.message||'Could not load KML.';notify(err.message||'Could not load KML.');}
+  });
+  field.querySelector('#useCurrentGpsBoundary')?.addEventListener('click',()=>{
+    const selected=records.find(r=>r.id===selectedFieldId);
+    const points=(selected?.boundaryPoints||[]).filter(p=>Number.isFinite(Number(p.lat))&&Number.isFinite(Number(p.lon))).map(p=>({lat:Number(p.lat),lon:Number(p.lon)}));
+    const note=field.querySelector('#satelliteBoundaryStatus');
+    if(points.length<3){if(note)note.textContent='This field has no saved GPS boundary with at least 3 points yet. Use Walk the field boundary first, or upload a KML file.';return;}
+    applySatelliteBoundary(points,selected.fieldNo,'Mobile GPS boundary');
+    field.querySelectorAll('#runCropSatellite,#runCropSatellite2,#runCropSatelliteImage').forEach(b=>b.disabled=false);
+    if(note)note.textContent='Using '+selected.fieldNo+' GPS boundary ('+points.length+' points); recorded area: '+(recordedAcres(selected)?recordedAcres(selected).toFixed(2)+' acres':'not recorded')+'.';
+  });
+
+  field.querySelector('#askLanguage')?.addEventListener('change',e=>{askLanguage=e.target.value;fieldScreen()});field.querySelectorAll('[data-chat-example]').forEach(b=>b.addEventListener('click',()=>{const input=field.querySelector('#askChatInput');if(input){input.value=['What should I do in my current inspection stage?','How do I record separate male and female parent seed lots?','How do I report fertilizer or pesticide use?','What details are needed for harvest and dispatch?'][Number(b.dataset.chatExample)]||'';input.focus()}}));field.querySelector('#askChatForm')?.addEventListener('submit',e=>{e.preventDefault();const input=field.querySelector('#askChatInput'),text=input.value.trim();if(!text||ramBusy)return;sendRamQuestion(text)});field.querySelectorAll('[data-open-summary]').forEach(b=>b.addEventListener('click',()=>{fieldTab='summary';fieldScreen()}));
   applyFieldCompanyBranding();field.querySelector('#mobileOfficer')?.addEventListener('change',e=>{selectedOfficer=e.target.value;selectedFieldId=null;fieldScreen()});field.querySelector('#signOutDemo')?.addEventListener('click',()=>supabaseClient.auth.signOut());field.querySelector('#backManager')?.addEventListener('click',()=>{role='manager';page='overview';fieldMode=false;render()});
 }
 function findNearestAssignedField(){if(!navigator.geolocation){nearbyMessage='Location is unavailable. Choose a farmer or field from your assigned list.';fieldScreen();return}nearbyMessage='Checking your location…';fieldScreen();navigator.geolocation.getCurrentPosition(pos=>{const list=records.filter(r=>r.officer===selectedOfficer&&r.boundaryPoints?.length>=3);if(!list.length){nearbyMessage='No assigned field boundaries have been saved yet, so nearby matching is not available. Choose your field from the list.';fieldScreen();return}const here={lat:pos.coords.latitude,lon:pos.coords.longitude};list.sort((a,b)=>distanceMeters(here,centroid(a.boundaryPoints))-distanceMeters(here,centroid(b.boundaryPoints)));selectedFieldId=list[0].id;nearbyMessage=`Nearest saved assigned boundary selected: ${list[0].fieldNo} · ${Math.round(distanceMeters(here,centroid(list[0].boundaryPoints)))} m away.`;fieldScreen()},()=>{nearbyMessage='Could not access your location. Allow location access or choose from your assignments.';fieldScreen()},{enableHighAccuracy:true,timeout:12000,maximumAge:30000})}
@@ -327,3 +881,4 @@ nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=fal
 document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(seedworksFieldApp||b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';render()});
 initBetaConnection();
+
