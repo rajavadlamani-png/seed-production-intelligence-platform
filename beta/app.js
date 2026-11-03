@@ -11,7 +11,7 @@ let records = [], pendingMasterRows=null;
 let role = seedworksFieldApp ? 'officer' : 'manager', selectedOfficer = 'FA-01', selectedTerritoryManager = 'TM-01', page = 'overview', fieldMode = seedworksFieldApp;
 let fieldSignedIn=false,fieldAuthStep='welcome',fieldMobile='',fieldTab='today',selectedFieldId=null,nearbyMessage='',askLanguage='English',askChat=[];
 let ramBusy=false,ramSpeakNextReply=false,ramRecognition=null,ramMutedForInspection=false;
-const ramLive={socket:null,stream:null,outputContext:null,microphoneContext:null,source:null,processor:null,connected:false,connecting:false,voiceConnected:false,voiceRequested:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:'',pendingQuestion:null,autoAttemptedForAsk:false};
+const ramLive={socket:null,stream:null,outputContext:null,microphoneContext:null,source:null,processor:null,connected:false,connecting:false,voiceConnected:false,voiceRequested:false,playbackTime:0,playing:new Set(),currentUserText:'',currentAssistantText:'',audioChunks:0,audioBytes:0,playbackError:'',pendingQuestion:null,autoAttemptedForAsk:false,microphoneRequest:null,microphoneError:null};
 const manager = document.getElementById('managerView'), field = document.getElementById('fieldView');
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
 const nav = [...document.querySelectorAll('.nav-item')];
@@ -474,8 +474,21 @@ async function ramLivePlayAudio(base64){
   ramLive.audioChunks++;ramLive.audioBytes+=bytes.length;
   ramLiveSetStatus('Gemini audio received ('+ramLive.audioChunks+' chunks). Browser audio: '+context.state+'.');
 }
-async function ramLiveStartMicrophone(){
-  const stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+function ramLiveRequestMicrophone(){
+  if(ramLive.microphoneRequest)return ramLive.microphoneRequest;
+  ramLive.microphoneError=null;
+  if(!navigator.mediaDevices?.getUserMedia){ramLive.microphoneError=new Error('This browser cannot access a microphone.');return Promise.resolve(null);}
+  ramLive.microphoneRequest=navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false}).then(stream=>{
+    if(!ramLive.voiceRequested){stream.getTracks().forEach(track=>track.stop());return null;}
+    return stream;
+  }).catch(error=>{ramLive.microphoneError=error;return null;});
+  return ramLive.microphoneRequest;
+}
+async function ramLiveStartMicrophone(request=ramLiveRequestMicrophone()){
+  const stream=await request;
+  ramLive.microphoneRequest=null;
+  if(ramLive.microphoneError)throw ramLive.microphoneError;
+  if(!stream)return;
   if(!ramLive.socket||ramLive.socket.readyState!==WebSocket.OPEN){stream.getTracks().forEach(track=>track.stop());return;}
   ramLive.stream=stream;
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
@@ -563,21 +576,26 @@ async function handleRamToolCall(message){
 async function ramLiveHandleServerMessage(message){
   if(message.setupComplete){
     ramLive.connected=true;ramLive.connecting=false;
-    const microphoneReady=ramLive.voiceRequested?ramLiveStartMicrophone():Promise.resolve();
-    microphoneReady.then(()=>{
-      ramLive.voiceConnected=!!ramLive.voiceRequested;
-      ramLiveSetStatus(ramLive.voiceConnected?'Connected. Speak naturally; Ram will respond aloud.':'Ram is connected. Type your next question here.');
-      const openingText=ramLive.pendingQuestion;
-      ramLive.pendingQuestion=null;
-      const prompt=openingText||('Greet me briefly in '+askLanguage+' and invite the user to ask a Paddy SOP question or request help filling the selected First Inspection. Do not recite SOP facts until asked.');
-      ramLive.socket?.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:prompt}]}],turnComplete:true}}));
-      const button=document.getElementById('ramVoiceButton');
-      if(button){button.disabled=false;button.querySelector('b').textContent=ramLive.voiceConnected?'Stop voice conversation':'Start voice conversation';button.querySelector('small').textContent=ramLive.voiceConnected?'Tap to end the microphone and live session':'Tap to enable microphone voice';}
-      const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='CONNECTED';
-    }).catch(error=>{
-      ramLiveStop('Microphone could not start: '+(error.message||String(error))+' Check microphone permission and try again.');
-      const button=document.getElementById('ramVoiceButton');if(button){button.disabled=false;button.querySelector('b').textContent='Start voice conversation';button.querySelector('small').textContent='Tap to retry';}
-    });
+    const openingText=ramLive.pendingQuestion;
+    ramLive.pendingQuestion=null;
+    const prompt=openingText||('Greet me briefly in '+askLanguage+' and invite the user to ask a Paddy SOP question or request help filling the selected First Inspection. Do not recite SOP facts until asked.');
+    ramLive.socket?.send(JSON.stringify({clientContent:{turns:[{role:'user',parts:[{text:prompt}]}],turnComplete:true}}));
+    const button=document.getElementById('ramVoiceButton');
+    if(button){button.disabled=false;button.querySelector('b').textContent='Stop voice conversation';button.querySelector('small').textContent='Tap to end the microphone and live session';}
+    const heading=document.querySelector('.ask-chat-heading>span');if(heading)heading.textContent='CONNECTED';
+    if(ramLive.voiceRequested){
+      ramLiveSetStatus('Ram is connected and starting the microphone…');
+      ramLiveStartMicrophone(ramLive.microphoneRequest||ramLiveRequestMicrophone()).then(()=>{
+        if(!ramLive.voiceRequested)return;
+        ramLive.voiceConnected=!!ramLive.stream;
+        ramLiveSetStatus(ramLive.voiceConnected?'Ram is listening. Speak naturally; he will fill only values you say.':'Ram is connected, but the microphone did not start. Tap Invite Ram to retry.');
+      }).catch(error=>{
+        ramLive.voiceConnected=false;
+        ramLiveSetStatus('Ram is connected, but cannot hear you: '+(error.message||String(error))+'. Check microphone access, then tap Invite Ram to retry.');
+        const retry=document.getElementById('ramVoiceButton');
+        if(retry){retry.disabled=false;retry.querySelector('b').textContent='Start voice conversation';retry.querySelector('small').textContent='Tap to retry microphone';}
+      });
+    }else ramLiveSetStatus('Ram is connected. Type your next question here.');
     return;
   }
   if(message.setupError){
@@ -613,8 +631,8 @@ async function ramLiveHandleServerMessage(message){
   }
 }
 async function ramLiveConnect(requestVoice=false){
-  if(requestVoice)ramLive.voiceRequested=true;
-  if(ramLive.connecting||ramLive.connected){if(requestVoice&&ramLive.connected&&!ramLive.voiceConnected){ramLiveStartMicrophone().then(()=>{ramLive.voiceConnected=true;ramLiveSetStatus('Connected. Speak naturally; Ram will respond aloud.')}).catch(error=>ramLiveSetStatus('Microphone could not start: '+(error.message||String(error))));}return;}
+  if(requestVoice){ramLive.voiceRequested=true;ramLiveRequestMicrophone();}
+  if(ramLive.connecting||ramLive.connected){if(requestVoice&&ramLive.connected&&!ramLive.voiceConnected){ramLiveStartMicrophone(ramLive.microphoneRequest||ramLiveRequestMicrophone()).then(()=>{ramLive.voiceConnected=!!ramLive.stream;ramLiveSetStatus(ramLive.voiceConnected?'Ram is listening. Speak naturally; he will fill only values you say.':'Ram is connected, but the microphone did not start. Tap Invite Ram to retry.')}).catch(error=>ramLiveSetStatus('Ram is connected, but cannot hear you: '+(error.message||String(error))+'. Check microphone access, then tap Invite Ram to retry.'));}return;}
   ramLive.connecting=true;ramLiveSetStatus('Requesting a short-lived Gemini Live token…');
   const button=document.getElementById('ramVoiceButton');
   if(button){button.disabled=true;button.querySelector('b').textContent='Connecting…';}
