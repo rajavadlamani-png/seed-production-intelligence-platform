@@ -544,3 +544,12 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .ram-live-mic{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:14px;border:0;border-radius:10px;background:#eef1e9;color:var(--forest);cursor:pointer}
 .ram-live-mic:disabled{opacity:.5;cursor:not-allowed}
 .ram-live-mic>span{font-size:23px}.ram-live-mic b{font-size:11px}.ram-live-mic small{font-size:9px}
+
+.field-area-global-banner{display:flex;align-items:center;gap:10px;width:100%;min-height:58px;margin:0 0 14px;padding:9px 13px;border:1px solid #bfd1c1;border-radius:12px;background:#f5f8f3;color:#123b2b;font:inherit;text-align:left;cursor:pointer}
+.field-area-global-banner>span:first-child{display:grid;place-items:center;flex:0 0 38px;width:38px;height:38px;border-radius:50%;background:#dce9da;color:#123b2b;font-size:20px}
+.field-area-global-banner-copy{flex:1;min-width:0}
+.field-area-global-banner-copy b,.field-area-global-banner-copy small{display:block}
+.field-area-global-banner-copy b{font-size:12px}
+.field-area-global-banner-copy small{margin-top:3px;color:#647468;font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.field-area-global-banner>strong{color:#123b2b;font-size:18px}
+.field-area-global-banner:focus-visible{outline:3px solid #d9c36f;outline-offset:2px}
