@@ -310,7 +310,7 @@ dlg.querySelector('form').addEventListener('submit',async event=>{
   panel.querySelectorAll('[name]').forEach(input=>report[input.name]=input.value);
   report.inputApplications=[...panel.querySelectorAll('.application-row')].map(row=>Object.fromEntries([...row.querySelectorAll('[data-app]')].map(input=>[input.dataset.app,input.value.trim()]))).filter(row=>Object.values(row).some(Boolean));
   report.fieldPhotoData=panel.dataset.photoData||'';report.fieldPhotoName=panel.dataset.photoName||'';activeRecord.inspectionReports=activeRecord.inspectionReports||{};activeRecord.completedStages=activeRecord.completedStages||[];activeRecord.inspectionReports[n]=report;activeRecord.stage=n;activeRecord.status=report.status;activeRecord.notes=report.reviewRemarks||'';
-  if(report.completed&&!activeRecord.completedStages.includes(n))activeRecord.completedStages.push(n);if(n===1){activeRecord.stageOne=report;activeRecord.qualityFlags=isolationFlags(report);if(activeRecord.qualityFlags.length)activeRecord.status='Follow-up'}
+  if(report.completed&&!activeRecord.completedStages.includes(n))activeRecord.completedStages.push(n);if(n===1){activeRecord.mobile=report.contactNumber||activeRecord.mobile||'';activeRecord.stageOne=report;activeRecord.qualityFlags=isolationFlags(report);if(activeRecord.qualityFlags.length)activeRecord.status='Follow-up'}
   try{await saveBetaRecord(activeRecord);dlg.close();render();if(fieldMode)fieldScreen();notify(result==='complete'?'Report saved. The next stage is now available.':'Draft saved to the shared company database.')}
   catch(error){Object.assign(activeRecord,original);notify(`Report was not saved: ${error.message}`)}finally{saveButton.disabled=false}
 });
