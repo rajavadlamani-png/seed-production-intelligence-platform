@@ -673,3 +673,36 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .satellite-readiness-panel table{min-width:980px}
 @media(max-width:700px){.sat-evidence-controls{align-items:stretch;flex-direction:column}.sat-evidence-controls>div{flex-direction:column}.sat-evidence-controls button{width:100%}.sat-evidence-coverage{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media print{.sat-evidence-controls{display:none!important}.satellite-readiness-panel{break-inside:avoid}.satellite-readiness-panel .table-wrap{max-height:none;overflow:visible}.satellite-readiness-panel table{min-width:0;font-size:9px}.sat-evidence-note{background:#fff!important}}
+
+.satellite-live-evidence-panel{margin-top:18px}
+.satellite-evidence-form{display:grid;grid-template-columns:minmax(170px,1fr) minmax(180px,1fr) auto;gap:14px;align-items:end;margin:16px 0}
+.satellite-evidence-form label{display:grid;gap:6px;color:#596b60;font-size:12px;font-weight:650}
+.satellite-evidence-form input{min-height:42px;padding:9px 11px;border:1px solid #d5dfd8;border-radius:10px;background:#fff;color:#1b2e23;font:inherit}
+.satellite-evidence-form button{min-height:42px}
+.satellite-cutoff{display:grid;gap:4px;padding:8px 12px}
+.satellite-cutoff small,.satellite-cutoff span{color:#66776c;font-size:11px}
+.satellite-cutoff b{color:#173d2b;font-size:14px}
+.satellite-evidence-progress{display:flex;align-items:center;gap:10px;min-height:28px;margin:8px 0;color:#607166;font-size:12px}
+.satellite-evidence-progress progress{width:min(260px,45%);height:10px;accent-color:#4c8c5c}
+.sat-evidence-report{margin-top:18px;padding-top:16px;border-top:1px solid #e3eae4}
+.sat-evidence-report-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:12px}
+.sat-evidence-report-head h3{margin:0;color:#1a3927;font-size:18px}
+.sat-evidence-report-head p{margin:5px 0 0;color:#65756b;font-size:12px}
+.sat-evidence-index-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.sat-evidence-index-grid article{display:grid;gap:6px;padding:12px;border:1px solid #e1e9e2;border-radius:12px;background:#fff}
+.sat-evidence-index-grid small,.sat-evidence-index-grid span{color:#68786e;font-size:10px}
+.sat-evidence-index-grid b{color:#1e5736;font-size:18px;font-variant-numeric:tabular-nums}
+.sat-evidence-chart{margin:16px 0;padding:14px;border:1px solid #e1e9e2;border-radius:12px;background:#fbfcfb}
+.sat-evidence-chart h4{margin:0 0 12px;color:#304b39;font-size:13px}
+.sat-evidence-bar-row{display:grid;grid-template-columns:70px minmax(70px,1fr) 72px;gap:10px;align-items:center;margin:9px 0}
+.sat-evidence-bar-row>span{color:#53675a;font-size:11px;font-weight:700}
+.sat-evidence-bar-row>div{height:12px;overflow:hidden;border-radius:999px;background:#edf2ee}
+.sat-evidence-bar-row i{display:block;height:100%;min-width:2px;border-radius:inherit;background:linear-gradient(90deg,#4d8d5d,#82b66e)}
+.sat-evidence-bar-row>b{text-align:right;color:#243e2e;font-size:11px;font-variant-numeric:tabular-nums}
+.sat-evidence-table-wrap{max-height:540px;overflow:auto}
+.sat-evidence-table-wrap table{min-width:1420px}
+.sat-evidence-table-wrap td small{display:block;margin-top:3px;color:#708077;font-size:10px}
+.sat-evidence-footnote{margin:12px 2px 0;color:#65756b;font-size:11px;line-height:1.5}
+@media(max-width:900px){.sat-evidence-index-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.satellite-evidence-form{grid-template-columns:repeat(2,minmax(0,1fr))}.satellite-evidence-form button{grid-column:span 2}}
+@media(max-width:580px){.satellite-evidence-form{grid-template-columns:1fr}.satellite-evidence-form button{grid-column:auto;width:100%}.sat-evidence-report-head{flex-direction:column}.sat-evidence-index-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sat-evidence-coverage{grid-template-columns:repeat(2,minmax(0,1fr))}.sat-evidence-controls>div{align-items:stretch;flex-direction:column}.sat-evidence-controls button{width:100%}.satellite-evidence-progress{align-items:flex-start;flex-direction:column}.satellite-evidence-progress progress{width:100%}}
+@media print{.satellite-evidence-form,.satellite-live-evidence-panel>.sat-evidence-controls,.satellite-live-evidence-panel>.satellite-evidence-progress,.satellite-live-evidence-panel>.sat-evidence-note{display:none!important}.sat-evidence-table-wrap{max-height:none;overflow:visible}.sat-evidence-table-wrap table{min-width:0;font-size:8px}.sat-evidence-index-grid{grid-template-columns:repeat(5,1fr)}.sat-evidence-index-grid b{font-size:12px}.sat-evidence-chart{break-inside:avoid}.sat-evidence-table-wrap{break-before:page}}
