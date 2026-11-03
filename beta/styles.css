@@ -432,6 +432,12 @@ body.auth-required>.auth-gate{display:grid}
 .auth-gate-card{width:min(100%,430px);padding:30px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 12px 36px #183d2b0d}
 .auth-gate-logo{display:block;width:150px;height:auto;margin:0 auto 24px}
 .auth-gate-brand{margin:0 0 24px;color:var(--forest);font-size:11px;font-weight:800;letter-spacing:1.6px;text-align:center}
+.company-login-choices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 20px}
+.company-login-option{display:grid;min-height:112px;place-items:center;gap:7px;padding:12px;border:1px solid #dce4dc;border-radius:12px;background:#fff;color:var(--forest);font:inherit;font-weight:700;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+.company-login-option img{display:block;width:100%;height:54px;object-fit:contain}
+.company-login-option span{font-size:12px}
+.company-login-option:hover,.company-login-option.selected{border-color:#527959;background:#f3f7f0;box-shadow:0 0 0 2px #52795920}
+.company-login-option:focus-visible{outline:3px solid #8fb891;outline-offset:2px}
 .auth-gate-card h1{margin:6px 0 8px;color:var(--forest);font-size:24px;line-height:1.2}
 .auth-gate-card>.muted{font-size:13px;line-height:1.5}
 .auth-gate-card .auth-card{margin-top:20px;padding:0;border:0;box-shadow:none}
