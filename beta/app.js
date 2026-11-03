@@ -413,6 +413,8 @@ function ramSpeechLanguage(){
 function ramLiveSetStatus(message){
   const node=document.getElementById('ramLiveStatus');
   if(node)node.textContent=message;
+  const inspectionStatus=document.getElementById('ramInspectionAssistStatus');
+  if(inspectionStatus)inspectionStatus.textContent=message;
 }
 async function ramLivePrepareAudio(){
   const AudioContextClass=window.AudioContext||window.webkitAudioContext;
