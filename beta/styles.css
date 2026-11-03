@@ -592,3 +592,24 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 
 
 .plan-error{margin:12px 0;padding:12px 14px;border:1px solid #e7c6c1;border-radius:9px;background:#fff4f2;color:#963f36;font-size:11px;line-height:1.5}.signoff-view-button{justify-self:start;min-height:32px}
+
+
+/* First Inspection optional voice entry */
+.report-voice-guide{grid-column:1/-1;display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px);gap:8px 16px;align-items:start;padding:14px 16px;border:1px solid #c8ddce;border-radius:14px;background:#f2f8f2;color:#183b2b}
+.report-voice-guide b{font-size:14px}
+.report-voice-guide p{margin:5px 0;font-size:13px;line-height:1.45}
+.report-voice-guide small{font-size:11px;color:#5b7063;line-height:1.4}
+.report-voice-guide>label{font-size:12px;font-weight:650}
+.report-voice-guide select{margin-top:5px}
+.report-voice-guide .report-voice-support{grid-column:1/-1;margin:0;color:#59685e}
+.voice-entry-field{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 8px;align-items:end}
+.voice-entry-field label{min-width:0}
+.voice-entry-trigger{width:42px;height:42px;border:1px solid #b9cebf;border-radius:12px;background:#fff;color:#174a31;font-size:18px;cursor:pointer}
+.voice-entry-trigger:hover{background:#edf6ef}
+.voice-entry-trigger[hidden]{display:none}
+.voice-entry-status{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:12px;color:#536258}
+.voice-entry-status:empty{display:none}
+.voice-use-button,.voice-clear-button{border:1px solid #c1d1c5;border-radius:8px;padding:6px 9px;background:#fff;color:#214331;font-weight:650;cursor:pointer}
+.voice-use-button{background:#e4f2e8;border-color:#a9c9b2}
+.voice-entry-field.wide-field{grid-column:1/-1}
+@media(max-width:600px){.report-voice-guide{grid-template-columns:1fr}.report-voice-guide .report-voice-support{grid-column:auto}}
