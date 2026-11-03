@@ -7,15 +7,19 @@
   <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
   <title>SageHarvest — Seed Production Monitor</title>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=company-branding-v2">
+  <link rel="stylesheet" href="styles.css?v=company-choice-v1">
 </head>
 <body class="auth-required">
   <main id="authGate" class="auth-gate" aria-labelledby="authTitle">
     <section class="auth-gate-card">
-      <p class="auth-gate-brand">SEED PRODUCTION MONITOR</p>
-      <p class="eyebrow">SEED PRODUCTION MONITOR · COMPANY BETA</p>
+      <p class="auth-gate-brand">SEED PRODUCTION MONITOR · COMPANY BETA</p>
+      <p class="eyebrow">CHOOSE YOUR COMPANY</p>
+      <div class="company-login-choices" role="group" aria-label="Choose a company workspace">
+        <button class="company-login-option" type="button" data-company-choice="seedworks" aria-pressed="false"><img src="assets/seedworks-logo.jpg" alt=""><span>SeedWorks</span></button>
+        <button class="company-login-option" type="button" data-company-choice="sageharvest" aria-pressed="false"><img src="assets/sage-harvest-logo.svg" alt=""><span>SageHarvest</span></button>
+      </div>
       <h1 id="authTitle">Sign in to your company workspace</h1>
-      <p class="muted">Use an account already approved for this beta. New sign-ups are disabled.</p>
+      <p class="muted">Choose your company, then use an account already approved for this beta. New sign-ups are disabled.</p>
       <form id="betaSignInForm" class="auth-card">
         <label for="betaEmail">Email</label>
         <input id="betaEmail" type="email" autocomplete="username" required>
@@ -116,6 +120,6 @@
   <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
-  <script defer src="app.js?v=company-branding-v2"></script>
+  <script defer src="app.js?v=company-choice-v1"></script>
 </body>
 </html>
