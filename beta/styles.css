@@ -589,3 +589,6 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .signoff-upload-panel small{color:#6b7469;line-height:1.5}
 
 
+
+
+.plan-error{margin:12px 0;padding:12px 14px;border:1px solid #e7c6c1;border-radius:9px;background:#fff4f2;color:#963f36;font-size:11px;line-height:1.5}.signoff-view-button{justify-self:start;min-height:32px}
