@@ -466,3 +466,81 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .gps-kml-picker{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px;border:1px dashed #cbd8cb;border-radius:8px;color:#63756a;font-size:10px;font-weight:600}
 .gps-kml-picker input{max-width:210px;font:inherit;font-weight:400}
 @media(max-width:620px){.gps-kml-picker{align-items:flex-start;flex-direction:column}.gps-kml-picker input{max-width:100%}}
+
+
+
+/* Live field satellite and Ask Ram interfaces */
+/* KML-based Sentinel-1 connector test */
+.satellite-connector-panel{margin-top:16px}.satellite-request-form{margin-top:14px}.satellite-coordinate-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.satellite-coordinate-grid label{display:flex;flex-direction:column;gap:6px;font-size:.82rem;font-weight:650;color:var(--ink,#173b2f)}.satellite-coordinate-grid input{width:100%;min-width:0;box-sizing:border-box;border:1px solid #cbd8d0;border-radius:9px;padding:10px 11px;background:#fff;color:#173b2f;font:inherit}.satellite-request-form .hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}#cropSatelliteResult pre{font-size:.78rem;line-height:1.45}.satellite-boundary-inputs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-items:end;margin:14px 0;padding:14px;border:1px solid var(--line,#d8e2db);border-radius:12px;background:var(--surface-soft,#f7faf7)}.satellite-file-label{display:grid;gap:7px;font-size:13px;font-weight:650}.satellite-file-label input{max-width:100%;font:inherit;font-size:13px}#satelliteBoundaryStatus{grid-column:1/-1;font-size:12px;line-height:1.45}.po-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}@media(max-width:760px){.satellite-coordinate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.po-heading-actions{width:100%;justify-content:flex-start}.po-heading-actions button{flex:1}}@media(max-width:560px){.satellite-boundary-inputs{grid-template-columns:1fr}}@media(max-width:460px){.satellite-coordinate-grid{grid-template-columns:1fr}}
+
+
+/* Readable Sentinel-1 connector result cards */
+.satellite-result-summary{margin-top:14px;padding:16px;border:1px solid var(--line,#dce5df);border-radius:14px;background:var(--surface,#fff);color:var(--ink,#20352b)}
+.satellite-result-title{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.satellite-result-title h3{margin:2px 0 4px;font-size:1.2rem}
+.satellite-result-title p:not(.eyebrow){margin:0;color:var(--muted,#637168);font-size:.86rem}
+.satellite-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:14px 0}
+.satellite-stat-card{display:flex;flex-direction:column;gap:4px;padding:12px;border:1px solid var(--line,#dce5df);border-radius:10px;background:var(--soft,#f6f8f6);min-width:0}
+.satellite-stat-card small,.satellite-band-grid small{font-size:.73rem;color:var(--muted,#637168)}
+.satellite-stat-card b{font-size:.98rem;overflow-wrap:anywhere}
+.satellite-stat-card span,.satellite-band-grid span{font-size:.76rem;color:var(--muted,#637168)}
+.satellite-results-subhead{margin:20px 0 10px;font-size:1rem}
+.satellite-interval-card{padding:13px;margin:10px 0;border:1px solid var(--line,#dce5df);border-radius:11px}
+.satellite-interval-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.86rem}
+.satellite-interval-head span{color:var(--muted,#637168)}
+.satellite-band-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.satellite-band-grid>div{display:flex;flex-direction:column;gap:5px;padding:10px;background:var(--soft,#f6f8f6);border-radius:8px;min-width:0}
+.satellite-band-grid b{font-size:1.15rem;overflow-wrap:anywhere}
+.satellite-interval-meta{font-size:.76rem;color:var(--muted,#637168);margin:10px 0 0;overflow-wrap:anywhere}
+.satellite-raw-response{margin-top:14px;border-top:1px solid var(--line,#dce5df);padding-top:12px}
+.satellite-raw-response summary{cursor:pointer;font-weight:600;font-size:.88rem}
+.satellite-result-summary .satellite-readonly-note{margin-top:14px}
+.satellite-result-summary .satellite-readonly-note p{margin:7px 0 0}
+@media(min-width:680px){.satellite-stat-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+
+/* Plain-language satellite advisory cards */
+.satellite-advisory{margin:14px 0 2px;padding:15px 16px;border:1px solid #dce7df;border-radius:12px;background:#f7faf7;color:#183c2d}
+.satellite-advisory .eyebrow{margin:0 0 10px;font-size:.69rem;letter-spacing:.08em;font-weight:800;color:#547361}
+.satellite-advisory-item{padding:9px 0;border-bottom:1px solid #e0e9e2}
+.satellite-advisory-item:last-of-type{border-bottom:0}
+.satellite-advisory-item b,.satellite-advisory-next b{display:block;font-size:.9rem}
+.satellite-advisory-item p,.satellite-advisory-next p{margin:4px 0 0;line-height:1.55;font-size:.86rem;color:#3e5549}
+.satellite-advisory-next{margin-top:10px;padding:11px 12px;border-left:3px solid #b68b35;background:#fffdf6;border-radius:0 8px 8px 0}
+
+
+/* Whole-period satellite trend summary */
+.satellite-trend-summary{margin:16px 0 20px;padding:17px;border:1px solid #e5d8bd;border-radius:13px;background:#fffdf7;color:#203e30}
+.satellite-trend-summary .eyebrow{margin:0 0 7px;font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#80652e}
+.satellite-trend-summary h3{margin:0 0 7px;font-size:1.05rem}
+.satellite-trend-summary>p:not(.eyebrow){margin:0 0 12px;color:#4a5d51;line-height:1.55;font-size:.9rem}
+.satellite-trend-table{display:grid;gap:0;border:1px solid #e8e5dc;border-radius:9px;overflow:hidden;background:#fff}
+.satellite-trend-row{display:grid;grid-template-columns:.65fr 1.4fr .7fr;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #eeeae1;font-size:.85rem}
+.satellite-trend-row:last-child{border-bottom:0}
+.satellite-trend-row>span{font-weight:800;color:#355343}
+.satellite-trend-row>strong{text-align:right}
+.satellite-trend-row .trend-down{color:#a44434}.satellite-trend-row .trend-up{color:#27734d}.satellite-trend-row .trend-steady{color:#68766d}
+@media(max-width:540px){.satellite-trend-row{grid-template-columns:.55fr 1.2fr .7fr;font-size:.77rem;padding:8px 7px}}
+
+/* Combined satellite comparison charts */
+.combined-satellite-panel{background:#fbfcfa;border-color:#dce6dd}
+.combined-chart{margin:14px 0;padding:12px;border:1px solid #e1e8e1;border-radius:10px;background:#fff}
+.combined-chart h4{margin:0 0 8px;font-size:.96rem}
+.combined-chart svg{display:block;width:100%;height:auto;overflow:visible}
+.combined-chart svg text{font-size:12px;fill:#617166}
+.combined-axis{stroke:#aebbb1;stroke-width:1}
+.combined-grid{stroke:#e7ece7;stroke-width:1;stroke-dasharray:4 4}
+.combined-line-a{stroke:#277c58}.combined-line-b{stroke:#bd8740}
+.combined-dot-a{fill:#277c58}.combined-dot-b{fill:#bd8740}
+.combined-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:4px;font-size:.8rem;color:#43574a}
+.combined-legend span:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#277c58;margin-right:6px}
+.combined-legend span:nth-child(2):before{background:#bd8740}
+.combined-date-check{padding:12px;border:1px solid #dce6dd;border-radius:9px;background:#fff;margin:12px 0}
+.combined-date-check p{margin:5px 0 0;line-height:1.5;font-size:.88rem;color:#4a5d51}
+
+.ask-chat-row.assistant{align-self:flex-start;background:#edf4ec;color:#213c2c;white-space:pre-wrap}
+.ask-chat-row.notice{white-space:pre-wrap}
+.ask-chat-row p{white-space:pre-wrap;overflow-wrap:anywhere}
+.ram-live-mic{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:14px;border:0;border-radius:10px;background:#eef1e9;color:var(--forest);cursor:pointer}
+.ram-live-mic:disabled{opacity:.5;cursor:not-allowed}
+.ram-live-mic>span{font-size:23px}.ram-live-mic b{font-size:11px}.ram-live-mic small{font-size:9px}
