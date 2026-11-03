@@ -67,6 +67,40 @@ async function saveBetaRecords(batch){
   batch.forEach(record=>{const row=saved.get(`${String(record.seasonKey||'Kharif 2026')}\u0000${String(record.fieldNo).trim()}`);if(row){record.id=row.id;record.seasonKey=row.season_key}});
 }
 function betaRecordData(record){const clean=structuredClone(record);delete clean.id;delete clean.seasonKey;for(const report of Object.values(clean.inspectionReports||{})){if(report&&typeof report==='object'){delete report.fieldPhotoData;delete report.fieldPhotoName;delete report.maleSyncDifferenceDays;delete report.maleSyncInterpretation}}if(clean.stageOne&&typeof clean.stageOne==='object'){delete clean.stageOne.fieldPhotoData;delete clean.stageOne.fieldPhotoName}return clean}
+function blankPlan(season='Kharif 2026'){return {season,crop:'Paddy',hybrid:'',planReference:'',plannedAcres:'',plannedProductivity:'',productivityUnit:'kg/acre',plannedVolume:'',volumeUnit:'kg',notes:'',savedAt:null,status:'Draft'}}
+function blankTerritoryAllocations(){return [{id:'TM-01',name:'Territory Manager 1',acres:'',volume:'',released:false},{id:'TM-02',name:'Territory Manager 2',acres:'',volume:'',released:false}]}
+async function loadProductionPlan(seasonKey=productionPlan.season){
+  if(!supabaseClient||!activeCompanyId)return;
+  planLoadError='';
+  const {data,error}=await supabaseClient.from('beta_production_plans').select('season_key,plan_data,allocations,signoff_file_path,signoff_file_name,status,updated_at').eq('company_id',activeCompanyId).eq('season_key',seasonKey).maybeSingle();
+  if(error)throw error;
+  if(!data){productionPlan=blankPlan(seasonKey);territoryAllocations=blankTerritoryAllocations();signOffStoredPath=null;signOffStoredName='';signOffDocument=null;return}
+  productionPlan={...blankPlan(seasonKey),...(data.plan_data||{}),season:seasonKey,status:data.status||data.plan_data?.status||'Draft'};
+  productionPlan.savedAt=data.plan_data?.savedAt||null;
+  territoryAllocations=Array.isArray(data.allocations)?data.allocations:blankTerritoryAllocations();
+  signOffStoredPath=data.signoff_file_path||null;signOffStoredName=data.signoff_file_name||'';
+  signOffDocument=null;
+}
+async function persistProductionPlan(status=productionPlan.status||'Draft'){
+  if(!supabaseClient||!activeUser||!activeCompanyId)throw new Error('Sign in to a company account before saving the production plan.');
+  let uploadedPath=null;
+  const oldPath=signOffStoredPath;
+  if(signOffDocument){
+    const seasonSlug=String(productionPlan.season||'season').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'season';
+    const safeName=String(signOffDocument.name||'sign-off').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(-120);
+    uploadedPath=activeCompanyId+'/'+seasonSlug+'/'+Date.now()+'-'+crypto.randomUUID()+'-'+safeName;
+    const ext=(safeName.split('.').pop()||'').toLowerCase();const mimeFallback={pdf:'application/pdf',doc:'application/msword',docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',xls:'application/vnd.ms-excel',xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'};const upload=await supabaseClient.storage.from(PRODUCTION_PLAN_BUCKET).upload(uploadedPath,signOffDocument,{contentType:signOffDocument.type||mimeFallback[ext]||'application/octet-stream',upsert:false});
+    if(upload.error)throw upload.error;
+  }
+  const savedAt=status==='Draft'?productionPlan.savedAt:new Date().toISOString();
+  const planData={...productionPlan,status,savedAt};
+  const row={company_id:activeCompanyId,season_key:productionPlan.season,plan_data:planData,allocations:territoryAllocations,signoff_file_path:uploadedPath||signOffStoredPath,signoff_file_name:uploadedPath?signOffDocument.name:signOffStoredName,status,updated_by:activeUser.id,updated_at:new Date().toISOString()};
+  const {error}=await supabaseClient.from('beta_production_plans').upsert(row,{onConflict:'company_id,season_key'});
+  if(error){if(uploadedPath)await supabaseClient.storage.from(PRODUCTION_PLAN_BUCKET).remove([uploadedPath]);throw error}
+  productionPlan={...productionPlan,status,savedAt};
+  if(uploadedPath){signOffStoredPath=uploadedPath;signOffStoredName=signOffDocument.name;signOffDocument=null;if(oldPath&&oldPath!==uploadedPath)await supabaseClient.storage.from(PRODUCTION_PLAN_BUCKET).remove([oldPath])}
+  planLoadError='';
+}
 async function activateBetaSession(user,requestedCompanyId=null){
   setAuthStatus('Checking company access…',false);
   const {data:memberships,error}=await supabaseClient.from('company_memberships').select('company_id,role_key,status').eq('user_id',user.id).eq('status','active');
@@ -82,7 +116,7 @@ async function activateBetaSession(user,requestedCompanyId=null){
   if(requestedCompanyName&&!company)throw new Error(`This account does not have active access to ${requestedCompanyName} yet. Ask your company administrator to activate the workspace membership.`);
   if(!company)throw new Error('Choose a company where your account has active membership.');
   activeUser=user;activeCompanyId=company.id;activeCompanyName=company.name;fieldSignedIn=true;fieldMobile=user.email||'';
-  await loadBetaRecords();setSignedInUI(user);render();
+  await loadBetaRecords();if(!seedworksFieldApp&&role==='manager'){try{await loadProductionPlan(productionPlan.season)}catch(planErr){planLoadError=planErr.message||'Could not load the saved production plan.'}}setSignedInUI(user);render();
 }
 async function initBetaConnection(){
   if(!supabaseClient){setAuthStatus('The database client did not load. Refresh this page and try again.');return}
@@ -101,7 +135,8 @@ document.getElementById('betaSignOut').addEventListener('click',async()=>{const 
 function scoped(){if(role==='officer')return records.filter(r=>r.officer===selectedOfficer);if(role==='territory')return records.filter(r=>r.territoryManager===selectedTerritoryManager);if(role==='aggregator')return records.filter(r=>r.aggregator==='AG-01');return records}
 const TEAM_BY_TERRITORY={'TM-01':['FA-01','FA-02'],'TM-02':['FA-03','FA-04']};
 const HEALTH_GRADES=['Excellent','Good','Average','Poor','Not recorded'];
-let signOffDocument=null;
+let signOffDocument=null, signOffStoredPath=null, signOffStoredName='', planLoadError='';
+const PRODUCTION_PLAN_BUCKET='beta-production-plan-signoffs';
 let productionPlan={season:'Kharif 2026',crop:'Paddy',hybrid:'',planReference:'',plannedAcres:'',plannedProductivity:'',productivityUnit:'kg/acre',plannedVolume:'',volumeUnit:'kg',notes:'',savedAt:null,status:'Draft'};
 let territoryAllocations=[
  {id:'TM-01',name:'Territory Manager 1',acres:'',volume:'',released:false},
@@ -203,8 +238,8 @@ function planningPage(){
  const acreBalance=acres-allocatedAcres,volumeBalance=volume-allocatedVolume;
  const card=(label,value,detail)=>'<article class="pm-plan-card"><small>'+label+'</small><b>'+value+'</b><span>'+detail+'</span></article>';
  const allocRows=territoryAllocations.map(t=>'<div class="plan-allocation-row" data-territory-row="'+t.id+'"><div class="plan-territory-name"><span>'+t.id+'</span><div><b>'+t.name+'</b><small>'+ (t.released?'Allocation released':'Draft allocation') +'</small></div></div><label>Acres allocated<input type="number" min="0" step="0.01" data-allocation-acres="'+t.id+'" value="'+escape(t.acres)+'" '+(t.released?'disabled':'')+'></label><label>Volume allocated ('+escape(p.volumeUnit||'kg')+')<input type="number" min="0" step="0.01" data-allocation-volume="'+t.id+'" value="'+escape(t.volume)+'" '+(t.released?'disabled':'')+'></label><span class="allocation-status '+(t.released?'released':'draft')+'">'+(t.released?'RELEASED':'DRAFT')+'</span></div>').join('');
- return '<div class="page-heading plan-heading"><div><p class="eyebrow">LEADERSHIP PLAN → TERRITORY TARGETS</p><h1>Production planning & allocation</h1><p class="muted">Record the approved plan first. Allocate targets only after reviewing the remaining balance.</p></div><span class="plan-demo-label">DEMO · BROWSER SESSION ONLY</span></div>'+
- '<div class="plan-notice"><b>Planning control</b><span>Planned production volume is entered as received from leadership. The calculated volume is a comparison only and will not overwrite the approved figure.</span></div>'+
+ return '<div class="page-heading plan-heading"><div><p class="eyebrow">LEADERSHIP PLAN → TERRITORY TARGETS</p><h1>Production planning & allocation</h1><p class="muted">Record the approved plan first. Allocate targets only after reviewing the remaining balance.</p></div><span class="plan-demo-label">SUPABASE · SHARED COMPANY WORKSPACE</span></div>'+
+ (planLoadError?'<div class="plan-error" role="alert">'+escape(planLoadError)+'</div>':'')+'<div class="plan-notice"><b>Planning control</b><span>Planned production volume is entered as received from leadership. The calculated volume is a comparison only and will not overwrite the approved figure.</span></div>'+
  '<form id="productionPlanForm" class="panel plan-form"><div class="panel-head"><div><h2>1. Leadership-approved production plan</h2><p class="muted">Enter the plan exactly as received from leadership.</p></div><span class="status-chip planned">'+escape(p.status.toUpperCase())+'</span></div>'+
  '<div class="plan-form-grid"><label>Season<select name="season"><option '+(p.season==='Kharif 2026'?'selected':'')+'>Kharif 2026</option><option '+(p.season==='Rabi 2026–27'?'selected':'')+'>Rabi 2026–27</option><option '+(p.season==='Kharif 2027'?'selected':'')+'>Kharif 2027</option></select></label>'+
  '<label>Crop<select name="crop"><option '+(p.crop==='Paddy'?'selected':'')+'>Paddy</option><option '+(p.crop==='Cotton'?'selected':'')+'>Cotton</option><option '+(p.crop==='Maize'?'selected':'')+'>Maize</option><option '+(p.crop==='Millet'?'selected':'')+'>Millet</option><option '+(p.crop==='Wheat'?'selected':'')+'>Wheat</option><option '+(p.crop==='Other'?'selected':'')+'>Other</option></select></label>'+
@@ -214,38 +249,48 @@ function planningPage(){
  '<label>Productivity unit<select name="productivityUnit"><option '+(p.productivityUnit==='kg/acre'?'selected':'')+'>kg/acre</option><option '+(p.productivityUnit==='q/acre'?'selected':'')+'>q/acre</option><option '+(p.productivityUnit==='packets/acre'?'selected':'')+'>packets/acre</option></select></label>'+
  '<label>Leadership planned volume<input name="plannedVolume" type="number" min="0" step="0.01" value="'+escape(p.plannedVolume)+'" required></label>'+
  '<label>Volume unit<select name="volumeUnit"><option '+(p.volumeUnit==='kg'?'selected':'')+'>kg</option><option '+(p.volumeUnit==='MT'?'selected':'')+'>MT</option><option '+(p.volumeUnit==='packets'?'selected':'')+'>packets</option></select></label>'+
- '<div class="signoff-upload-panel"><div><b>Leadership approval · Sign Off Document</b><p class="muted">Attach the approved leadership sign-off file for this production plan.</p></div><label class="signoff-file-label">Upload Sign Off Document<input id="signOffDocumentInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"></label><p class="signoff-file-status">'+(signOffDocument?('Selected: '+escape(signOffDocument.name)+' · '+(signOffDocument.size/1024).toFixed(1)+' KB'):'No Sign Off Document selected')+'</p><small>Prototype limitation: this file is selected in the current browser session only. It is not uploaded to a server or retained as an official record.</small></div>'+
+ '<div class="signoff-upload-panel"><div><b>Leadership approval · Sign Off Document</b><p class="muted">Attach the approved leadership sign-off file for this production plan.</p></div><label class="signoff-file-label">Upload Sign Off Document<input id="signOffDocumentInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xlsx,.xls"></label><p class="signoff-file-status">'+(signOffDocument?('Selected for upload: '+escape(signOffDocument.name)+' · '+(signOffDocument.size/1024).toFixed(1)+' KB'):signOffStoredName?('Stored in private company workspace: '+escape(signOffStoredName)):'No Sign Off Document selected')+'</p><small>New files upload to private company storage when you save (15 MB maximum).</small></div>'+
  '<label class="plan-notes-field">Notes / assumptions<textarea name="notes" rows="2" placeholder="Record approved assumptions or caveats">'+escape(p.notes)+'</textarea></label></div>'+
- '<div class="plan-actions"><button class="primary" type="submit">Save leadership plan</button><span>'+(p.savedAt?'Last saved in this session: '+escape(new Date(p.savedAt).toLocaleString()):'Not saved yet')+'</span></div></form>'+
+ '<div class="plan-actions"><button class="primary" type="submit">Save leadership plan</button><span>'+(p.savedAt?'Last saved to the shared company workspace: '+escape(new Date(p.savedAt).toLocaleString()):'Not saved yet')+'</span></div></form>'+
  '<div class="pm-planning-grid">'+card('APPROVED PLAN ACRES',fmt(acres)+' ac','Leadership input')+card('PLANNED PRODUCTIVITY',fmt(prod)+' '+escape(p.productivityUnit),'Leadership input')+card('LEADERSHIP PLANNED VOLUME',fmt(volume)+' '+escape(p.volumeUnit),'Preserved as entered')+'</div>'+
  '<article class="panel calculated-volume-panel"><div><small>CALCULATED PRODUCTION (MT) · COMPARISON ONLY</small><b>'+calculatedLabel+'</b><p>'+(calculatedCompatible?'Calculated from planned acres × productivity and converted to metric tonnes (MT). kg ÷ 1,000 = MT; quintals × 0.1 = MT.':'Enter productivity in kg/acre or quintals/acre to calculate MT. For packets/acre, an approved packet-weight conversion is required.')+' The leadership-approved planned volume remains unchanged.</p></div><span class="plan-calc-icon">∑</span></article>'+
  '<section class="panel plan-allocation-panel"><div class="panel-head"><div><h2>2. Allocate targets to Territory Managers</h2><p class="muted">Enter each territory allocation, check the balance, then release explicitly.</p></div><span class="status-chip '+(acreBalance<0||volumeBalance<0?'needs-review':'planned')+'">'+(acreBalance<0||volumeBalance<0?'OVER-ALLOCATED':'BALANCE CHECK')+'</span></div>'+
  '<div class="allocation-balance-grid"><div><small>ACRE BALANCE</small><b class="'+(acreBalance<0?'balance-negative':'')+'">'+fmt(acreBalance)+' ac</b><span>'+fmt(allocatedAcres)+' ac allocated of '+fmt(acres)+' ac</span></div><div><small>VOLUME BALANCE</small><b class="'+(volumeBalance<0?'balance-negative':'')+'">'+fmt(volumeBalance)+' '+escape(p.volumeUnit)+'</b><span>'+fmt(allocatedVolume)+' '+escape(p.volumeUnit)+' allocated of '+fmt(volume)+' '+escape(p.volumeUnit)+'</span></div></div>'+
  '<div class="plan-allocation-list">'+allocRows+'</div><div class="plan-actions"><button class="outline" id="saveAllocations">Save draft allocations</button><button class="primary" id="releaseAllocations">Release targets to Territory Managers</button></div>'+
- '<p class="plan-footnote">Release is blocked if the leadership plan is not saved, if any allocation is negative, or if total allocated acres or volume exceeds the approved plan. Unallocated balances are permitted and remain visible. Revisions and secure multi-user approvals require a backend and are not provided by this demo.</p></section>'+
- '<footer>Demo planning data stays in the current page session and is not sent to a server.</footer>';
+ '<p class="plan-footnote">Release is blocked if the leadership plan is not saved, if any allocation is negative, or if total allocated acres or volume exceeds the approved plan. Unallocated balances are permitted and remain visible. Released allocations are saved to Supabase and visible to authorized members of this company.</p></section>'+
+ '<footer>Plan details and allocations are saved in the shared company Supabase workspace. Sign-off files are stored in a private bucket.</footer>';
 }
 function bindPlanningPage(){
  const signOffInput=document.getElementById('signOffDocumentInput');
  signOffInput?.addEventListener('change',()=>{
   const file=signOffInput.files?.[0]||null;
-  if(file && file.size>15*1024*1024){signOffInput.value='';signOffDocument=null;notify('Sign Off Document must be 15 MB or smaller in this demo.');render();return;}
-  signOffDocument=file;
-  render();
+  if(file&&file.size>15*1024*1024){signOffInput.value='';signOffDocument=null;notify('Sign Off Document must be 15 MB or smaller.');render();return}
+  signOffDocument=file;render();
  });
  const form=document.getElementById('productionPlanForm');
- form?.addEventListener('submit',e=>{
+ const seasonInput=form?.elements.namedItem('season');
+ seasonInput?.addEventListener('change',async e=>{
+  const selected=e.currentTarget.value;
+  try{await loadProductionPlan(selected);render()}catch(err){planLoadError=err.message||'Could not load this season plan.';notify(planLoadError)}
+ });
+ form?.addEventListener('submit',async e=>{
   e.preventDefault();const data=new FormData(form);
-  productionPlan={...productionPlan,season:String(data.get('season')),crop:String(data.get('crop')),hybrid:String(data.get('hybrid')).trim(),planReference:String(data.get('planReference')).trim(),plannedAcres:String(data.get('plannedAcres')),plannedProductivity:String(data.get('plannedProductivity')),productivityUnit:String(data.get('productivityUnit')),plannedVolume:String(data.get('plannedVolume')),volumeUnit:String(data.get('volumeUnit')),notes:String(data.get('notes')).trim(),savedAt:new Date().toISOString(),status:'Saved'};
-  render();notify('Leadership plan saved in this browser session.');
+  productionPlan={...productionPlan,season:String(data.get('season')),crop:String(data.get('crop')),hybrid:String(data.get('hybrid')).trim(),planReference:String(data.get('planReference')).trim(),plannedAcres:String(data.get('plannedAcres')),plannedProductivity:String(data.get('plannedProductivity')),productivityUnit:String(data.get('productivityUnit')),plannedVolume:String(data.get('plannedVolume')),volumeUnit:String(data.get('volumeUnit')),notes:String(data.get('notes')).trim()};
+  const button=form.querySelector('button[type="submit"]');button.disabled=true;
+  try{await persistProductionPlan('Saved');render();notify('Leadership plan saved to the shared company workspace.')}
+  catch(err){planLoadError=err.message||'Could not save the leadership plan.';render();notify('Plan not saved: '+planLoadError)}
  });
  document.querySelectorAll('[data-allocation-acres],[data-allocation-volume]').forEach(input=>input.addEventListener('change',()=>{
   const id=input.dataset.allocationAcres||input.dataset.allocationVolume;const t=territoryAllocations.find(x=>x.id===id);if(!t||t.released)return;
   if(input.dataset.allocationAcres)t.acres=input.value;else t.volume=input.value;
   render();
  }));
- document.getElementById('saveAllocations')?.addEventListener('click',()=>{territoryAllocations.forEach(t=>{if(!t.released)t.released=false});notify('Draft allocations saved in this browser session.');render()});
- document.getElementById('releaseAllocations')?.addEventListener('click',()=>{
+ document.getElementById('saveAllocations')?.addEventListener('click',async()=>{
+  const button=document.getElementById('saveAllocations');button.disabled=true;
+  try{await persistProductionPlan(productionPlan.savedAt?productionPlan.status:'Draft');render();notify('Draft allocations saved to the shared company workspace.')}
+  catch(err){planLoadError=err.message||'Could not save allocations.';render();notify('Allocations not saved: '+planLoadError)}
+ });
+ document.getElementById('releaseAllocations')?.addEventListener('click',async()=>{
   const n=v=>Number.isFinite(Number(v))&&String(v).trim()!==''?Number(v):0;
   const totalAcres=territoryAllocations.reduce((s,t)=>s+n(t.acres),0),totalVolume=territoryAllocations.reduce((s,t)=>s+n(t.volume),0);
   const planAcres=n(productionPlan.plannedAcres),planVolume=n(productionPlan.plannedVolume);
@@ -253,11 +298,18 @@ function bindPlanningPage(){
   if(territoryAllocations.some(t=>n(t.acres)<0||n(t.volume)<0)){notify('Allocations cannot be negative.');return}
   if(totalAcres>planAcres+0.0001||totalVolume>planVolume+0.0001){notify('Release blocked: total allocations exceed the leadership plan.');return}
   if(!territoryAllocations.some(t=>n(t.acres)>0||n(t.volume)>0)){notify('Enter at least one territory allocation first.');return}
+  const previous=structuredClone(territoryAllocations);
   territoryAllocations.forEach(t=>{if(n(t.acres)>0||n(t.volume)>0)t.released=true});
-  render();notify('Targets released in this demo. No Territory Manager notification is connected.');
+  const button=document.getElementById('releaseAllocations');button.disabled=true;
+  try{await persistProductionPlan('Released');render();notify('Targets released and saved to the company workspace.')}
+  catch(err){territoryAllocations=previous;planLoadError=err.message||'Could not release targets.';render();notify('Targets not released: '+planLoadError)}
+ });
+ document.getElementById('viewStoredSignoff')?.addEventListener('click',async e=>{
+  e.preventDefault();const opened=window.open('about:blank','_blank');if(opened)opened.opener=null;
+  try{const {data,error}=await supabaseClient.storage.from(PRODUCTION_PLAN_BUCKET).createSignedUrl(signOffStoredPath,600);if(error)throw error;if(opened)opened.location=data.signedUrl;else window.location.assign(data.signedUrl)}
+  catch(err){opened?.close();notify('Could not open the sign-off document: '+err.message)}
  });
 }
-
 function renderManager(){document.body.classList.remove('field-mode');shell();const list=scoped();dashboard.classList.toggle('hidden',page!=='overview');registry.classList.toggle('hidden',page==='overview');if(page==='overview')dashboard.innerHTML=overview(list);else if(page==='planning')registry.innerHTML=planningPage();else if(page==='fields')registry.innerHTML=roster(list);else if(page==='inspections')registry.innerHTML=inspections(list);else if(page==='production')registry.innerHTML=production(list);else registry.innerHTML=reports(list);nav.forEach(n=>n.classList.toggle('selected',n.dataset.view===page));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{page=b.dataset.go;render()});document.querySelectorAll('[data-open-territory]').forEach(b=>b.onclick=()=>{selectedTerritoryManager=b.dataset.openTerritory;role='territory';page='overview';render()});document.querySelectorAll('[data-inspect]').forEach(b=>b.onclick=()=>editInspection(b.dataset.inspect));if(page==='planning')bindPlanningPage();bindMasterUpload();document.getElementById('reloadSamples')?.remove()}
 function fieldSummaryScreen(r){
   const pre=(r.inspectionReports||{})[5]||{},harvest=(r.inspectionReports||{})[6]||{};
