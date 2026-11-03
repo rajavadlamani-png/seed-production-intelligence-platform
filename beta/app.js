@@ -3,15 +3,26 @@ const SUPABASE_URL = 'https://xjtzvhtoeormizrhozoy.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp';
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 let activeUser = null, activeCompanyId = null, activeCompanyName = '', companyChoices = [];
+const launchParams = new URLSearchParams(window.location.search);
+const seedworksFieldApp = launchParams.get('install') === 'seedworks-field';
 let passwordRecoveryMode = false;
-let requestedCompanyName = '';
+let requestedCompanyName = seedworksFieldApp ? 'SeedWorks' : '';
 let records = [], pendingMasterRows=null;
-let role = 'manager', selectedOfficer = 'FA-01', selectedTerritoryManager = 'TM-01', page = 'overview', fieldMode = false;
+let role = seedworksFieldApp ? 'officer' : 'manager', selectedOfficer = 'FA-01', selectedTerritoryManager = 'TM-01', page = 'overview', fieldMode = seedworksFieldApp;
 let fieldSignedIn=false,fieldAuthStep='welcome',fieldMobile='',fieldTab='today',selectedFieldId=null,nearbyMessage='',askLanguage='English',askChat=[];
 const manager = document.getElementById('managerView'), field = document.getElementById('fieldView');
 const dashboard = document.getElementById('dashboardPage'), registry = document.getElementById('registryPage');
 const nav = [...document.querySelectorAll('.nav-item')];
 const toast = document.getElementById('toast');
+if(seedworksFieldApp){
+  document.body.classList.add('seedworks-field-app');
+  const seedworksChoice=document.querySelector('[data-company-choice="seedworks"]');
+  if(seedworksChoice){seedworksChoice.classList.add('selected');seedworksChoice.setAttribute('aria-pressed','true')}
+  const sageHarvestChoice=document.querySelector('[data-company-choice="sageharvest"]');
+  if(sageHarvestChoice)sageHarvestChoice.hidden=true;
+  document.getElementById('authTitle').textContent='Sign in to SeedWorks Field';
+  document.querySelector('.auth-gate-card>.muted').textContent='Use your approved SeedWorks account to open the field app.';
+}
 let toastTimer, gpsWatchId=null, gpsRecordId=null, gpsPoints=[], activeInspectionId=null;
 function notify(message){toast.textContent=message;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),2800)}
 function setAuthStatus(message,isError=true){const node=document.getElementById('betaAuthStatus');if(node){node.textContent=message;node.classList.toggle('is-error',isError)}}
@@ -22,9 +33,9 @@ function showSignIn(message='',isError=false){passwordRecoveryMode=false;documen
 function isSageHarvestCompany(name=activeCompanyName){return name.toLowerCase().replace(/[^a-z]/g,'').includes('sageharvest')}
 function isSeedWorksCompany(name=activeCompanyName){return name.toLowerCase().replace(/[^a-z]/g,'').includes('seedworks')}
 function companyLogoMarkup(){if(isSageHarvestCompany())return '<img src="assets/sage-harvest-logo.svg" alt="Sage Harvest">';if(isSeedWorksCompany())return '<img src="assets/seedworks-logo.jpg" alt="SeedWorks">';return `<strong class="field-company-wordmark">${escape(activeCompanyName)}</strong>`}
-function setCompanyBranding(name){activeCompanyName=name||'Company';const logo=document.getElementById('companyLogo'),wordmark=document.getElementById('companyBrandName');if(isSageHarvestCompany()){logo.src='assets/sage-harvest-logo.svg';logo.alt='Sage Harvest';logo.hidden=false;wordmark.hidden=true}else if(isSeedWorksCompany()){logo.src='assets/seedworks-logo.jpg';logo.alt='SeedWorks';logo.hidden=false;wordmark.hidden=true}else{logo.hidden=true;wordmark.textContent=activeCompanyName;wordmark.hidden=false}document.getElementById('companyBrand').setAttribute('aria-label',`${activeCompanyName} home`);document.title=`${activeCompanyName} — Seed Production Monitor`}
+function setCompanyBranding(name){activeCompanyName=name||'Company';const logo=document.getElementById('companyLogo'),wordmark=document.getElementById('companyBrandName');if(isSageHarvestCompany()){logo.src='assets/sage-harvest-logo.svg';logo.alt='Sage Harvest';logo.hidden=false;wordmark.hidden=true}else if(isSeedWorksCompany()){logo.src='assets/seedworks-logo.jpg';logo.alt='SeedWorks';logo.hidden=false;wordmark.hidden=true}else{logo.hidden=true;wordmark.textContent=activeCompanyName;wordmark.hidden=false}document.getElementById('companyBrand').setAttribute('aria-label',`${activeCompanyName} home`);document.title=seedworksFieldApp?'SeedWorks Field':`${activeCompanyName} — Seed Production Monitor`}
 function applyFieldCompanyBranding(){if(!activeCompanyName)return;const displayName=isSeedWorksCompany()?'SeedWorks':activeCompanyName;field.querySelectorAll('.field-brand-lockup').forEach(lockup=>{lockup.setAttribute('aria-label',displayName);lockup.innerHTML=companyLogoMarkup()});field.querySelectorAll('.field-brand-footer b').forEach(node=>node.textContent=displayName.toUpperCase());field.querySelectorAll('.field-demo-pill').forEach(node=>node.textContent=displayName);field.querySelectorAll('.eyebrow').forEach(node=>{if(node.textContent.includes('SAGEHARVEST'))node.textContent=node.textContent.replace('SAGEHARVEST',displayName.toUpperCase().replace(/\s+/g,''))})}
-function updateCompanyChoicesUI(){const authForm=document.getElementById('companyChoiceForm'),authSelect=document.getElementById('authCompanySelect'),switchWrap=document.getElementById('companySwitchWrap'),switcher=document.getElementById('companySwitcher');for(const select of [authSelect,switcher]){select.replaceChildren(...companyChoices.map(company=>{const option=document.createElement('option');option.value=company.id;option.textContent=company.name;return option}))}switchWrap.hidden=companyChoices.length<2;switcher.value=activeCompanyId||'';authForm.hidden=true}
+function updateCompanyChoicesUI(){const authForm=document.getElementById('companyChoiceForm'),authSelect=document.getElementById('authCompanySelect'),switchWrap=document.getElementById('companySwitchWrap'),switcher=document.getElementById('companySwitcher');for(const select of [authSelect,switcher]){select.replaceChildren(...companyChoices.map(company=>{const option=document.createElement('option');option.value=company.id;option.textContent=company.name;return option}))}switchWrap.hidden=seedworksFieldApp||companyChoices.length<2;switcher.value=activeCompanyId||'';authForm.hidden=true}
 function setCompanyChoiceScreen(){const authSelect=document.getElementById('authCompanySelect');authSelect.replaceChildren(...companyChoices.map(company=>{const option=document.createElement('option');option.value=company.id;option.textContent=company.name;return option}));document.getElementById('betaSignInForm').hidden=true;document.getElementById('passwordRecoveryForm').hidden=true;document.getElementById('companyChoiceForm').hidden=false;document.getElementById('authTitle').textContent='Choose your company workspace';document.querySelector('.auth-gate-card>.muted').textContent='Your account has access to more than one company. Choose which workspace to open.';authSelect.value=companyChoices[0]?.id||'';setCompanyChoiceStatus('')}
 function setSignedInUI(user){document.body.classList.add('auth-ready');document.body.classList.remove('auth-required','auth-loading');document.querySelector('.prototype-tag').textContent=`${activeCompanyName} · live records`;document.querySelector('#betaSignOut').title=`Signed in as ${user.email||'beta user'}`;setCompanyBranding(activeCompanyName);updateCompanyChoicesUI()}
 function setSignedOutUI(){activeUser=null;activeCompanyId=null;activeCompanyName='';records=[];companyChoices=[];fieldSignedIn=false;fieldMobile='';document.body.classList.remove('auth-ready','auth-loading');document.body.classList.add('auth-required');document.querySelector('.prototype-tag').textContent='Company beta · live records';document.querySelector('#companySwitchWrap').hidden=true;document.querySelector('#betaPassword').value='';showSignIn()}
@@ -308,6 +319,6 @@ syncReportForm(f);dlg.showModal()
 }
 function render(){if(fieldMode)fieldScreen();else{stopGps();manager.classList.remove('hidden');field.classList.add('hidden');renderManager()}}
 nav.forEach(b=>b.addEventListener('click',()=>{page=b.dataset.view;fieldMode=false;render()}));
-document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
+document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{if(seedworksFieldApp||b.dataset.mode==='field'){role='officer';fieldMode=true;fieldScreen()}else{role='manager';page='overview';fieldMode=false;render()}}));
 document.getElementById('addField')?.addEventListener('click',()=>{page='fields';render()});
 initBetaConnection();

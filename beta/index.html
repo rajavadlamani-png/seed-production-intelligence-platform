@@ -6,8 +6,27 @@
   <meta name="theme-color" content="#123b2b">
   <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
   <title>SageHarvest — Seed Production Monitor</title>
+  <script>
+    if (new URLSearchParams(location.search).get('install') === 'seedworks-field') {
+      const manifest = document.createElement('link');
+      manifest.rel = 'manifest';
+      manifest.href = 'seedworks-field.webmanifest';
+      document.head.appendChild(manifest);
+      for (const [name, content] of [['apple-mobile-web-app-capable', 'yes'], ['apple-mobile-web-app-title', 'SeedWorks Field'], ['apple-mobile-web-app-status-bar-style', 'default']]) {
+        const meta = document.createElement('meta');
+        meta.name = name;
+        meta.content = content;
+        document.head.appendChild(meta);
+      }
+      const icon = document.createElement('link');
+      icon.rel = 'apple-touch-icon';
+      icon.href = 'assets/seedworks-logo.jpg';
+      document.head.appendChild(icon);
+      document.title = 'SeedWorks Field';
+    }
+  </script>
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=company-choice-v1">
+  <link rel="stylesheet" href="styles.css?v=seedworks-field-pwa-v1">
 </head>
 <body class="auth-required">
   <main id="authGate" class="auth-gate" aria-labelledby="authTitle">
@@ -120,6 +139,6 @@
   <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
-  <script defer src="app.js?v=company-choice-v2"></script>
+  <script defer src="app.js?v=seedworks-field-pwa-v1"></script>
 </body>
 </html>
