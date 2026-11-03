@@ -561,7 +561,19 @@ function applyRamInspectionDraftUpdate(args){
   if(!Object.keys(accepted).length)return {ok:false,error:invalid.length?'I could not map '+invalid.join(', ')+' safely. Please ask the officer to confirm it.':'No new report values were provided.'};
   const draft={...(ramInspectionDrafts.get(record.id)||{})};
   Object.assign(draft,accepted);ramInspectionDrafts.set(record.id,draft);
-  return {ok:true,fields:Object.keys(accepted).map(name=>specs.get(name)?.label||name),fieldNo:record.fieldNo};
+  const fields=Object.keys(accepted).map(name=>specs.get(name)?.label||name);
+  const dialog=document.getElementById('inspectionDialog');
+  if(dialog?.open&&activeInspectionId===record.id){
+    const form=dialog.querySelector('form');
+    for(const [name,value] of Object.entries(accepted)){
+      const input=form?.elements.namedItem(name);
+      if(input&&'value'in input){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));}
+    }
+    if(form)syncReportForm(form);
+    const status=dialog.querySelector('#ramInspectionAssistStatus');
+    if(status)status.textContent='Added to this unsaved report: '+fields.join(', ')+'. Review the values; nothing has been saved yet.';
+  }
+  return {ok:true,fields,fieldNo:record.fieldNo};
 }
 async function handleRamToolCall(message){
   const calls=message.toolCall?.functionCalls||[],responses=[];
