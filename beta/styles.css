@@ -613,3 +613,9 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .voice-use-button{background:#e4f2e8;border-color:#a9c9b2}
 .voice-entry-field.wide-field{grid-column:1/-1}
 @media(max-width:600px){.report-voice-guide{grid-template-columns:1fr}.report-voice-guide .report-voice-support{grid-column:auto}}
+
+.ram-draft-review{display:grid;grid-template-columns:1fr auto;gap:5px 12px;align-items:center;margin:10px 0;padding:12px 14px;border:1px solid #bed5c4;border-radius:12px;background:#eff7f0;color:#214432}
+.ram-draft-review b{font-size:13px}
+.ram-draft-review span{grid-column:1;color:#5a6d60;font-size:11px;line-height:1.4}
+.ram-draft-review button{grid-column:2;grid-row:1/3;padding:8px 10px;border:1px solid #9dbba5;border-radius:9px;background:#fff;color:#174a31;font-weight:700;cursor:pointer}
+@media(max-width:480px){.ram-draft-review{grid-template-columns:1fr}.ram-draft-review span,.ram-draft-review button{grid-column:1;grid-row:auto}}
