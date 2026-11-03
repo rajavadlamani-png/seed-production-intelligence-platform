@@ -1022,7 +1022,7 @@ function setReportVoiceAvailability(dialog){
 function reportSpokenDigits(text){
  const tokens=String(text||'').toLowerCase().replace(/[.,!?]/g,' ').trim().split(/\s+/).filter(Boolean);
  const digits={zero:'0',oh:'0',o:'0',one:'1',two:'2',three:'3',four:'4',five:'5',six:'6',seven:'7',eight:'8',ate:'8',nine:'9'};
- if(tokens.length&&tokens.every(token=>digits[token]!==undefined||/^\\d$/.test(token)))return tokens.map(token=>digits[token]??token).join('');
+ if(tokens.length&&tokens.every(token=>digits[token]!==undefined||/^\d$/.test(token)))return tokens.map(token=>digits[token]??token).join('');
  return '';
 }
 function reportSpokenNumber(text){
