@@ -508,7 +508,7 @@ function ramFirstInspectionTool(){
     mrNumber:{type:'STRING',description:'M.R. number only when explicitly stated'},
     contractNumber:{type:'STRING',description:'Contract number only when explicitly stated'}
   });
-  return {name:'update_first_inspection_draft',behavior:'BLOCKING',description:'Add only First Inspection values the user explicitly provided to the selected field’s temporary, unsaved draft. Never invent missing values, mark the report complete, or save it.',parameters:{type:'OBJECT',properties,additionalProperties:false}};
+  return {name:'update_first_inspection_draft',behavior:'BLOCKING',description:'Add only First Inspection values the user explicitly provided to the selected field’s temporary, unsaved draft. Never invent missing values, mark the report complete, or save it.',parameters:{type:'OBJECT',properties}};
 }
 function ramFirstInspectionInstructions(){
   const guide=SOP_SNAPSHOTS[0].items.map(item=>'• '+item).join('\n');
