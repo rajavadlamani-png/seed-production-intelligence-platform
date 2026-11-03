@@ -459,3 +459,5 @@ body.auth-loading .auth-gate-card{opacity:.7;pointer-events:none}
 
 /* SeedWorks Field installed web app */
 body.seedworks-field-app .back-manager,body.seedworks-field-app .company-switch-label,body.seedworks-field-app .mobile-switch{display:none!important}
+
+body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!important}
