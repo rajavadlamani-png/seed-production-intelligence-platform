@@ -309,11 +309,10 @@ function reportFileSlug(value){return String(value||'report').toLowerCase().repl
 function reportCsvCell(value){return '"'+String(value??'').replace(/"/g,'""')+'"'}
 function downloadReport(list,format){
  const state={...reportBuilderState},model=reportModel(list,state),today=new Date().toISOString().slice(0,10),slug=reportFileSlug(state.source+'-'+state.groupBy+'-'+(productionPlan.season||'')),details=reportDetailRows(list,state);
- if(format==='csv'){const rows=[[REPORT_GROUP_OPTIONS[state.source].find(item=>item[0]===state.groupBy)?.[1]||'Group','Rows',model.measureLabel],...model.aggregates.map(item=>[item.label,item.count,item.value])];const csv='\\uFEFF'+rows.map(row=>row.map(reportCsvCell).join(',')).join('\\r\\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='MIS-'+slug+'-'+today+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return}
+ if(format==='csv'){const rows=[[REPORT_GROUP_OPTIONS[state.source].find(item=>item[0]===state.groupBy)?.[1]||'Group','Rows',model.measureLabel],...model.aggregates.map(item=>[item.label,item.count,item.value])];const csv='\uFEFF'+rows.map(row=>row.map(reportCsvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download='MIS-'+slug+'-'+today+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);return}
  const XLSX=window.XLSX;
  if(!XLSX?.utils){notify('Excel export is not available. Download the CSV summary instead.');return}
  const workbook=XLSX.utils.book_new(),summary=[[`MIS report · ${productionPlan.season||'Kharif 2026'}`],[`Data source: ${REPORT_SOURCE_OPTIONS.find(item=>item[0]===state.source)?.[1]||state.source}`],[`Filtered rows: ${model.rows.length}`],[`Generated: ${new Date().toLocaleString('en-IN')}`],[],[REPORT_GROUP_OPTIONS[state.source].find(item=>item[0]===state.groupBy)?.[1]||'Group','Rows',model.measureLabel],...model.aggregates.map(item=>[item.label,item.count,item.value])];
- const detailHeaders=details.length?Object.keys(details[0]):['No matching detail rows'];
  XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(summary),'Summary');
  XLSX.utils.book_append_sheet(workbook,XLSX.utils.json_to_sheet(details.length?details:[{note:'No rows matched the selected filters.'}]),'Detail rows');
  XLSX.writeFile(workbook,'MIS-'+slug+'-'+today+'.xlsx');
