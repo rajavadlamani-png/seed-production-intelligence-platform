@@ -456,3 +456,6 @@ body.auth-required>.auth-gate{display:grid}
 .company-switch-label select{max-width:190px;padding:7px 26px 7px 9px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--ink);font-family:inherit;font-size:11px;font-weight:600}
 body.auth-loading .auth-gate-card{opacity:.7;pointer-events:none}
 @media(max-width:620px){.auth-gate{padding:16px}.auth-gate-card{padding:24px 20px}.auth-gate-card h1{font-size:21px}}
+
+/* SeedWorks Field installed web app */
+body.seedworks-field-app .back-manager,body.seedworks-field-app .company-switch-label,body.seedworks-field-app .mobile-switch{display:none!important}
