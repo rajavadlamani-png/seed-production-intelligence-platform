@@ -626,3 +626,32 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .ram-inspection-assist-actions{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .ram-inspection-assist-actions button{min-height:36px;padding:7px 11px;font-size:12px}
 @media(max-width:640px){.ram-inspection-assist{align-items:flex-start;flex-direction:column}.ram-inspection-assist-actions{width:100%}.ram-inspection-assist-actions button{flex:1}}
+
+
+/* Dynamic Manager reports and MIS downloads */
+.report-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
+.report-builder-panel{margin:18px 0}
+.report-builder-form{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:12px;align-items:end}
+.report-builder-form label{display:grid;gap:6px;color:#596b60;font-size:12px;font-weight:650}
+.report-builder-form input,.report-builder-form select{width:100%;min-height:42px;padding:9px 11px;border:1px solid #d5dfd8;border-radius:10px;background:#fff;color:#1b2e23;font:inherit}
+.report-search-field{grid-column:span 2}
+.report-builder-form button{min-height:42px}
+.report-download-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid #e6ece7}
+.report-download-actions span{color:#65756b;font-size:12px}
+.report-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.report-summary-grid article{display:grid;gap:7px;padding:16px;border:1px solid #e0e8e2;border-radius:13px;background:#fff}
+.report-summary-grid small{color:#66776c;font-size:11px}
+.report-summary-grid b{color:#173d2b;font-size:22px;line-height:1.2}
+.report-results-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:16px}
+.report-chart-list{display:grid;gap:13px;padding:8px 0}
+.report-chart-row{display:grid;grid-template-columns:minmax(105px,150px) minmax(80px,1fr) 82px;gap:10px;align-items:center}
+.report-chart-row>span{overflow:hidden;color:#4c6052;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+.report-chart-row>b{text-align:right;color:#233e2e;font-size:12px;font-variant-numeric:tabular-nums}
+.report-bar-track{height:13px;overflow:hidden;border-radius:99px;background:#edf2ee}
+.report-bar-track i{display:block;height:100%;min-width:2px;border-radius:inherit;background:linear-gradient(90deg,#4d8d5d,#82b66e)}
+.report-table-panel .table-wrap{max-height:420px;overflow:auto}
+.report-table-panel table{width:100%}
+.report-data-note{margin:14px 2px;color:#637369;font-size:12px;line-height:1.5}
+@media(max-width:900px){.report-builder-form{grid-template-columns:repeat(2,minmax(0,1fr))}.report-results-grid{grid-template-columns:1fr}.report-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.report-page-heading{flex-direction:column}.report-page-heading>button{width:100%}.report-builder-form{grid-template-columns:1fr}.report-search-field{grid-column:auto}.report-download-actions{align-items:stretch;flex-direction:column}.report-download-actions button{width:100%}.report-chart-row{grid-template-columns:minmax(82px,112px) minmax(45px,1fr) 62px;gap:7px}.report-summary-grid b{font-size:18px}}
+@media print{body *{visibility:hidden!important}#registryPage,#registryPage *{visibility:visible!important}#registryPage{position:absolute!important;inset:0!important;width:100%!important;padding:0!important;background:#fff!important;color:#111!important}.report-builder-panel,.report-page-heading>button,.report-download-actions,.report-data-note,.report-page-heading .eyebrow{display:none!important}.report-page-heading{margin:0 0 12px}.report-page-heading h1{font-size:22px}.report-summary-grid{grid-template-columns:repeat(4,1fr)}.report-results-grid{grid-template-columns:1fr}.report-chart-panel,.report-table-panel{break-inside:avoid;border:1px solid #bbb!important;box-shadow:none!important}.report-table-panel .table-wrap{max-height:none;overflow:visible}.report-chart-row>span,.report-chart-row>b{color:#111}.report-bar-track{border:1px solid #ccc}.report-bar-track i{background:#74a783!important;print-color-adjust:exact;-webkit-print-color-adjust:exact}table{font-size:10px}}
