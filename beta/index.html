@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b2b">
+  <meta name="description" content="SageHarvest Seed Production Monitor prototype for field teams and production managers.">
+  <title>SageHarvest — Seed Production Monitor</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css?v=company-branding-v2">
+</head>
+<body class="auth-required">
+  <main id="authGate" class="auth-gate" aria-labelledby="authTitle">
+    <section class="auth-gate-card">
+      <p class="auth-gate-brand">SEED PRODUCTION MONITOR</p>
+      <p class="eyebrow">SEED PRODUCTION MONITOR · COMPANY BETA</p>
+      <h1 id="authTitle">Sign in to your company workspace</h1>
+      <p class="muted">Use an account already approved for this beta. New sign-ups are disabled.</p>
+      <form id="betaSignInForm" class="auth-card">
+        <label for="betaEmail">Email</label>
+        <input id="betaEmail" type="email" autocomplete="username" required>
+        <label for="betaPassword">Password</label>
+        <input id="betaPassword" type="password" autocomplete="current-password" required>
+        <button class="auth-link" id="forgotPassword" type="button">Forgot password?</button>
+        <button class="primary" type="submit">Sign in</button>
+        <p id="betaAuthStatus" class="auth-status" role="status" aria-live="polite"></p>
+      </form>
+      <form id="passwordRecoveryForm" class="auth-card" hidden>
+        <label for="recoveryPassword">New password</label>
+        <input id="recoveryPassword" type="password" autocomplete="new-password" minlength="8" required>
+        <label for="recoveryPasswordConfirm">Confirm new password</label>
+        <input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="8" required>
+        <button class="primary" type="submit">Save new password</button>
+        <p id="recoveryStatus" class="auth-status" role="status" aria-live="polite"></p>
+      </form>
+      <form id="companyChoiceForm" class="auth-card" hidden>
+        <label for="authCompanySelect">Company workspace</label>
+        <select id="authCompanySelect" required></select>
+        <button class="primary" type="submit">Open workspace</button>
+        <p id="companyChoiceStatus" class="auth-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+  <header class="topbar">
+    <a class="brand" href="#overview" id="companyBrand" aria-label="Company home"><img class="brand-logo" id="companyLogo" src="assets/sage-harvest-logo.svg" alt=""><strong class="brand-company-name" id="companyBrandName" hidden></strong><span class="brand-product">SEED PRODUCTION MONITOR</span></a>
+    <div class="top-actions"><label class="company-switch-label" id="companySwitchWrap" hidden>Company <select id="companySwitcher" aria-label="Switch company workspace"></select></label><span class="prototype-tag">Company beta · shared live records</span><button class="outline" id="betaSignOut" type="button">Sign out</button></div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <p class="side-label">WORKSPACE</p>
+      <button class="nav-item selected" data-view="overview"><span>◫</span> Overview</button>
+      <button class="nav-item" data-view="fields"><span>⌖</span> Farmer & field roster</button>
+      <button class="nav-item" data-view="inspections"><span>☷</span> Inspections</button>
+      <button class="nav-item" data-view="production"><span>▤</span> Production & lots</button>
+      <button class="nav-item" data-view="reports"><span>▥</span> Reports</button>
+      <div class="side-bottom"><div class="season-card"><span class="season-dot"></span><div><small>ACTIVE SEASON</small><strong>Kharif 2026</strong></div></div><p class="muted tiny">Management workspace</p></div>
+    </aside>
+    <main>
+      <div class="mobile-switch"><button class="active" data-mode="manager">Manager view</button><button data-mode="field">Field officer</button></div>
+      <section class="manager-view" id="managerView">
+      <div id="dashboardPage">
+        <div class="page-heading"><div><p class="eyebrow">MONDAY, 18 OCTOBER 2026 · KHARIF SEASON</p><h1>Production overview</h1><p class="muted">A clear view of farmer coverage, field progress and team activity.</p></div><button class="primary" id="addField">＋ Bulk onboard farmers</button></div>
+        <div class="metric-grid">
+          <article class="metric"><div class="metric-title">Farmer master records <span>↗</span></div><strong>1,248</strong><small>Illustrative sample total</small><div class="spark green"></div></article>
+          <article class="metric"><div class="metric-title">Area under seed <span>⌖</span></div><strong>846 <em>ac</em></strong><small>Illustrative · across 6 districts</small><div class="spark blue"></div></article>
+          <article class="metric"><div class="metric-title">Inspections completed <span>✓</span></div><strong>76%</strong><small>97 of 128 fields this cycle</small><div class="progress"><span style="width:76%"></span></div></article>
+          <article class="metric"><div class="metric-title">Fields needing review <span>!</span></div><strong>12</strong><small><i class="warn">4 high priority</i></small><div class="spark amber"></div></article>
+        </div>
+        <div class="content-grid">
+          <article class="panel map-panel"><div class="panel-head"><div><h2>Field activity</h2><p class="muted">Illustrative regional view · field locations are sample data</p></div><button class="text-button" data-view-registry>View farmer roster →</button></div>
+            <div class="map-art"><div class="map-label label-one">Nashik</div><div class="map-label label-two">Jalgaon</div><div class="map-label label-three">Dhule</div><div class="field-shape f1"></div><div class="field-shape f2"></div><div class="field-shape f3"></div><div class="field-shape f4"></div><span class="map-pin p1">●</span><span class="map-pin p2">●</span><span class="map-pin p3 alert">●</span><span class="map-pin p4">●</span><span class="map-pin p5">●</span><span class="map-caption">FIELD COVERAGE · SAMPLE MAP</span></div>
+            <div class="map-legend"><span><i class="legend-dot green-dot"></i> On track <b>92</b></span><span><i class="legend-dot amber-dot"></i> Review needed <b>12</b></span><span><i class="legend-dot gray-dot"></i> Not inspected <b>24</b></span></div>
+          </article>
+          <article class="panel risk-panel"><div class="panel-head"><div><h2>Priority follow-ups</h2><p class="muted">Recent observations from the field team</p></div><button class="icon-button" aria-label="More options">···</button></div>
+            <div class="risk-item"><span class="risk-icon red">!</span><div><strong>Leaf discoloration reported</strong><p>SH-024 · Niphad · 2 hours ago</p></div><span class="severity high">HIGH</span></div>
+            <div class="risk-item"><span class="risk-icon amber">◷</span><div><strong>Inspection overdue</strong><p>SH-061 · Chalisgaon · Yesterday</p></div><span class="severity medium">DUE</span></div>
+            <div class="risk-item"><span class="risk-icon blue-icon">☁</span><div><strong>Weather review suggested</strong><p>North cluster · Seasonal advisory</p></div><span class="severity low">INFO</span></div>
+            <button class="outline full">Open follow-up list <span>→</span></button>
+          </article>
+          <article class="panel inspections-panel"><div class="panel-head"><div><h2>Inspection progress</h2><p class="muted">Six Paddy report stages · illustrative progress</p></div><button class="text-button">See schedule →</button></div><div class="stage-row"><div class="stage"><span class="stage-num done">✓</span><div><strong>First Inspection Report</strong><small>Report baseline</small></div><b>—</b></div><div class="stage"><span class="stage-num done">✓</span><div><strong>Vegetative Report</strong><small>Report baseline</small></div><b>—</b></div><div class="stage"><span class="stage-num current">3</span><div><strong>Pre Flowering Report</strong><small>Report baseline</small></div><b>—</b></div><div class="stage"><span class="stage-num">4</span><div><strong>Flowering Report</strong><small>Upcoming</small></div><b class="muted">—</b></div><div class="stage"><span class="stage-num">5</span><div><strong>Pre Harvesting Report</strong><small>Upcoming</small></div><b class="muted">—</b></div><div class="stage"><span class="stage-num">6</span><div><strong>Harvesting Report</strong><small>Upcoming</small></div><b class="muted">—</b></div></div></article>
+          <article class="panel lots-panel"><div class="panel-head"><div><h2>Production snapshot</h2><p class="muted">Planned harvest and traceability</p></div><button class="text-button">View lots →</button></div><div class="production-total"><strong>1,240 <small>q</small></strong><span>forecast quantity <small>Illustrative estimate</small></span></div><div class="lot-bar"><i></i><i></i><i></i><i></i><i></i></div><div class="lot-legend"><span><i class="green-dot"></i> Rice <b>52%</b></span><span><i class="gold-dot"></i> Wheat <b>28%</b></span><span><i class="blue-dot"></i> Other <b>20%</b></span></div><div class="lot-note">Seed lot tracking will be available as harvest records are entered.</div></article>
+        </div>
+        <footer>Prototype interface · Sample figures and locations · No live field, satellite, weather or AI connections</footer>
+      </div>
+      <div class="registry-page hidden" id="registryPage">
+        <div class="page-heading"><div><p class="eyebrow">ONBOARDING & ASSIGNMENTS</p><h1>Farmer master list</h1><p class="muted">Bulk onboarding is the starting point for field work.</p></div><button class="primary" id="addFieldRegistry">＋ Review import process</button></div>
+        <div class="onboarding-grid">
+          <article class="panel import-panel"><div class="panel-head"><div><h2>Bulk import from Excel</h2><p class="muted">Validate the master list before assigning field work.</p></div><span class="status-chip planned">NOT CONNECTED</span></div>
+            <div class="import-steps"><div><span>1</span><section><strong>Prepare the approved template</strong><small>Farmer name, mobile, village, district, state, crop, hybrid, seasonal field number, and distinct parent seed identities and lot numbers for male M-1/M-2/M-3 and female.</small></section></div><div><span>2</span><section><strong>Validate and resolve row issues</strong><small>Check required values, duplicate seasonal field numbers, crop/hybrid choices and territory assignments.</small></section></div><div><span>3</span><section><strong>Assign and release records</strong><small>Route each farmer to an aggregator and Field Officer, within a Territory Manager’s scope and the Production Manager’s state scope.</small></section></div><div><span>4</span><section><strong>Receive the SAP lot number</strong><small>SAP generates a unique lot number for the farmer and season. When it is available, sync it to the assigned field officer’s mobile record.</small></section></div></div>
+            <div class="privacy-callout"><strong>Bank details need restricted handling</strong><p>Do not upload real farmer files to this public prototype. Bank account details should be handled in a secured finance workflow and stay hidden from field teams.</p></div>
+            <button class="outline import-button" id="importMasterList">Prototype upload appears in the Production Manager roster view</button>
+          </article>
+          <article class="panel role-panel"><div class="panel-head"><div><h2>Who sees each assignment?</h2><p class="muted">Access follows each person’s assigned scope.</p></div></div>
+            <div class="role-row"><span class="role-icon">A</span><div><strong>Organizer / Aggregator</strong><small>Assigned farmer group</small></div></div>
+            <div class="role-row"><span class="role-icon">F</span><div><strong>Field Officer / Assistant</strong><small>Only their assigned farmers and fields; updates inspections</small></div></div>
+            <div class="role-row"><span class="role-icon">T</span><div><strong>Territory Manager</strong><small>Supervises assigned Field Officers and farmers</small></div></div>
+            <div class="role-row"><span class="role-icon">M</span><div><strong>Production Manager</strong><small>Supervises Territory Managers · consolidated state view</small></div></div>
+            <div class="access-note">Role limits must be enforced by the secure backend, not just by hiding screens.</div>
+          </article>
+        </div>
+        <footer>Illustrative workflow only · Demo uploads remain in this browser session; do not use real farmer data</footer>
+      </div>
+      </section>
+      <section class="field-view hidden" id="fieldView"><div class="field-head"><div><p class="eyebrow">SAGEHARVEST · FIELD TEAM</p><h1>Good morning, Rohan</h1><p class="muted">Your field work for today</p></div><div class="weather-pill">☀ <span><b>28°</b><small>Local conditions not connected</small></span></div></div>
+        <div class="field-summary"><div><strong>3</strong><small>Visits today</small></div><div><strong>2</strong><small>Inspections due</small></div><div><strong>1</strong><small>Follow-up</small></div></div>
+        <div class="assigned-scope">Showing only the farmers assigned to this field officer · sample records</div>
+        <div class="field-section-head"><div><h2>Assigned visits</h2><p class="muted">Kharif 2026 · Monday, 18 October</p></div><button class="text-button">View all</button></div>
+        <article class="visit-card urgent"><div class="visit-top"><div><span class="severity high">FOLLOW-UP</span><span class="visit-time">09:30 AM</span></div><button class="icon-button">···</button></div><h3>Sample farmer A</h3><p class="muted">Niphad · 3.2 acres · sample record</p><div class="crop-chip">Rice · Pre Flowering Report</div><div class="identifier-pair"><span>Season field no. <b>DEMO-KH26-024</b></span><span>SAP lot <b class="lot-pending">Awaiting SAP</b></span></div><div class="visit-alert">! Check reported leaf discoloration</div><button class="primary visit-action">Start inspection <span>→</span></button></article>
+        <article class="visit-card"><div class="visit-top"><div><span class="severity low">SCHEDULED</span><span class="visit-time">01:00 PM</span></div><button class="icon-button">···</button></div><h3>Sample farmer B</h3><p class="muted">Yeola · 5.1 acres · sample record</p><div class="crop-chip">Rice · Pre Flowering Report</div><div class="identifier-pair"><span>Season field no. <b>DEMO-KH26-039</b></span><span>SAP lot <b>DEMO-SAP-KH26-00039</b></span></div><button class="outline visit-action">Open field record <span>→</span></button></article>
+        <div class="field-section-head"><div><h2>Quick actions</h2></div></div><div class="quick-actions"><button data-action="assigned-list"><span>☷</span><b>My assignments</b><small>View assigned farmer list</small></button><button data-action="gps"><span>⌖</span><b>Capture GPS</b><small>Map field boundary</small></button><button data-action="photo"><span>▧</span><b>Upload photo</b><small>Attach field evidence</small></button></div><div class="offline-note">◉ <span><b>Assigned view · sample only</b><small>Real assignment access needs secure sign-in and server-side permissions.</small></span></div>
+        <nav class="bottom-nav"><button class="active"><span>⌂</span>Today</button><button><span>⌖</span>Fields</button><button><span>☷</span>Inspections</button><button><span>▤</span>More</button></nav>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+  <script defer src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
+  <script defer src="app.js?v=company-branding-v2"></script>
+</body>
+</html>
