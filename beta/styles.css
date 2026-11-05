@@ -732,3 +732,22 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .moisture-table td small{display:block;margin-top:4px;color:var(--muted)}
 .moisture-trend{font-weight:700;color:var(--forest)}
 @media(max-width:620px){.field-moisture-card,.moisture-dashboard-panel{padding:13px}.moisture-metric-row{gap:6px}.moisture-metric-row>div{padding:10px 8px}.moisture-metric-row b{font-size:18px}.moisture-metric-row small{font-size:8px}}
+
+/* Indicative soil-moisture outlook heatmap in role-scoped reports */
+.moisture-heatmap-panel{margin:24px 0;padding:clamp(18px,3vw,28px)}
+.moisture-heatmap-panel .panel-head{align-items:flex-start;gap:18px}
+.moisture-heatmap-panel .panel-head h2{margin:4px 0}
+.moisture-heatmap-panel .panel-head .eyebrow{margin:0;color:#668071;font-size:.7rem;font-weight:800;letter-spacing:.1em}
+.moisture-heatmap-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.moisture-heatmap-metrics article{padding:14px;border:1px solid #e6ebe7;border-radius:12px;background:#fbfcfb;display:flex;flex-direction:column;gap:5px}
+.moisture-heatmap-metrics article b{font-size:1.45rem;color:#31463b}
+.moisture-heatmap-metrics article small{color:#68766d;font-size:.78rem}
+.moisture-heatmap-metrics article.drying b{color:#bd5037}.moisture-heatmap-metrics article.steady b{color:#32745e}.moisture-heatmap-metrics article.unknown b{color:#78827c}
+.moisture-heatmap-visual{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:12px;border-radius:14px;background:#f5f8f5;border:1px solid #e7eee8}
+.moisture-heatmap-visual svg{width:100%;height:auto;min-height:190px;max-height:300px}
+.moisture-heat-grid{fill:none;stroke:#dfe7e1;stroke-width:1;stroke-dasharray:3 5}
+.moisture-heat-point{cursor:help}.moisture-heat-glow{filter:blur(8px);opacity:.62}.moisture-heat-point.drying .moisture-heat-glow{fill:#ed765b}.moisture-heat-point.steady .moisture-heat-glow{fill:#45a77d}.moisture-heat-point.unavailable .moisture-heat-glow{fill:#89948c;opacity:.38}
+.moisture-heat-point.drying .moisture-heat-dot{fill:#d75b43;stroke:#fff;stroke-width:2}.moisture-heat-point.steady .moisture-heat-dot{fill:#348b68;stroke:#fff;stroke-width:2}.moisture-heat-point.unavailable .moisture-heat-dot{fill:#7d8981;stroke:#fff;stroke-width:2}
+.moisture-heatmap-legend{display:flex;flex-direction:column;gap:10px;min-width:185px;font-size:.78rem;color:#4e5c53}.moisture-heatmap-legend span{display:flex;align-items:center;gap:8px}.moisture-heatmap-legend i,.moisture-heat-key{display:inline-block;width:11px;height:11px;border-radius:50%;flex:none}.moisture-heatmap-legend i.drying,.moisture-heat-key.drying{background:#d75b43}.moisture-heatmap-legend i.steady,.moisture-heat-key.steady{background:#348b68}.moisture-heatmap-legend i.unknown,.moisture-heat-key.unavailable{background:#89948c}
+.moisture-heatmap-list{list-style:none;padding:0;margin:14px 0 0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 18px}.moisture-heatmap-list li{min-width:0;display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;column-gap:8px;padding:8px 0;border-bottom:1px solid #edf0ed;font-size:.8rem}.moisture-heatmap-list .moisture-heat-key{grid-row:span 2}.moisture-heatmap-list b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.moisture-heatmap-list small{grid-column:2;color:#778078}.moisture-heatmap-list em{grid-column:3;grid-row:1/3;font-style:normal;text-align:right;color:#59665d;font-size:.74rem}.moisture-heatmap-attribution{display:block;margin-top:8px;color:#748078}
+@media(max-width:760px){.moisture-heatmap-panel .panel-head{flex-direction:column}.moisture-heatmap-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.moisture-heatmap-visual{grid-template-columns:1fr}.moisture-heatmap-legend{display:flex;flex-direction:row;flex-wrap:wrap}.moisture-heatmap-list{grid-template-columns:1fr}}
