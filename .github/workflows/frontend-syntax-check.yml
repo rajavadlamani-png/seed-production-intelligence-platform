@@ -25,3 +25,15 @@ jobs:
           node --check app.js
           node --check supabase-config.js
           node --check beta/app.js
+      - name: Check Beta company selector wiring
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const html = readFileSync('beta/index.html', 'utf8');
+          const app = readFileSync('beta/app.js', 'utf8');
+          for (const company of ['seedworks', 'sageharvest']) {
+            if (!html.includes('data-company-choice="' + company + '"')) throw new Error('Missing ' + company + ' company choice in Beta HTML');
+          }
+          if (!app.includes("querySelectorAll('[data-company-choice]')")) throw new Error('Missing Beta company-choice event binding');
+          if (!html.includes('src="app.js?')) throw new Error('Beta HTML does not load its app script');
+          NODE
