@@ -58,11 +58,12 @@ async function fetchProperty(property: typeof props[number], x: number, y: numbe
   const timeout = setTimeout(() => abort.abort(), 25000);
   try {
     const result = await fetch(url, { signal: abort.signal, headers: { "Accept": "image/tiff, application/octet-stream" } });
-    if (!result.ok) throw new Error("Soil map service returned HTTP " + result.status);
+    if (!result.ok) { const detail = (await result.text()).replace(/\s+/g, " ").slice(0, 240); throw new Error("Soil map service returned HTTP " + result.status + (detail ? ": " + detail : "")); }
     const type = result.headers.get("content-type") || "";
     const bytes = await result.arrayBuffer();
-    if (!type.includes("tiff") && !type.includes("octet-stream") && bytes.byteLength < 8) {
-      throw new Error("Soil map service did not return a raster.");
+    if (!type.includes("tiff") && !type.includes("octet-stream")) {
+      const detail = new TextDecoder().decode(bytes.slice(0, 320)).replace(/\s+/g, " ");
+      throw new Error("Soil map service returned " + (type || "an unknown content type") + (detail ? ": " + detail.slice(0, 240) : "."));
     }
     const raw = await pixelValue(bytes, x, y);
     return raw == null ? null : { label: property.label, value: Number((raw / property.divide).toFixed(2)), unit: property.unit };
@@ -83,13 +84,15 @@ Deno.serve(async (req) => {
     }
     const [x, y] = proj4("EPSG:4326", "SOILGRIDS:IGH", [lon, lat]);
     const values: Record<string, unknown> = {};
-    const errors: string[] = [];
+    const errors: { property: string; reason: string }[] = [];
     for (const property of props) {
       try {
         values[property.key] = await fetchProperty(property, x, y);
-      } catch {
+      } catch (error) {
         values[property.key] = null;
-        errors.push(property.key);
+        const reason = error instanceof Error ? error.message : String(error);
+        errors.push({ property: property.key, reason });
+        console.error("SoilGrids property lookup failed", property.key, reason);
       }
     }
     if (Object.values(values).every((v) => v === null)) {
