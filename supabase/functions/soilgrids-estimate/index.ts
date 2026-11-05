@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const lat = Number(body?.lat), lon = Number(body?.lon), state = String(body?.state || "").trim().toLowerCase();
-    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 6 || lat > 38 || lon < 68 || lon > 98 || (state && !indiaStates.has(state))) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 6 || lat > 38 || lon < 68 || lon > 98 || (state && !indiaStates.has(state)))
       return response({ error: "Choose a field coordinate within the supported India area." }, 400);
     }
     const [x, y] = proj4("EPSG:4326", "SOILGRIDS:IGH", [lon, lat]);
