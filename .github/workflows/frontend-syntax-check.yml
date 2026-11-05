@@ -3,10 +3,12 @@ name: Frontend syntax checks
 on:
   push:
     branches:
+      - main
       - feature/supabase-auth-integration
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   syntax:
@@ -22,3 +24,4 @@ jobs:
         run: |
           node --check app.js
           node --check supabase-config.js
+          node --check beta/app.js
