@@ -292,7 +292,7 @@ function reportModel(list,state=reportBuilderState){
  return {base,rows,aggregates,measureLabel,total:aggregates.reduce((sum,item)=>sum+item.value,0)};
 }
 function moistureHeatmapMarkup(list,scopeLabel='fields'){
- const fields=(list||[]).filter(Boolean),points=[],counts={drying:0,steady:0,unavailable:0,noGps:0,retrieved:0};
+ const fields=(list||[]).filter(Boolean),points=[],counts={critical:0,low:0,ideal:0,wet:0,saturation:0,unavailable:0,noGps:0,retrieved:0};
  const classified=fields.map(record=>{
   const entry=soilMoistureByRecord.get(record.id),coordinate=soilCoordinateForRecord(record),stats=entry?.data?soilMoistureStats(entry):null;
   const value=stats?.current;let status=!coordinate?'noGps':!Number.isFinite(value)?'unavailable':value<0.12?'critical':value<0.25?'low':value<=0.35?'ideal':value<0.40?'wet':'saturation';
