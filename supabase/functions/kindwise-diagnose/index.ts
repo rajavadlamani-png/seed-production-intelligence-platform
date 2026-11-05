@@ -30,7 +30,7 @@ const toText = (value: unknown): string => {
 };
 Deno.serve(async (request: Request) => {
   const origin = request.headers.get("origin") || "";
-  if (origin && !allowedOrigins.has(origin)) return json({ error: "This app origin is not allowed." }, 403, origin);
+  if (origin && !allowedOrigins.has(origin)) return new Response(JSON.stringify({ error: "This app origin is not allowed." }), { status: 403, headers: { "Content-Type": "application/json" } });
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...corsHeaders, "Access-Control-Allow-Origin": origin || "https://rajavadlamani-png.github.io" } });
   if (request.method !== "POST") return json({ error: "Use POST to assess a crop photo." }, 405, origin);
 
