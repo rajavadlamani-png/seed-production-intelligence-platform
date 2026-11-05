@@ -256,6 +256,7 @@ body.field-mode .field-view:not(.hidden){padding-bottom:140px}
 .field-brand-meta b{font-size:9px;letter-spacing:1px;line-height:1.25}
 .field-brand-meta span{font-size:8px;letter-spacing:.7px;color:#d3dfd1;line-height:1.25}
 .field-demo-pill{margin-left:auto;padding:6px 8px;border:1px solid #ffffff44;border-radius:20px;color:#f2e7ca;font-size:8px;font-weight:700;letter-spacing:.8px}
+.field-manager-return{margin-left:auto;flex:none;border:1px solid #ffffff66;border-radius:8px;padding:7px 9px;background:#ffffff12;color:#fff;font:600 11px Inter,sans-serif;cursor:pointer;white-space:nowrap}.field-manager-return:focus-visible{outline:2px solid #f2e7ca;outline-offset:2px}.field-manager-return:hover{background:#ffffff24}
 .field-brand-footer{position:fixed;left:0;right:0;bottom:72px;z-index:6;display:flex;align-items:center;justify-content:center;gap:6px;min-height:31px;padding:5px 10px;background:#f7f4ea;border-top:1px solid #e7dfca;color:#607066;font-size:8px;letter-spacing:.65px}
 .field-brand-footer>span{font-size:7px;color:#8c825e;font-weight:700}
 .field-brand-footer>b{color:#123b2b;font-size:8px;letter-spacing:1px}
