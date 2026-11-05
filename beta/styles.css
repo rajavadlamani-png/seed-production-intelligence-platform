@@ -765,3 +765,32 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .kindwise-findings article p{margin:8px 0 0;line-height:1.45;font-size:13px}
 .kindwise-findings article .kindwise-treatment{padding:9px 10px;background:#f2f7ed;border-radius:8px;color:#365637}
 .kindwise-disclaimer{margin:12px 0 0;font-size:12px;line-height:1.45;color:#68796e}
+
+/* Root-zone VWC heatmap bands */
+.moisture-heatmap-metrics article.critical b{color:#b83f48}
+.moisture-heatmap-metrics article.low b{color:#bd7136}
+.moisture-heatmap-metrics article.ideal b{color:#39866a}
+.moisture-heatmap-metrics article.wet b{color:#4d91b5}
+.moisture-heatmap-metrics article.saturation b{color:#6c65a5}
+.moisture-heat-point.critical .moisture-heat-glow{fill:#d95a62}
+.moisture-heat-point.low .moisture-heat-glow{fill:#e39b58}
+.moisture-heat-point.ideal .moisture-heat-glow{fill:#54a884}
+.moisture-heat-point.wet .moisture-heat-glow{fill:#6aadd0}
+.moisture-heat-point.saturation .moisture-heat-glow{fill:#8a82c1}
+.moisture-heat-point.unavailable .moisture-heat-glow{fill:#89948c;opacity:.38}
+.moisture-heat-point.noGps .moisture-heat-glow{fill:#a5aaa5;opacity:.2}
+.moisture-heat-point.critical .moisture-heat-dot{fill:#b83f48;stroke:#fff;stroke-width:2}
+.moisture-heat-point.low .moisture-heat-dot{fill:#d98242;stroke:#fff;stroke-width:2}
+.moisture-heat-point.ideal .moisture-heat-dot{fill:#39866a;stroke:#fff;stroke-width:2}
+.moisture-heat-point.wet .moisture-heat-dot{fill:#4d91b5;stroke:#fff;stroke-width:2}
+.moisture-heat-point.saturation .moisture-heat-dot{fill:#6c65a5;stroke:#fff;stroke-width:2}
+.moisture-heatmap-legend span>span{display:flex;flex-direction:column;gap:2px}
+.moisture-heatmap-legend span b{font-size:.76rem;font-weight:700}
+.moisture-heatmap-legend span small{font-size:.68rem;color:#778078}
+.moisture-heatmap-legend i.critical,.moisture-heat-key.critical{background:#b83f48}
+.moisture-heatmap-legend i.low,.moisture-heat-key.low{background:#d98242}
+.moisture-heatmap-legend i.ideal,.moisture-heat-key.ideal{background:#39866a}
+.moisture-heatmap-legend i.wet,.moisture-heat-key.wet{background:#4d91b5}
+.moisture-heatmap-legend i.saturation,.moisture-heat-key.saturation{background:#6c65a5}
+.moisture-heatmap-legend i.unavailable,.moisture-heat-key.unavailable{background:#89948c}
+.moisture-heatmap-legend i.noGps,.moisture-heat-key.noGps{background:#a5aaa5}
