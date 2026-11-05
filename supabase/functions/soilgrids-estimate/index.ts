@@ -1,4 +1,3 @@
-import proj4 from "npm:proj4@2.12.1";
 import { fromArrayBuffer } from "npm:geotiff@2.1.3";
 
 const allowedOrigin = "https://rajavadlamani-png.github.io";
@@ -19,7 +18,16 @@ const props = [
 ];
 const soilCrs = "http://www.opengis.net/def/crs/EPSG/0/152160";
 const indiaStates = new Set(["andhra pradesh","arunachal pradesh","assam","bihar","chhattisgarh","goa","gujarat","haryana","himachal pradesh","jharkhand","karnataka","kerala","madhya pradesh","maharashtra","manipur","meghalaya","mizoram","nagaland","odisha","punjab","rajasthan","sikkim","tamil nadu","telangana","tripura","uttar pradesh","uttarakhand","west bengal","andaman and nicobar islands","chandigarh","dadra and nagar haveli and daman and diu","delhi","jammu and kashmir","ladakh","lakshadweep","puducherry"]);
-proj4.defs("SOILGRIDS:IGH", "+proj=igh +datum=WGS84 +units=m +no_defs +type=crs");
+function indiaToSoilGrids(lon: number, lat: number): [number, number] {
+  // India falls in the northern eastern sinusoidal lobe of the SoilGrids IGH grid.
+  // PROJ's IGH zone 4 uses lon_0=30°, x_0=30°, and y_0=0°.
+  const radius = 6378137;
+  const lambda = lon * Math.PI / 180;
+  const phi = lat * Math.PI / 180;
+  const lambda0 = 30 * Math.PI / 180;
+  const x0 = 30 * Math.PI / 180;
+  return [radius * ((lambda - lambda0) * Math.cos(phi) + x0), radius * phi];
+}
 
 function response(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -82,7 +90,7 @@ Deno.serve(async (req) => {
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < 6 || lat > 38 || lon < 68 || lon > 98 || (state && !indiaStates.has(state))) {
       return response({ error: "Choose a field coordinate within the supported India area." }, 400);
     }
-    const [x, y] = proj4("EPSG:4326", "SOILGRIDS:IGH", [lon, lat]);
+    const [x, y] = indiaToSoilGrids(lon, lat);
     const values: Record<string, unknown> = {};
     const errors: { property: string; reason: string }[] = [];
     for (const property of props) {
