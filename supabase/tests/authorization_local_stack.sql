@@ -21,6 +21,16 @@ insert into public.companies(id,name,slug) values
  ('20000000-0000-0000-0000-000000000020','Synthetic Beta','synthetic-beta')
 on conflict do nothing;
 
+insert into public.crops(id,company_id,code,name,is_active) values
+ ('10000000-0000-0000-0000-000000000060','10000000-0000-0000-0000-000000000010','ALPHA-CROP','Synthetic Alpha Crop',true),
+ ('20000000-0000-0000-0000-000000000060','20000000-0000-0000-0000-000000000020','BETA-CROP','Synthetic Beta Crop',true)
+on conflict do nothing;
+
+insert into public.hybrids(id,company_id,crop_id,code,name,is_active) values
+ ('10000000-0000-0000-0000-000000000061','10000000-0000-0000-0000-000000000010','10000000-0000-0000-0000-000000000060','ALPHA-HYBRID','Synthetic Alpha Hybrid',true),
+ ('20000000-0000-0000-0000-000000000061','20000000-0000-0000-0000-000000000020','20000000-0000-0000-0000-000000000060','BETA-HYBRID','Synthetic Beta Hybrid',true)
+on conflict do nothing;
+
 insert into public.company_memberships(id,company_id,user_id,role,territory_code,is_active) values
  ('10000000-0000-0000-0000-000000000011','10000000-0000-0000-0000-000000000010','10000000-0000-0000-0000-000000000001','field_officer',null,true),
  ('20000000-0000-0000-0000-000000000021','20000000-0000-0000-0000-000000000020','20000000-0000-0000-0000-000000000002','field_officer',null,true)
@@ -672,4 +682,54 @@ begin
 end $test$;
 
 reset role;
+
+-- Crop & Hybrid Masters authorization: a known UUID from another tenant must
+-- remain invisible to the authenticated Alpha user, including via direct lookup.
+grant select on public.crops, public.hybrids to authenticated;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000001',true);
+do $test$
+declare alpha_crops integer; beta_crops integer; alpha_hybrids integer; beta_hybrids integer;
+begin
+  select count(*) into alpha_crops from public.crops
+   where company_id='10000000-0000-0000-0000-000000000010';
+  select count(*) into beta_crops from public.crops
+   where id='20000000-0000-0000-0000-000000000060';
+  select count(*) into alpha_hybrids from public.hybrids
+   where company_id='10000000-0000-0000-0000-000000000010';
+  select count(*) into beta_hybrids from public.hybrids
+   where id='20000000-0000-0000-0000-000000000061';
+  if alpha_crops <> 1 or beta_crops <> 0 or alpha_hybrids <> 1 or beta_hybrids <> 0 then
+    raise exception 'FAIL: Crop & Hybrid Masters tenant read isolation failed (crops alpha %, beta %; hybrids alpha %, beta %)',
+      alpha_crops, beta_crops, alpha_hybrids, beta_hybrids;
+  end if;
+end $test$;
+
+-- Authenticated clients must not have direct DELETE privilege on either master.
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    delete from public.crops where id='10000000-0000-0000-0000-000000000060';
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: authenticated client has direct DELETE access to crops';
+  end if;
+end $test$;
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    delete from public.hybrids where id='10000000-0000-0000-0000-000000000061';
+  exception when insufficient_privilege then
+    denied := true;
+  end;
+  if not denied then
+    raise exception 'FAIL: authenticated client has direct DELETE access to hybrids';
+  end if;
+end $test$;
+reset role;
+
 rollback;
