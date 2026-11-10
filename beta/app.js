@@ -2,7 +2,16 @@ const STAGES = ['First Inspection Report', 'Vegetative Report', 'Pre Flowering R
 const KINDWISE_FUNCTION = 'kindwise-diagnose';
 const SUPABASE_URL = 'https://xjtzvhtoeormizrhozoy.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp';
-const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+// Keep authentication scoped to this browser tab session. Unlike localStorage,
+// sessionStorage is cleared when the tab/window session ends.
+try { localStorage.removeItem('sb-xjtzvhtoeormizrhozoy-auth-token'); } catch {}
+const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: window.sessionStorage,
+    persistSession: true,
+    autoRefreshToken: true
+  }
+});
 let activeUser = null, activeCompanyId = null, activeCompanyName = '', companyChoices = [];
 let activeProfile=null;
 const SEEDWORKS_USER_PROFILES={
