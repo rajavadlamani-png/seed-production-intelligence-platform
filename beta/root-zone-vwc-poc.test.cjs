@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;';
+const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;';
 const c={console,Date,Map,Set,URL,URLSearchParams,Blob,Math,Number,Object,Array,String,Error,RegExp};vm.runInNewContext(source,c);
 const assert=(x,m)=>{if(!x)throw new Error(m)};
 const h='field_no,date,sample_point_id,depth_top_cm,depth_bottom_cm,vwc_m3_m3,gravimetric_water_content_kg_kg,measurement_method,validation_split,soil_texture,bulk_density_g_cm3,crop,crop_stage,latitude,longitude,probe_id,notes';
@@ -12,3 +12,12 @@ let failed=false;try{c.__ground(c.__parse(rows.slice(0,-1).join('\n')))}catch(e)
 const split=rows.map(x=>x.replace(',test,',',train,'));split[1]=split[1].replace(',train,',',validation,');failed=false;try{c.__ground(c.__parse(split.join('\n')))}catch(e){failed=true}assert(failed,'field split leakage must be rejected');
 failed=false;try{c.__pred(c.__parse('field_no,date,predicted_vwc_0_30_m3_m3,model_version,validation_split\nF1,2026-07-01,0.1,m1,test\nF1,2026-07-02,0.2,m2,test'))}catch(e){failed=true}assert(failed,'multiple model versions in one import must be rejected');
 console.log('Root-zone VWC POC data validation and metrics tests passed.');
+const op=(field,date,area,coverage=.95,vwc=.12)=>({fieldNo:field,date,areaBelowThresholdPct:area,validAreaPct:coverage*100,predictedVwc:vwc,modelVersion:'v1',split:'operational'});
+let classified=c.__classify([op('F-DRY','2026-07-01',84),op('F-DRY','2026-07-06',82),op('F-DRY','2026-07-12',88),op('F-WET','2026-07-01',79),op('F-WET','2026-07-06',90),op('F-GAP','2026-07-01',90,0.70),op('F-GAP','2026-07-06',90,0.70)]);
+assert(classified.events.length===1,'only one field should meet the two-date rule');
+assert(classified.events[0].fieldNo==='F-DRY'&&classified.events[0].from==='2026-07-01'&&classified.events[0].triggerDate==='2026-07-06'&&classified.events[0].lastDate==='2026-07-12','consecutive available-date event window incorrect');
+assert(classified.events[0].observationCount===3,'continuous qualifying observations should be grouped into one period');
+assert(classified.fields.find(x=>x.fieldNo==='F-WET').events.length===0,'one qualifying date must not trigger a period');
+assert(classified.fields.find(x=>x.fieldNo==='F-GAP').status==='INSUFFICIENT AREA-COVERAGE DATA','low valid-area coverage must not trigger a classification');
+assert(c.__classify([op('F-TRAIN','2026-07-01',99,1,.10)]).events.length===0,'training/validation/test rows must not be used for operational classification');
+console.log('Operational VWC field-area and two-observation classification tests passed.');
