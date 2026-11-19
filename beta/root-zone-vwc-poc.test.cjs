@@ -12,6 +12,8 @@ let failed=false;try{c.__ground(c.__parse(rows.slice(0,-1).join('\n')))}catch(e)
 const split=rows.map(x=>x.replace(',test,',',train,'));split[1]=split[1].replace(',train,',',validation,');failed=false;try{c.__ground(c.__parse(split.join('\n')))}catch(e){failed=true}assert(failed,'field split leakage must be rejected');
 failed=false;try{c.__pred(c.__parse('field_no,date,predicted_vwc_0_30_m3_m3,model_version,validation_split\nF1,2026-07-01,0.1,m1,test\nF1,2026-07-02,0.2,m2,test'))}catch(e){failed=true}assert(failed,'multiple model versions in one import must be rejected');
 console.log('Root-zone VWC POC data validation and metrics tests passed.');
+const operationalCsv='field_no,date,predicted_vwc_0_30_m3_m3,area_below_threshold_pct,valid_area_pct,model_version,validation_split\nF1,2026-07-01,0.12,85,95,v1,operational\nF1,2026-07-06,0.11,82,92,v1,operational';
+const operationalParsed=c.__pred(c.__parse(operationalCsv));assert(operationalParsed.length===2&&operationalParsed[0].split==='operational'&&operationalParsed[0].areaBelowThresholdPct===85&&operationalParsed[0].validAreaPct===95,'operational prediction CSV parsing failed');
 const op=(field,date,area,coverage=.95,vwc=.12)=>({fieldNo:field,date,areaBelowThresholdPct:area,validAreaPct:coverage*100,predictedVwc:vwc,modelVersion:'v1',split:'operational'});
 let classified=c.__classify([op('F-DRY','2026-07-01',84),op('F-DRY','2026-07-06',82),op('F-DRY','2026-07-12',88),op('F-WET','2026-07-01',79),op('F-WET','2026-07-06',90),op('F-GAP','2026-07-01',90,0.70),op('F-GAP','2026-07-06',90,0.70)]);
 assert(classified.events.length===1,'only one field should meet the two-date rule');
