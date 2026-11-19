@@ -5,7 +5,7 @@ Adds an operational evidence register to the Seed Production Monitor Beta. It re
 
 ## Data model
 - `vm0051_drainage_events`: one submitted drainage-event record linked to a company and a `beta_field_records` row.
-- `vm0051_drainage_event_evidence`: uploaded evidence metadata, private Storage path, SHA-256 file digest, source classification, capture time and optional GPS.
+- `vm0051_drainage_event_evidence`: uploaded evidence metadata, private Storage path, SHA-256 file digest, source classification, capture time and optional submitter GPS coordinates, accuracy and capture timestamp.
 - `vm0051_drainage_event_audit`: trigger-generated event/evidence submission and review history.
 - Storage bucket `vm0051-audit-evidence`: private; object keys are `<company UUID>/<event UUID>/<random UUID>-<filename>`.
 
