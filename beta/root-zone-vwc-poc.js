@@ -52,6 +52,101 @@ function rootVwcBuildPredictions(rows){
  if(versions.size>1)throw new Error('Import one model_version per prediction file so each model is evaluated separately.');
  return predictions;
 }
+
+const ROOT_VWC_SATELLITE_FEATURES=['ndvi','ndmi','vv','vh'];
+const ROOT_VWC_RIDGE_CANDIDATES=[0.01,0.1,1,10];
+let rootZoneVwcModelResult=null;
+function rootVwcSatelliteFeatureRows(runs=satelliteOnlyRuns){
+ const latest=new Map();
+ (runs||[]).forEach(run=>{
+  const generated=String(run.generated_at||run.created_at||'');
+  (satelliteOnlyRunFields(run)||[]).forEach(field=>{
+   const fieldNo=String(field.fieldNo||'').trim();if(!fieldNo)return;
+   (Array.isArray(field.observationSeries)?field.observationSeries:[]).forEach(obs=>{
+    const date=String(obs.date||obs.interval?.to||obs.interval?.from||'').slice(0,10);
+    if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date))return;
+    const values={};for(const key of ROOT_VWC_SATELLITE_FEATURES){const n=Number(obs[key]);values[key]=obs[key]!==null&&obs[key]!==undefined&&obs[key]!==''&&Number.isFinite(n)?n:null}
+    if(ROOT_VWC_SATELLITE_FEATURES.some(k=>values[k]===null))return;
+    const key=fieldNo+'|'+date,old=latest.get(key);
+    if(!old||generated>=old.generated)latest.set(key,{fieldNo,date,features:values,generated,runId:run.id||''});
+   });
+  });
+ });
+ return [...latest.values()].sort((a,b)=>a.fieldNo.localeCompare(b.fieldNo)||a.date.localeCompare(b.date));
+}
+function rootVwcDaysBetween(a,b){return Math.abs(Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/86400000}
+function rootVwcMatchGroundToSatellite(groundDates,featureRows,toleranceDays=5){
+ const pairs=[];
+ groundDates.forEach(g=>{
+  let best=null,bestGap=Infinity;
+  featureRows.filter(x=>x.fieldNo===g.fieldNo).forEach(x=>{const gap=rootVwcDaysBetween(g.date,x.date);if(gap<bestGap||(gap===bestGap&&x.date<(best?.date||'9999'))){best=x;bestGap=gap}});
+  if(best&&bestGap<=toleranceDays)pairs.push({fieldNo:g.fieldNo,groundDate:g.date,satelliteDate:best.date,dateGapDays:bestGap,actualVwc:g.actualVwc,split:g.split,features:best.features,runId:best.runId});
+ });
+ return pairs;
+}
+function rootVwcSolve(matrix,vector){
+ const n=vector.length,a=matrix.map((row,i)=>row.slice().concat([vector[i]]));
+ for(let col=0;col<n;col++){
+  let pivot=col;for(let row=col+1;row<n;row++)if(Math.abs(a[row][col])>Math.abs(a[pivot][col]))pivot=row;
+  if(Math.abs(a[pivot][col])<1e-12)throw new Error('The calibration design matrix is singular. Collect more varied satellite/ground observations.');
+  [a[col],a[pivot]]=[a[pivot],a[col]];
+  const div=a[col][col];for(let j=col;j<=n;j++)a[col][j]/=div;
+  for(let row=0;row<n;row++){if(row===col)continue;const factor=a[row][col];for(let j=col;j<=n;j++)a[row][j]-=factor*a[col][j]}
+ }
+ return a.map(row=>row[n]);
+}
+function rootVwcFitRidge(rows,alpha){
+ const keys=ROOT_VWC_SATELLITE_FEATURES,means={},scales={};
+ keys.forEach(k=>{means[k]=rows.reduce((s,r)=>s+r.features[k],0)/rows.length;const variance=rows.reduce((s,r)=>s+(r.features[k]-means[k])**2,0)/rows.length;scales[k]=Math.sqrt(variance)||1});
+ const p=keys.length+1,xtx=Array.from({length:p},()=>Array(p).fill(0)),xty=Array(p).fill(0);
+ rows.forEach(r=>{const x=[1,...keys.map(k=>(r.features[k]-means[k])/scales[k])];for(let i=0;i<p;i++){xty[i]+=x[i]*r.actualVwc;for(let j=0;j<p;j++)xtx[i][j]+=x[i]*x[j]}});
+ for(let i=1;i<p;i++)xtx[i][i]+=alpha;
+ return {features:keys,means,scales,coefficients:rootVwcSolve(xtx,xty),alpha,trainingRows:rows.length,trainingFields:new Set(rows.map(x=>x.fieldNo)).size};
+}
+function rootVwcApplyModel(model,features){
+ const x=[1,...model.features.map(k=>(features[k]-model.means[k])/model.scales[k])];
+ const raw=x.reduce((s,v,i)=>s+v*model.coefficients[i],0);
+ return Math.max(0,Math.min(1,raw));
+}
+function rootVwcRegressionMetrics(rows,model){
+ if(!rows.length)return {count:0,fields:0,mae:null,rmse:null,bias:null,r2:null};
+ const errors=rows.map(r=>rootVwcApplyModel(model,r.features)-r.actualVwc),mae=errors.reduce((s,x)=>s+Math.abs(x),0)/errors.length,rmse=Math.sqrt(errors.reduce((s,x)=>s+x*x,0)/errors.length),bias=errors.reduce((s,x)=>s+x,0)/errors.length,mean=rows.reduce((s,x)=>s+x.actualVwc,0)/rows.length,total=rows.reduce((s,x)=>s+(x.actualVwc-mean)**2,0),res=errors.reduce((s,x)=>s+x*x,0);
+ return {count:rows.length,fields:new Set(rows.map(x=>x.fieldNo)).size,mae,rmse,bias,r2:total>0?1-res/total:null};
+}
+function rootVwcTrainSatelliteModel(groundDates,featureRows,toleranceDays=5){
+ if(!Number.isFinite(toleranceDays)||toleranceDays<0||toleranceDays>15)throw new Error('Satellite-to-sample date tolerance must be between 0 and 15 days.');
+ const pairs=rootVwcMatchGroundToSatellite(groundDates,featureRows,toleranceDays),train=pairs.filter(x=>x.split==='train'),validation=pairs.filter(x=>x.split==='validation'),test=pairs.filter(x=>x.split==='test');
+ if(train.length<12||new Set(train.map(x=>x.fieldNo)).size<4)throw new Error('Insufficient matched calibration data. Need at least 12 matched field-date samples from at least 4 training fields; found '+train.length+' samples from '+new Set(train.map(x=>x.fieldNo)).size+' fields. Confirm ground dates and saved satellite observations are within '+toleranceDays+' days.');
+ let selectedAlpha=1,selectedModel=rootVwcFitRidge(train,selectedAlpha),selection='default ridge penalty 1.0';
+ if(validation.length>=4&&new Set(validation.map(x=>x.fieldNo)).size>=2){
+  let best=Infinity;ROOT_VWC_RIDGE_CANDIDATES.forEach(alpha=>{const candidate=rootVwcFitRidge(train,alpha),m=rootVwcRegressionMetrics(validation,candidate);if(m.rmse!==null&&m.rmse<best){best=m.rmse;selectedAlpha=alpha;selectedModel=candidate}});
+  selection='lowest validation RMSE across ridge penalties 0.01, 0.1, 1 and 10';
+ }
+ const splitByField=new Map();groundDates.forEach(x=>splitByField.set(x.fieldNo,x.split));
+ const modelVersion='ridge-s1s2-v0.1';
+ const predictions=featureRows.map(x=>({fieldNo:x.fieldNo,date:x.date,predictedVwc:rootVwcApplyModel(selectedModel,x.features),modelVersion,split:splitByField.get(x.fieldNo)||'operational',lower90:null,upper90:null,areaBelowThresholdPct:null,validAreaPct:null,matchedSatelliteRunId:x.runId||''}));
+ const validationMetrics=rootVwcRegressionMetrics(validation,selectedModel),testMetrics=rootVwcRegressionMetrics(test,selectedModel);
+ return {model:selectedModel,modelVersion,features:ROOT_VWC_SATELLITE_FEATURES.slice(),toleranceDays,pairs,trainCount:train.length,trainFields:new Set(train.map(x=>x.fieldNo)).size,validationMetrics,testMetrics,alphaSelection:selection,predictions,featureRows:featureRows.length,unmatchedGroundCount:groundDates.length-pairs.length,trainedAt:new Date().toISOString(),status:'PROVISIONAL · FIELD-HELD-OUT TEST REQUIRED'};
+}
+function rootVwcDownloadGeneratedPredictions(){
+ if(!rootZoneVwcModelResult)return;
+ const h=['field_no','date','predicted_vwc_0_30_m3_m3','area_below_threshold_pct','valid_area_pct','model_version','validation_split','lower_90','upper_90','satellite_run_id'];
+ const rows=rootZoneVwcModelResult.predictions.map(p=>[p.fieldNo,p.date,p.predictedVwc,'','',p.modelVersion,p.split,'','',p.matchedSatelliteRunId]);
+ rootVwcDownload('sentinel-root-zone-vwc-model-predictions.csv',[h,...rows]);
+}
+function rootZoneVwcModelMarkup(){
+ if(!rootZoneVwcModelResult)return '<p class="root-vwc-muted">No satellite-to-VWC model has been trained in this browser session. Import ground profiles, ensure matching company-scoped saved satellite runs exist, then train the model.</p>';
+ const r=rootZoneVwcModelResult,fmt=x=>x===null?'—':x.toFixed(4),m=r.testMetrics,v=r.validationMetrics;
+ return '<div class="root-vwc-kpis"><article><small>Training pairs</small><b>'+r.trainCount+'</b></article><article><small>Training fields</small><b>'+r.trainFields+'</b></article><article><small>Validation pairs</small><b>'+v.count+'</b></article><article><small>Independent test pairs</small><b>'+m.count+'</b></article><article><small>Test MAE · m³/m³</small><b>'+fmt(m.mae)+'</b></article><article><small>Test RMSE · m³/m³</small><b>'+fmt(m.rmse)+'</b></article><article><small>Test bias · m³/m³</small><b>'+fmt(m.bias)+'</b></article><article><small>Test R²</small><b>'+fmt(m.r2)+'</b></article></div><p class="root-vwc-muted">Model '+r.modelVersion+' · features: '+r.features.join(', ')+' · matched date tolerance ±'+r.toleranceDays+' days · ridge alpha '+r.model.alpha+' ('+r.alphaSelection+'). Validation: '+v.fields+' fields / '+v.count+' pairs. Test: '+m.fields+' fields / '+m.count+' pairs. '+r.predictions.length+' saved satellite field-dates predicted. '+r.unmatchedGroundCount+' ground field-dates did not match satellite observations.</p><p class="root-vwc-muted"><b>Not yet approved for operational use.</b> Predictions are field-average estimates from field-level satellite statistics. They do not provide pixel-level VWC or area_below_threshold_pct / valid_area_pct. The 80% field-area classifier therefore remains unevaluable from this output. Model and predictions remain in browser memory until exported.</p><div class="root-vwc-actions"><button type="button" class="outline" id="rootVwcDownloadGeneratedPredictions">Download model predictions CSV</button></div>';
+}
+function rootZoneVwcRunSatelliteModel(){
+ const features=rootVwcSatelliteFeatureRows(),tolerance=Number(document.getElementById('rootVwcMatchTolerance')?.value??5);
+ const result=rootVwcTrainSatelliteModel(rootZoneVwcFieldDates,features,tolerance);
+ rootZoneVwcModelResult=result;rootZoneVwcPredictions=result.predictions;
+ rootZoneVwcPredictionStatus='Generated '+result.predictions.length+' field-date predictions with '+result.modelVersion+' · training '+result.trainCount+' matched pairs · validation '+result.validationMetrics.count+' · test '+result.testMetrics.count+'.';
+ notify('Satellite-to-VWC model trained in this browser session. Review independent test metrics before use.');
+}
+
 function rootVwcClassifyOperational(predictions,areaThresholdPct=80,coverageMinPct=80){
  const grouped=new Map();predictions.filter(p=>p.split==='operational').forEach(p=>{if(!grouped.has(p.fieldNo))grouped.set(p.fieldNo,[]);grouped.get(p.fieldNo).push(p)});
  const fields=[];for(const [fieldNo,items] of grouped){items.sort((a,b)=>a.date.localeCompare(b.date));let run=[];const events=[];let evaluable=0;for(const p of items){const valid=p.areaBelowThresholdPct!==null&&p.validAreaPct!==null&&p.validAreaPct>=coverageMinPct;if(valid)evaluable++;const qualifies=valid&&p.areaBelowThresholdPct>=areaThresholdPct;if(qualifies)run.push(p);else{if(run.length>=2)events.push(rootVwcOperationalEvent(fieldNo,run));run=[]}}if(run.length>=2)events.push(rootVwcOperationalEvent(fieldNo,run));fields.push({fieldNo,observationCount:items.length,evaluableCount:evaluable,events,status:events.length?'QUALIFYING VWC-BASED DRYNESS PERIOD':evaluable?'NO QUALIFYING TWO-OBSERVATION PERIOD':'INSUFFICIENT AREA-COVERAGE DATA'});}
