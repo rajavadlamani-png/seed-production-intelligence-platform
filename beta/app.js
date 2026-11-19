@@ -416,7 +416,7 @@ async function saveVm0051EvidenceRun(snapshot){
 }
 async function loadVm0051SavedRuns(){
  if(!supabaseClient||!activeUser||!activeCompanyId)return [];
- const {data,error}=await supabaseClient.from('vm0051_drainage_evidence_runs').select('id,season_key,methodology_version,monitoring_from,monitoring_to,generated_at,field_count,fields_with_boundary,fields_with_observations,created_at').eq('company_id',activeCompanyId).order('created_at',{ascending:false}).limit(10);
+ const {data,error}=await supabaseClient.from('vm0051_drainage_evidence_runs').select('id,season_key,methodology_version,monitoring_from,monitoring_to,generated_at,field_count,fields_with_boundary,fields_with_observations,evidence_payload,created_at').eq('company_id',activeCompanyId).order('created_at',{ascending:false}).limit(10);
  if(error)throw error;
  satelliteEvidenceSavedRuns=data||[];
  return satelliteEvidenceSavedRuns;
