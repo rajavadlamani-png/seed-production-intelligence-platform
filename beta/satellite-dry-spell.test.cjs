@@ -8,7 +8,7 @@ function assert(ok,message){if(!ok)throw new Error(message)}
 const days=(from,n,fn)=>Array.from({length:n},(_,i)=>{const d=new Date(Date.parse(from+'T00:00:00Z')+i*86400000).toISOString().slice(0,10);return {date:d,rootZoneMoisture:fn(i),dryThreshold:0.2,dry:fn(i)<=0.2}});
 let result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:days('2025-11-01',181,()=>0.15)});
 assert(result.status==='green','Seven-day-or-longer dry period should be GREEN');
-assert(result.event.days===181,'Continuous dry period should be one single event, not multiple events');
+assert(result.event.days===7&&result.event.spellDays===181,'A long continuous dry spell must trigger one seven-day event while retaining full spell duration');
 result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:days('2025-11-01',181,i=>i>=10&&i<17?0.15:0.3)});
 assert(result.status==='green'&&result.event.days===7,'Exactly seven consecutive dry days should qualify');
 const interrupted=days('2025-11-01',181,i=>i>=10&&i<17?0.15:0.3);interrupted[13].dry=false;
