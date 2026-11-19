@@ -7,6 +7,8 @@ alter table public.company_memberships
   add column if not exists status text not null default 'active';
 
 create schema if not exists private;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated;
 
 create or replace function private.has_company_role(p_company_id uuid, p_allowed_roles text[])
 returns boolean
