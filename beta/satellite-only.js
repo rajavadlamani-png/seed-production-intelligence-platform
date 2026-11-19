@@ -43,7 +43,7 @@ function satelliteOnlyEnsureLoaded() {
   satelliteOnlyLoadError = '';
   loadSatelliteOnlyRuns()
     .catch(error => { satelliteOnlyLoadError = error?.message || 'Could not load saved satellite observations.'; })
-    .finally(() => { satelliteOnlyLoading = false; if (typeof renderManager === 'function' && page === 'satellite-intelligence') renderManager(); });
+    .finally(() => { satelliteOnlyLoading = false; if (typeof renderManager === 'function') renderManager(); });
 }
 function satelliteOnlySummaries(rows) {
   const keys = [
