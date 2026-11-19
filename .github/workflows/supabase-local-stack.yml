@@ -32,7 +32,7 @@ jobs:
           version: latest
 
       - name: Start the actual Supabase local stack
-        run: supabase start -x studio,inbucket,imgproxy,analytics,vector
+        run: supabase start -x studio,imgproxy,logflare,mailpit,vector
 
       - name: Rebuild local database from repository migrations
         run: supabase db reset
