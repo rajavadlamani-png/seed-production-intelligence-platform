@@ -53,3 +53,22 @@ The historical test continues to retrieve Sentinel-1 and Sentinel-2 through the 
 
 ## Validation
 CI runs JavaScript syntax checks and deterministic unit tests for consecutive-day logic, missing-day handling, wet-day interruption, one-event counting, and RED/AMBER coverage gates. CI does not validate the satellite retrieval services or Bhuvan source data. The authenticated user must run the retrieval in Beta and import an appropriately prepared daily moisture CSV.
+
+
+## Additional daily weather and modelled soil-moisture corroboration
+
+The historical evidence panel also supports a separate browser-session retrieval from the Open-Meteo Historical Weather API using the ERA5-Land reanalysis model for the three DEMO field boundaries and the same 1 November 2025–30 April 2026 period.
+
+Daily variables displayed:
+- precipitation sum (mm);
+- mean 2 m air temperature (°C);
+- FAO reference evapotranspiration ET₀ (mm);
+- mean modelled soil moisture for 0–100 cm (m³/m³).
+
+The request uses the mean of the stored boundary GPS points as its query coordinate. The API's returned grid coordinates and elevation are retained in the browser-session result. The report explicitly warns that the saved DEMO boundary coordinates and their village/district labels have not been independently verified. Coordinate validation is required before interpreting the weather series as relevant to the named field.
+
+A zero-precipitation run is described only as a rain-free weather interval. It is not used as a dry-field or drainage classification. ERA5-Land soil moisture remains a modelled reanalysis estimate and is displayed separately; it does not override or fill the Bhuvan daily moisture series and does not change the seven-day trigger status.
+
+The combined CSV export joins daily weather rows with same-date available Sentinel-1/2 observations and imported Bhuvan daily values. Blank cells mean no observation was available on that date; no interpolation or backfilling is performed. Results remain in the browser session and are not written to Supabase or the formal VM0051 register.
+
+Open-Meteo source documentation: https://open-meteo.com/en/docs/historical-weather-api. Attribution is CC BY 4.0. The provider offers separate usage terms for commercial services; confirm the current licence before production deployment.
