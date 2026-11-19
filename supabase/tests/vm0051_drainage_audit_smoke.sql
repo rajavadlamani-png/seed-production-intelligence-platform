@@ -51,6 +51,16 @@ begin
   end if;
 
   if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='vm0051_drainage_events' and column_name='field_officer_confirmed'
+  ) or not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='vm0051_drainage_events' and column_name='field_officer_confirmed_at'
+  ) then
+    raise exception 'Field-officer confirmation columns are missing';
+  end if;
+
+  if not exists (
     select 1 from pg_trigger
     where tgrelid = 'public.vm0051_drainage_events'::regclass
       and tgname = 'vm0051_drainage_event_audit_log'
