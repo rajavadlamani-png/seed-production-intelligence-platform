@@ -363,7 +363,7 @@ function rootZoneVwcDownloadFieldBoundaryGeoJson(){
   features.push({type:'Feature',properties:{field_no:fieldNo},geometry:{type:'Polygon',coordinates:[points]}});
  });
  if(!features.length){notify('No saved GPS field polygons are available in the current company workspace.');return}
- const geojson={type:'FeatureCollection',name:'company-field-boundaries',crs:{type:'name',properties:{name:'urn:ogc:def:crs:OGC:1.3:CRS84'}},features};
+ const geojson={type:'FeatureCollection',name:'company-field-boundaries',features};
  const blob=new Blob([JSON.stringify(geojson,null,2)],{type:'application/geo+json;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
  a.href=url;a.download='company-field-boundaries.geojson';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  notify('Exported '+features.length+' saved field boundaries. Review field IDs and geometry before satellite processing.');
