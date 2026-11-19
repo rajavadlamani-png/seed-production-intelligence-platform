@@ -46,4 +46,8 @@ jobs:
           }
           if (!satellite.includes(".from('vm0051_drainage_evidence_runs')")) throw new Error('Satellite-only module is not reading saved satellite runs');
           if (!satellite.includes('.eq(\'company_id\', activeCompanyId)')) throw new Error('Satellite-only query is not company-scoped');
+          for (const required of ['WH-SYN-001', 'WH-SYN-004', 'WH-SYN-050', '2025-11-01', '2026-04-30', 'satelliteEvidenceForField', 'satHistClassify']) {
+            if (!satellite.includes(required)) throw new Error('Missing historical satellite test requirement: ' + required);
+          }
+          if (satellite.includes("from('vm0051_drainage_events')")) throw new Error('Historical satellite test must not read physical drainage-event records');
           NODE
