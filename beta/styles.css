@@ -857,7 +857,7 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .vm0051-finder-result.success{background:#edf7ef;border-color:#b9d9c0;color:#205c32}
 .vm0051-finder-result.danger{background:#fff0ee;border-color:#efc6c0;color:#9b332b}
 .vm0051-finder-result.warning{background:#fff7e8;border-color:#ead5a8;color:#875b16}
-.vm0051-finder-symbol{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:currentColor;color:#fff;font-size:17px;font-weight:800}
+.vm0051-finder-symbol{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border-radius:50%;background:currentColor;color:#fff;font-size:17px;font-weight:800}.vm0051-finder-result.success .vm0051-finder-symbol{background:#267b42}.vm0051-finder-result.danger .vm0051-finder-symbol{background:#bb4c40}.vm0051-finder-result.warning .vm0051-finder-symbol{background:#ad791f}
 .vm0051-finder-result b,.vm0051-finder-result strong,.vm0051-finder-result p,.vm0051-finder-result small{display:block}
 .vm0051-finder-result b{font-size:10px;letter-spacing:.04em}
 .vm0051-finder-result strong{font-size:16px;margin:3px 0}
