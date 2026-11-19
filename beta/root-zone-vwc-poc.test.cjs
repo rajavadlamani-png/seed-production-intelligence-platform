@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;';
-const c={console,Date,Map,Set,URL,URLSearchParams,Blob,Math,Number,Object,Array,String,Error,RegExp};vm.runInNewContext(source,c);
+const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;globalThis.__train=rootVwcTrainSatelliteModel;globalThis.__features=rootVwcSatelliteFeatureRows;globalThis.__match=rootVwcMatchGroundToSatellite;';
+const c={console,Date,Map,Set,URL,URLSearchParams,Blob,Math,Number,Object,Array,String,Error,RegExp,satelliteOnlyRunFields:r=>r.evidence_payload.fields};vm.runInNewContext(source,c);
 const assert=(x,m)=>{if(!x)throw new Error(m)};
 const h='field_no,date,sample_point_id,depth_top_cm,depth_bottom_cm,vwc_m3_m3,gravimetric_water_content_kg_kg,measurement_method,validation_split,soil_texture,bulk_density_g_cm3,crop,crop_stage,latitude,longitude,probe_id,notes';
 const rows=[h];for(const [p,b] of [['P1',.12],['P2',.14],['P3',.16]])for(const [t,bt,v] of [[0,10,b],[10,20,b+.01],[20,30,b+.02]])rows.push(['F1','2026-07-01',p,t,bt,v,'','probe','test','loam','','Paddy rice','vegetative','','','probe-1',''].join(','));
@@ -23,3 +23,29 @@ assert(classified.fields.find(x=>x.fieldNo==='F-WET').events.length===0,'one qua
 assert(classified.fields.find(x=>x.fieldNo==='F-GAP').status==='INSUFFICIENT AREA-COVERAGE DATA','low valid-area coverage must not trigger a classification');
 assert(c.__classify([op('F-TRAIN','2026-07-01',99,1,.10)]).events.length===0,'training/validation/test rows must not be used for operational classification');
 console.log('Operational VWC field-area and two-observation classification tests passed.');
+
+const modelGround=[],modelFeatures=[];
+const featureFor=(field,date,i)=>({fieldNo:field,date,features:{ndvi:.2+i*.015,ndmi:.1+i*.008,vv:-12+i*.12,vh:-19+i*.09},runId:'run-1'});
+const targetVwc=f=>.22+.035*f.ndvi-.025*f.ndmi+.002*f.vv-.0015*f.vh;
+for(let fi=0;fi<12;fi++){
+ const field='MODEL-F'+String(fi+1).padStart(2,'0'),split=fi<6?'train':fi<9?'validation':'test';
+ for(let di=0;di<3;di++){
+  const date='2026-07-'+String(1+di*5).padStart(2,'0'),features=featureFor(field,date,fi+di*.7).features;
+  modelFeatures.push({...featureFor(field,date,fi+di*.7),features});
+  modelGround.push({fieldNo:field,date,actualVwc:targetVwc(features),split});
+ }
+}
+for(let di=0;di<2;di++){const field='OPERATIONAL-01',date='2026-08-'+String(1+di*5).padStart(2,'0'),features=featureFor(field,date,5+di).features;modelFeatures.push({...featureFor(field,date,5+di),features})}
+const trained=c.__train(modelGround,modelFeatures,5);
+assert(trained.trainCount===18&&trained.trainFields===6,'model must train only on training-field samples');
+assert(trained.validationMetrics.count===9&&trained.testMetrics.count===9,'validation and test field-date pairs should remain separate');
+assert(trained.predictions.some(x=>x.fieldNo==='OPERATIONAL-01'&&x.split==='operational'),'unseen field should receive operational-split field estimate');
+assert(trained.predictions.every(x=>x.areaBelowThresholdPct===null&&x.validAreaPct===null),'field-average model must not invent field-area fractions');
+assert(trained.model.features.join(',')==='ndvi,ndmi,vv,vh','model feature set incorrect');
+const run={id:'sat-run',generated_at:'2026-07-10T00:00:00Z',evidence_payload:{fields:[{fieldNo:'S1S2',observationSeries:[{date:'2026-07-01',ndvi:.6,ndmi:.3,vv:null,vh:null},{date:'2026-07-04',ndvi:null,ndmi:null,vv:-11,vh:-18},{date:'2026-07-09',ndvi:.62,ndmi:.32,vv:null,vh:null}]}]}};
+const combined=c.__features([run]);assert(combined.length===2&&combined[0].radarDate==='2026-07-04'&&combined[1].radarDate==='2026-07-04','optical/radar dates should be paired within the 5-day sensor window');
+let insufficient=false;try{c.__train(modelGround.filter(x=>x.split==='test'),modelFeatures,5)}catch(e){insufficient=/at least 12 matched/.test(e.message)}assert(insufficient,'model must refuse inadequate training data');
+console.log('Sentinel-1/2 ridge training, field-held-out evaluation and sensor-date pairing tests passed.');
+
+const duplicateMatch=c.__match([{fieldNo:'MATCH',date:'2026-07-01',actualVwc:.12,split:'train'},{fieldNo:'MATCH',date:'2026-07-02',actualVwc:.13,split:'train'}],[{fieldNo:'MATCH',date:'2026-07-01',features:{ndvi:.5,ndmi:.2,vv:-10,vh:-17}}],5);
+assert(duplicateMatch.length===1,'one satellite acquisition must not be duplicated as two independent ground/satellite calibration pairs');
