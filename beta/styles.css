@@ -949,3 +949,22 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 @media(max-width:900px){.sat-env-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:580px){.sat-env-grid{grid-template-columns:1fr}}
 @media print{.sat-env-panel .sat-historical-controls{display:none!important}.sat-env-grid{grid-template-columns:1fr 1fr}.sat-env-details[open] .table-wrap{max-height:none;overflow:visible}}
+
+
+/* Root-zone VWC feasibility POC */
+.root-vwc-panel{margin-top:18px}
+.root-vwc-section{border-top:1px solid var(--line);padding-top:16px;margin-top:18px}
+.root-vwc-section h3{font-size:14px;color:var(--forest);margin:0 0 5px}
+.root-vwc-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.root-vwc-section-head p{font-size:10px;color:var(--muted);line-height:1.5;margin:4px 0 0;max-width:720px}
+.root-vwc-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.root-vwc-upload{display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+.root-vwc-status,.root-vwc-muted,.root-vwc-footnote{font-size:10px;line-height:1.6;color:var(--muted);margin:9px 0}
+.root-vwc-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}
+.root-vwc-kpis article{border:1px solid var(--line);border-radius:8px;background:#fff;padding:11px;min-width:0}
+.root-vwc-kpis small{display:block;font-size:9px;color:var(--muted);line-height:1.4}
+.root-vwc-kpis b{display:block;font-size:17px;color:var(--forest);margin-top:5px;overflow-wrap:anywhere}
+.root-vwc-section ul{padding-left:19px;color:var(--muted);font-size:10px;line-height:1.8}
+.root-vwc-footnote{padding:10px 12px;border-left:3px solid #b88736;background:#f8f5ed;color:#665735}
+@media(max-width:760px){.root-vwc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.root-vwc-section-head{display:block}.root-vwc-actions{margin-top:10px}}
+@media print{.root-vwc-actions{display:none!important}.root-vwc-panel .table-wrap{max-height:none;overflow:visible}}

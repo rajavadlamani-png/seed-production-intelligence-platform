@@ -1,0 +1,14 @@
+const fs=require('node:fs'),vm=require('node:vm');
+const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;';
+const c={console,Date,Map,Set,URL,URLSearchParams,Blob,Math,Number,Object,Array,String,Error,RegExp};vm.runInNewContext(source,c);
+const assert=(x,m)=>{if(!x)throw new Error(m)};
+const h='field_no,date,sample_point_id,depth_top_cm,depth_bottom_cm,vwc_m3_m3,gravimetric_water_content_kg_kg,measurement_method,validation_split,soil_texture,bulk_density_g_cm3,crop,crop_stage,latitude,longitude,probe_id,notes';
+const rows=[h];for(const [p,b] of [['P1',.12],['P2',.14],['P3',.16]])for(const [t,bt,v] of [[0,10,b],[10,20,b+.01],[20,30,b+.02]])rows.push(['F1','2026-07-01',p,t,bt,v,'','probe','test','loam','','Paddy rice','vegetative','','','probe-1',''].join(','));
+const built=c.__ground(c.__parse(rows.join('\n')));assert(built.points.length===3,'3 complete profiles expected');assert(built.fieldDates.length===1,'one field-date expected');assert(Math.abs(built.fieldDates[0].actualVwc-.15)<1e-9,'depth-weighted mean incorrect');
+const p=c.__pred(c.__parse('field_no,date,predicted_vwc_0_30_m3_m3,model_version,validation_split,lower_90,upper_90\nF1,2026-07-01,0.14,m1,test,0.12,0.16'));
+const m=c.__metrics(built.fieldDates,p);assert(m.count===1&&m.fields===1,'test pair not matched');assert(Math.abs(m.mae-.01)<1e-9,'MAE incorrect');assert(m.fp===1,'threshold false-positive count incorrect');
+const gravRows=[h];for(const p of ['A','B','C'])gravRows.push(['F2','2026-07-01',p,0,30,'',.2,'gravimetric','test','loam',1.3,'rice','vegetative','','','',''].join(','));const gb=c.__ground(c.__parse(gravRows.join('\n')));assert(gb.points.length===3&&Math.abs(gb.points[0].vwc-.26)<1e-9,'gravimetric conversion incorrect');
+let failed=false;try{c.__ground(c.__parse(rows.slice(0,-1).join('\n')))}catch(e){failed=true}assert(failed,'incomplete profiles should not create a reference');
+const split=rows.map(x=>x.replace(',test,',',train,'));split[1]=split[1].replace(',train,',',validation,');failed=false;try{c.__ground(c.__parse(split.join('\n')))}catch(e){failed=true}assert(failed,'field split leakage must be rejected');
+failed=false;try{c.__pred(c.__parse('field_no,date,predicted_vwc_0_30_m3_m3,model_version,validation_split\nF1,2026-07-01,0.1,m1,test\nF1,2026-07-02,0.2,m2,test'))}catch(e){failed=true}assert(failed,'multiple model versions in one import must be rejected');
+console.log('Root-zone VWC POC data validation and metrics tests passed.');
