@@ -75,6 +75,10 @@ jobs:
           AS $$
             SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
           $$;
+          CREATE OR REPLACE FUNCTION storage.foldername(name text)
+          RETURNS text[] LANGUAGE sql IMMUTABLE AS $$
+            SELECT ARRAY[split_part(name, '/', 1)];
+          $$;
           SQL
 
       - name: Apply migration 0001
@@ -128,6 +132,22 @@ jobs:
       - name: Apply migration 0017
         run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0017_validated_form_publication.sql
 
+      - name: Apply migration 0018
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/0018_restrict_direct_client_deletes.sql
+
+      - name: Apply deployed Beta field and production migrations
+        run: |
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103065708_beta_field_records.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103102146_calculate_male_ppi_sync_difference.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103130347_beta_production_plan_persistence.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119022931_vm0051_drainage_evidence_runs.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119023250_tighten_vm0051_drainage_evidence_grants.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119024544_vm0051_field_audit_register.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119024704_vm0051_methodology_references.sql
+
+      - name: Run VM0051 audit schema and privilege smoke test
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/vm0051_drainage_audit_smoke.sql
+
       - name: Run synthetic tenant and field authorization tests
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/authorization_smoke.sql
 
@@ -143,6 +163,8 @@ jobs:
               'companies','company_memberships','seasons','crops','hybrids','growers',
               'fields','production_plans','target_allocations','parent_seed_lots',
               'parent_seed_distributions','grower_upload_batches','grower_upload_rows',
+              'beta_field_records','beta_production_plans','vm0051_drainage_evidence_runs',
+              'vm0051_drainage_events','vm0051_drainage_event_evidence','vm0051_drainage_event_audit',
               'field_assignments','field_boundaries','form_definitions','form_versions',
               'form_sections','field_definitions','field_options','form_role_rules',
               'workflow_definitions','form_submissions','documents','audit_events'
