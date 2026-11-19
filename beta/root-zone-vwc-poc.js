@@ -249,7 +249,8 @@ function rootZoneVwcPocPage(){
 }
 function rootZoneVwcBindFile(id,handler){const input=document.getElementById(id);if(!input)return;input.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{await handler(await file.text(),file.name);renderManager()}catch(err){notify(err?.message||'CSV import failed.')}finally{e.target.value=''}})}
 function bindRootZoneVwcPocPage(){
- document.getElementById('rootVwcRunRelativeProxy')?.addEventListener('click',()=>{try{rootZoneVwcRunRelativeProxy();renderManager()}catch(error){notify(error?.message||'Could not calculate the provisional satellite index.')}});\n document.getElementById('rootVwcDownloadRelativeProxy')?.addEventListener('click',rootZoneVwcDownloadRelativeProxy);\n document.getElementById('rootVwcGroundTemplate')?.addEventListener('click',rootZoneVwcDownloadGroundTemplate);
+ document.getElementById('rootVwcRunRelativeProxy')?.addEventListener('click',()=>{try{rootZoneVwcRunRelativeProxy();renderManager()}catch(error){notify(error?.message||'Could not calculate the provisional satellite index.')}});
+ document.getElementById('rootVwcDownloadRelativeProxy')?.addEventListener('click',rootZoneVwcDownloadRelativeProxy);\n document.getElementById('rootVwcGroundTemplate')?.addEventListener('click',rootZoneVwcDownloadGroundTemplate);
  document.getElementById('rootVwcPredictionTemplate')?.addEventListener('click',rootZoneVwcDownloadPredictionTemplate);
  document.getElementById('rootVwcTrainSatelliteModel')?.addEventListener('click',()=>{try{rootZoneVwcRunSatelliteModel();renderManager()}catch(error){notify(error?.message||'Could not train the satellite-to-VWC model.')}});
  document.getElementById('rootVwcDownloadGeneratedPredictions')?.addEventListener('click',rootVwcDownloadGeneratedPredictions);
