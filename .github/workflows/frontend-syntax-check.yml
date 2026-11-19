@@ -28,6 +28,7 @@ jobs:
           node --check beta/vm0051-audit.js
           node --check beta/satellite-only.js
           node --check beta/root-zone-vwc-poc.js
+          node --check beta/root-zone-vwc-poc.test.cjs
       - name: Check Beta company selector wiring
         run: |
           node --input-type=module <<'NODE'
