@@ -72,3 +72,6 @@ A zero-precipitation run is described only as a rain-free weather interval. It i
 The combined CSV export joins daily weather rows with same-date available Sentinel-1/2 observations and imported Bhuvan daily values. Blank cells mean no observation was available on that date; no interpolation or backfilling is performed. Results remain in the browser session and are not written to Supabase or the formal VM0051 register.
 
 Open-Meteo source documentation: https://open-meteo.com/en/docs/historical-weather-api. Attribution is CC BY 4.0. The provider offers separate usage terms for commercial services; confirm the current licence before production deployment.
+
+
+Weather data retrieval is an explicit user-initiated action in the Beta page. It is not scheduled or silently refreshed. Each successful result remains visible only in the current browser session until exported; refreshing or closing the page requires retrieval again.
