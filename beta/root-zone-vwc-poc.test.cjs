@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;globalThis.__train=rootVwcTrainSatelliteModel;globalThis.__features=rootVwcSatelliteFeatureRows;';
+const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;globalThis.__train=rootVwcTrainSatelliteModel;globalThis.__features=rootVwcSatelliteFeatureRows;globalThis.__match=rootVwcMatchGroundToSatellite;';
 const c={console,Date,Map,Set,URL,URLSearchParams,Blob,Math,Number,Object,Array,String,Error,RegExp,satelliteOnlyRunFields:r=>r.evidence_payload.fields};vm.runInNewContext(source,c);
 const assert=(x,m)=>{if(!x)throw new Error(m)};
 const h='field_no,date,sample_point_id,depth_top_cm,depth_bottom_cm,vwc_m3_m3,gravimetric_water_content_kg_kg,measurement_method,validation_split,soil_texture,bulk_density_g_cm3,crop,crop_stage,latitude,longitude,probe_id,notes';
@@ -46,3 +46,6 @@ const run={id:'sat-run',generated_at:'2026-07-10T00:00:00Z',evidence_payload:{fi
 const combined=c.__features([run]);assert(combined.length===2&&combined[0].radarDate==='2026-07-04'&&combined[1].radarDate==='2026-07-04','optical/radar dates should be paired within the 5-day sensor window');
 let insufficient=false;try{c.__train(modelGround.filter(x=>x.split==='test'),modelFeatures,5)}catch(e){insufficient=/at least 12 matched/.test(e.message)}assert(insufficient,'model must refuse inadequate training data');
 console.log('Sentinel-1/2 ridge training, field-held-out evaluation and sensor-date pairing tests passed.');
+
+const duplicateMatch=c.__match([{fieldNo:'MATCH',date:'2026-07-01',actualVwc:.12,split:'train'},{fieldNo:'MATCH',date:'2026-07-02',actualVwc:.13,split:'train'}],[{fieldNo:'MATCH',date:'2026-07-01',features:{ndvi:.5,ndmi:.2,vv:-10,vh:-17}}],5);
+assert(duplicateMatch.length===1,'one satellite acquisition must not be duplicated as two independent ground/satellite calibration pairs');
