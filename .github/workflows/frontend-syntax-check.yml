@@ -26,6 +26,7 @@ jobs:
           node --check supabase-config.js
           node --check beta/app.js
           node --check beta/vm0051-audit.js
+          node --check beta/satellite-only.js
       - name: Check Beta company selector wiring
         run: |
           node --input-type=module <<'NODE'
@@ -37,4 +38,12 @@ jobs:
           }
           if (!app.includes("querySelectorAll('[data-company-choice]')")) throw new Error('Missing Beta company-choice event binding');
           if (!html.includes('src="app.js?')) throw new Error('Beta HTML does not load its app script');
+          if (!html.includes('src="satellite-only.js?')) throw new Error('Beta HTML does not load the satellite-only module');
+          if (!html.includes('data-view="satellite-intelligence"')) throw new Error('Missing Satellite Intelligence navigation');
+          const satellite = readFileSync('beta/satellite-only.js', 'utf8');
+          for (const forbidden of ['inspectionReports', 'vm0051_drainage_events', 'vm0051_drainage_event_evidence', 'vm0051_drainage_event_audit']) {
+            if (satellite.includes(forbidden)) throw new Error('Satellite-only module must not depend on ' + forbidden);
+          }
+          if (!satellite.includes(".from('vm0051_drainage_evidence_runs')")) throw new Error('Satellite-only module is not reading saved satellite runs');
+          if (!satellite.includes('.eq(\'company_id\', activeCompanyId)')) throw new Error('Satellite-only query is not company-scoped');
           NODE
