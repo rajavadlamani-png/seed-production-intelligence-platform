@@ -41,6 +41,16 @@ begin
   end if;
 
   if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='vm0051_drainage_events' and column_name='gps_accuracy_m'
+  ) or not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='vm0051_drainage_events' and column_name='gps_captured_at'
+  ) then
+    raise exception 'GPS accuracy and capture timestamp columns are missing';
+  end if;
+
+  if not exists (
     select 1 from pg_trigger
     where tgrelid = 'public.vm0051_drainage_events'::regclass
       and tgname = 'vm0051_drainage_event_audit_log'
