@@ -27,6 +27,7 @@ jobs:
           node --check beta/app.js
           node --check beta/vm0051-audit.js
           node --check beta/satellite-only.js
+          node --check beta/root-zone-vwc-poc.js
       - name: Check Beta company selector wiring
         run: |
           node --input-type=module <<'NODE'
@@ -39,6 +40,7 @@ jobs:
           if (!app.includes("querySelectorAll('[data-company-choice]')")) throw new Error('Missing Beta company-choice event binding');
           if (!html.includes('src="app.js?')) throw new Error('Beta HTML does not load its app script');
           if (!html.includes('src="satellite-only.js?')) throw new Error('Beta HTML does not load the satellite-only module');
+          if (!html.includes('src="root-zone-vwc-poc.js?')) throw new Error('Beta HTML does not load the root-zone VWC POC module');
           if (!html.includes('data-view="satellite-intelligence"')) throw new Error('Missing Satellite Intelligence navigation');
           const satellite = readFileSync('beta/satellite-only.js', 'utf8');
           for (const forbidden of ['inspectionReports', 'vm0051_drainage_events', 'vm0051_drainage_event_evidence', 'vm0051_drainage_event_audit']) {
@@ -54,3 +56,5 @@ jobs:
 
       - name: Test seven-day dry-spell classifier
         run: node beta/satellite-dry-spell.test.cjs
+      - name: Test root-zone VWC POC data validation and metrics
+        run: node beta/root-zone-vwc-poc.test.cjs
