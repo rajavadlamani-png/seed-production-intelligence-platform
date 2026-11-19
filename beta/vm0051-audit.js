@@ -68,21 +68,35 @@ function vm0051AuditPanel(list) {
 function vm0051AuditPage(list) {
   return '<div class="page-heading"><div><p class="eyebrow">CLIMATE EVIDENCE · FIELD OPERATIONS</p><h1>VM0051 Audit Register</h1><p class="muted">Field-level drainage event records, supporting evidence and reviewer traceability.</p></div></div>'+vm0051AuditPanel(list);
 }
+async function vm0051AuditFetchAll(table,columns) {
+  const rows=[];
+  const pageSize=500;
+  for(let offset=0;offset<=50000;offset+=pageSize){
+    const {data,error}=await supabaseClient.from(table).select(columns)
+      .eq('company_id',activeCompanyId).order('created_at',{ascending:false})
+      .range(offset,offset+pageSize-1);
+    if(error)throw error;
+    rows.push(...(data||[]));
+    if(!data||data.length<pageSize)return rows;
+  }
+  throw new Error('The audit register exceeds the 50,000-row browser retrieval safeguard. Use a server-side export for this company.');
+}
 async function loadVm0051AuditData() {
   if (!supabaseClient || !activeUser || !activeCompanyId) return;
   vm0051AuditLoading = true;
-  const [events,evidence,history] = await Promise.all([
-    supabaseClient.from('vm0051_drainage_events').select('*').eq('company_id',activeCompanyId).order('created_at',{ascending:false}).limit(100),
-    supabaseClient.from('vm0051_drainage_event_evidence').select('*').eq('company_id',activeCompanyId).order('created_at',{ascending:false}).limit(300),
-    supabaseClient.from('vm0051_drainage_event_audit').select('id,event_id,actor_id,action,created_at').eq('company_id',activeCompanyId).order('created_at',{ascending:false}).limit(100)
-  ]);
-  const error = events.error || evidence.error || history.error;
-  vm0051AuditLoading = false;
-  if (error) throw error;
-  vm0051AuditEvents = events.data || [];
-  vm0051AuditEvidence = evidence.data || [];
-  vm0051AuditHistory = history.data || [];
-  vm0051AuditLoadedCompany = activeCompanyId;
+  try {
+    const [events,evidence,history] = await Promise.all([
+      vm0051AuditFetchAll('vm0051_drainage_events','*'),
+      vm0051AuditFetchAll('vm0051_drainage_event_evidence','*'),
+      vm0051AuditFetchAll('vm0051_drainage_event_audit','*')
+    ]);
+    vm0051AuditEvents=events;
+    vm0051AuditEvidence=evidence;
+    vm0051AuditHistory=history;
+    vm0051AuditLoadedCompany=activeCompanyId;
+  } finally {
+    vm0051AuditLoading=false;
+  }
 }
 async function vm0051AuditSha256(file) {
   const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
@@ -206,11 +220,14 @@ async function vm0051AuditWorkbook() {
   const runIds = [...new Set(vm0051AuditEvents.map(event=>event.satellite_run_id).filter(Boolean))];
   let satelliteRuns = [];
   if (runIds.length) {
-    const {data,error} = await supabaseClient.from('vm0051_drainage_evidence_runs')
-      .select('id,methodology_version,monitoring_from,monitoring_to,generated_at,evidence_payload')
-      .eq('company_id',activeCompanyId).in('id',runIds);
-    if (error) throw error;
-    satelliteRuns = data || [];
+    for(let offset=0;offset<runIds.length;offset+=100){
+      const batch=runIds.slice(offset,offset+100);
+      const {data,error} = await supabaseClient.from('vm0051_drainage_evidence_runs')
+        .select('id,methodology_version,monitoring_from,monitoring_to,generated_at,evidence_payload')
+        .eq('company_id',activeCompanyId).in('id',batch);
+      if(error)throw error;
+      satelliteRuns.push(...(data||[]));
+    }
   }
   const events = [
     ['VM0051 field drainage evidence register'], ['Company', activeCompanyName],
