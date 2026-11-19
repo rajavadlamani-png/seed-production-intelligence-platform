@@ -1,9 +1,9 @@
 const fs=require('node:fs');
 const vm=require('node:vm');
-const source=fs.readFileSync('beta/satellite-only.js','utf8')+'\nglobalThis.__classify=satHistClassify;';
-const context={console,Date,Map,Set,URL,URLSearchParams,Blob,TextEncoder,TextDecoder};
+const source=fs.readFileSync('beta/satellite-only.js','utf8')+'\nglobalThis.__classify=satHistClassify;globalThis.__weatherSummary=satHistWeatherSummary;globalThis.__boundaryMean=satHistBoundaryPointMean;';
+const context={console,Date,Map,Set,URL,URLSearchParams,Blob,TextEncoder,TextDecoder,Math,Number,Object,Array};
 vm.runInNewContext(source,context);
-const classify=context.__classify;
+const classify=context.__classify,weatherSummary=context.__weatherSummary,boundaryMean=context.__boundaryMean;
 function assert(ok,message){if(!ok)throw new Error(message)}
 const days=(from,n,fn)=>Array.from({length:n},(_,i)=>{const d=new Date(Date.parse(from+'T00:00:00Z')+i*86400000).toISOString().slice(0,10);return {date:d,rootZoneMoisture:fn(i),dryThreshold:0.2,dry:fn(i)<=0.2}});
 let result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:days('2025-11-01',181,()=>0.15)});
@@ -19,4 +19,11 @@ result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:missing})
 assert(result.status==='amber','Incomplete daily coverage without an event must be AMBER, not RED');
 result=classify({fieldNo:'WH-SYN-001',observationSeries:[{date:'2025-11-01',ndmi:0.1,vv:-10},{date:'2025-11-10',ndmi:0.08,vv:-9}],bhuvanDaily:[]});
 assert(result.status==='amber','Sparse Sentinel observations must not independently establish a seven-day dry spell');
-console.log('Seven-day dry-spell tests passed.');
+const weatherRows=Array.from({length:10},(_,i)=>({date:'2025-11-'+String(i+1).padStart(2,'0'),precipitation:i<8?0:2,soilMoisture:0.2+i/100,et0:3,temperature:25}));
+const summary=weatherSummary({daily:weatherRows});
+assert(summary.zeroRainDays===8&&summary.rainDays===2,'Weather summary should count zero-rain and positive-rain days separately');
+assert(summary.longestZeroRainRun.days===8,'Weather summary should identify the longest consecutive zero-rain run');
+assert(Math.abs(summary.totalRain-4)<1e-9,'Weather summary should total daily precipitation');
+const point=boundaryMean({boundaryPoints:[{lat:10,lon:20},{lat:12,lon:24}]});
+assert(point.latitude===11&&point.longitude===22&&point.pointCount===2,'Boundary mean should average valid GPS boundary points');
+console.log('Seven-day dry-spell and environmental evidence tests passed.');
