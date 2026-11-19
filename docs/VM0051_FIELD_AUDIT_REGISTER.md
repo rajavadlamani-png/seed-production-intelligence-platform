@@ -34,3 +34,8 @@ Adds an operational evidence register to the Seed Production Monitor Beta. It re
 
 ## Validation
 The Excel audit workbook contains event records, evidence metadata and hashes, append-only audit history, field-boundary coordinates, and linked satellite acquisition observations where an existing run is attached.\n\nRun `supabase/tests/vm0051_drainage_audit_smoke.sql` against a disposable/local Supabase stack. Browser acceptance requires a real authorized account, field record, GPS permission and evidence file; it is not simulated by the schema smoke test.
+
+## Plain-language single-drainage event finder
+The Manager VM0051 Audit Register includes a field finder. A user selects a GPS-mapped field (field number and farmer) and a monitoring date range. The result counts submitted single-drainage event records linked to that field and whose reported start date falls in the selected range. One record is shown as one event recorded; zero records is shown as no event recorded (not proof that drainage did not happen); multiple records are flagged for review.
+
+Where a saved satellite evidence run overlaps the selected period, the finder shows dated observations for that field. For one reported event, it can show the last satellite acquisition on/before the reported start and the first acquisition on/after the reported completion (or start if completion is absent). These are observation bounds, not the exact drainage time. Missing satellite coverage is shown separately and is never treated as a no-event result. A green record status means a field event was entered; it does not mean Verra validation or carbon-credit eligibility.
