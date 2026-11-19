@@ -19,18 +19,18 @@ Adds an operational evidence register to the Seed Production Monitor Beta. It re
 ## Security
 - Company-scoped row-level security is enabled on all three tables.
 - Active company members can read event, evidence metadata and audit history.
-- Event submission is restricted to authorized company management and field-officer roles.
+- Event submission is restricted to authorized company management and field-officer roles. The authenticated account that submits the record is recorded separately from the field-officer name reported on the form.
 - Only company management roles can record a review decision.
 - Client roles cannot update/delete event evidence metadata or mutate the audit trail.
 - Storage is private. Company membership and event identity are checked on reads; upload requires a submitted event and the event creator or an authorized manager.
 - No service-role or secret key is used in the browser.
 
 ## Audit interpretation safeguards
-- The submitter's confirmation is a recorded field report, not a cryptographic farmer signature.
+- The field-officer name is reported information; the authenticated submitting account is separately captured in the event and audit history. The farmer acknowledgement is a recorded field report, not a cryptographic farmer signature.
 - A SHA-256 digest supports file-integrity comparison; it does not prove when, where, or by whom the source file was originally created.
 - Satellite indices and radar backscatter remain supporting remote-sensing context, not direct field water-level measurements.
 - **Reviewed** means an internal evidence review checklist was completed. It does not mean Verra has validated the project, that VM0051 requirements are met, or that carbon credits are eligible/issuable.
 - Methodology version, monitoring plan, applicability, quantification and verification must be checked against the project-specific approved documents and the current Verra methodology.
 
 ## Validation
-Run `supabase/tests/vm0051_drainage_audit_smoke.sql` against a disposable/local Supabase stack. Browser acceptance requires a real authorized account, field record, GPS permission and evidence file; it is not simulated by the schema smoke test.
+The Excel audit workbook contains event records, evidence metadata and hashes, append-only audit history, field-boundary coordinates, and linked satellite acquisition observations where an existing run is attached.\n\nRun `supabase/tests/vm0051_drainage_audit_smoke.sql` against a disposable/local Supabase stack. Browser acceptance requires a real authorized account, field record, GPS permission and evidence file; it is not simulated by the schema smoke test.
