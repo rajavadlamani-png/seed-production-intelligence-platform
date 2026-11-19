@@ -1,0 +1,22 @@
+const fs=require('node:fs');
+const vm=require('node:vm');
+const source=fs.readFileSync('beta/satellite-only.js','utf8')+'\nglobalThis.__classify=satHistClassify;';
+const context={console,Date,Map,Set,URL,URLSearchParams,Blob,TextEncoder,TextDecoder};
+vm.runInNewContext(source,context);
+const classify=context.__classify;
+function assert(ok,message){if(!ok)throw new Error(message)}
+const days=(from,n,fn)=>Array.from({length:n},(_,i)=>{const d=new Date(Date.parse(from+'T00:00:00Z')+i*86400000).toISOString().slice(0,10);return {date:d,rootZoneMoisture:fn(i),dryThreshold:0.2,dry:fn(i)<=0.2}});
+let result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:days('2025-11-01',181,()=>0.15)});
+assert(result.status==='green','Seven-day-or-longer dry period should be GREEN');
+assert(result.event.days===181,'Continuous dry period should be one single event, not multiple events');
+result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:days('2025-11-01',181,i=>i>=10&&i<17?0.15:0.3)});
+assert(result.status==='green'&&result.event.days===7,'Exactly seven consecutive dry days should qualify');
+const interrupted=days('2025-11-01',181,i=>i>=10&&i<17?0.15:0.3);interrupted[13].dry=false;
+result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:interrupted});
+assert(result.status==='red','A wet day must interrupt a seven-day dry run when daily coverage is complete');
+const missing=days('2025-11-01',181,()=>0.3).filter(x=>x.date!=='2025-11-05');
+result=classify({fieldNo:'WH-SYN-001',observationSeries:[],bhuvanDaily:missing});
+assert(result.status==='amber','Incomplete daily coverage without an event must be AMBER, not RED');
+result=classify({fieldNo:'WH-SYN-001',observationSeries:[{date:'2025-11-01',ndmi:0.1,vv:-10},{date:'2025-11-10',ndmi:0.08,vv:-9}],bhuvanDaily:[]});
+assert(result.status==='amber','Sparse Sentinel observations must not independently establish a seven-day dry spell');
+console.log('Seven-day dry-spell tests passed.');
