@@ -44,7 +44,7 @@ def read_process_tiff(session,bearer,body,label):
         detail=r.text[:1200]
         if r.status_code in (400,404) and "no data" in detail.lower(): return None
         raise RuntimeError(f"{label} Process API failed ({r.status_code}): {detail}")
-    if "tiff" not in r.headers.get("Content-Type","").lower() and r.content[:4] not in (b"II*\\x00",b"MM\\x00*",b"II+\\x00",b"MM\\x00+"):
+    if "tiff" not in r.headers.get("Content-Type","").lower() and r.content[:4] not in (b"II*\x00",b"MM\x00*",b"II+\x00",b"MM\x00+"):
         raise RuntimeError(f"{label} returned non-TIFF content.")
     try:
         with MemoryFile(r.content) as mem:
