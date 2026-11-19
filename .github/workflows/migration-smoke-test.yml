@@ -139,7 +139,7 @@ jobs:
         run: |
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103065708_beta_field_records.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103102146_calculate_male_ppi_sync_difference.sql
-          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103130347_beta_production_plan_persistence.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261103130524_beta_production_plan_persistence.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119022931_vm0051_drainage_evidence_runs.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119023250_tighten_vm0051_drainage_evidence_grants.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119024544_vm0051_field_audit_register.sql
