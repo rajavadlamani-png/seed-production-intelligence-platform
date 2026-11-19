@@ -88,13 +88,12 @@ function rootVwcSatelliteFeatureRows(runs=satelliteOnlyRuns){
 }
 function rootVwcDaysBetween(a,b){return Math.abs(Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/86400000}
 function rootVwcMatchGroundToSatellite(groundDates,featureRows,toleranceDays=5){
- const pairs=[];
- groundDates.forEach(g=>{
-  let best=null,bestGap=Infinity;
-  featureRows.filter(x=>x.fieldNo===g.fieldNo).forEach(x=>{const gap=rootVwcDaysBetween(g.date,x.date);if(gap<bestGap||(gap===bestGap&&x.date<(best?.date||'9999'))){best=x;bestGap=gap}});
-  if(best&&bestGap<=toleranceDays)pairs.push({fieldNo:g.fieldNo,groundDate:g.date,satelliteDate:best.date,dateGapDays:bestGap,actualVwc:g.actualVwc,split:g.split,features:best.features,runId:best.runId});
- });
- return pairs;
+ const candidates=[];
+ groundDates.forEach(g=>featureRows.filter(x=>x.fieldNo===g.fieldNo).forEach(x=>{const gap=rootVwcDaysBetween(g.date,x.date);if(gap<=toleranceDays)candidates.push({g,x,gap})}));
+ candidates.sort((a,b)=>a.gap-b.gap||a.g.date.localeCompare(b.g.date)||a.x.date.localeCompare(b.x.date));
+ const usedGround=new Set(),usedSatellite=new Set(),pairs=[];
+ candidates.forEach(({g,x,gap})=>{const gk=g.fieldNo+'|'+g.date,sk=x.fieldNo+'|'+x.date;if(usedGround.has(gk)||usedSatellite.has(sk))return;usedGround.add(gk);usedSatellite.add(sk);pairs.push({fieldNo:g.fieldNo,groundDate:g.date,satelliteDate:x.date,dateGapDays:gap,actualVwc:g.actualVwc,split:g.split,features:x.features,runId:x.runId})});
+ return pairs.sort((a,b)=>a.fieldNo.localeCompare(b.fieldNo)||a.groundDate.localeCompare(b.groundDate));
 }
 function rootVwcSolve(matrix,vector){
  const n=vector.length,a=matrix.map((row,i)=>row.slice().concat([vector[i]]));
@@ -219,7 +218,7 @@ function bindRootZoneVwcPocPage(){
  areaInput?.addEventListener('change',()=>{const n=Number(areaInput.value);if(!Number.isFinite(n)||n<1||n>100){notify('Area threshold must be between 1 and 100%.');return}rootZoneVwcAreaThresholdPct=n;renderManager()});
  coverageInput?.addEventListener('change',()=>{const n=Number(coverageInput.value);if(!Number.isFinite(n)||n<1||n>100){notify('Valid field coverage must be between 1 and 100%.');return}rootZoneVwcCoverageMinPct=n;renderManager()});
  rootZoneVwcBindFile('rootVwcGroundFile',async(text,name)=>{const b=rootVwcBuildGround(rootVwcParseCsv(text));rootZoneVwcGroundRows=b.parsed;rootZoneVwcCompletePoints=b.points;rootZoneVwcFieldDates=b.fieldDates;rootZoneVwcIncompleteCount=b.incomplete.length;rootZoneVwcImportStatus='Imported '+b.parsed.length+' depth rows · '+b.points.length+' complete sample points · '+b.fieldDates.length+' field-date references · '+b.fieldCount+' fields · '+b.incomplete.length+' incomplete points excluded. File: '+name;rootZoneVwcPredictions=[];rootZoneVwcModelResult=null;rootZoneVwcPredictionStatus='Predictions cleared because the reference dataset changed.';notify('Ground measurements validated and imported in this browser session.')});
- rootZoneVwcBindFile('rootVwcPredictionFile',async(text,name)=>{const p=rootVwcBuildPredictions(rootVwcParseCsv(text)),splits=new Map(rootZoneVwcFieldDates.map(x=>[x.fieldNo,x.split]));p.forEach(x=>{if(splits.has(x.fieldNo)&&x.split!=='operational'&&splits.get(x.fieldNo)!==x.split)throw new Error('Prediction split does not match ground-reference split for field '+x.fieldNo+'.')});rootZoneVwcPredictions=p;const m=rootVwcMetrics(rootZoneVwcFieldDates,p);rootZoneVwcPredictionStatus='Imported '+p.length+' predictions · '+m.count+' independent test pairs · '+new Set(p.map(x=>x.modelVersion)).size+' model version. File: '+name;notify('Model predictions imported; independent test metrics calculated.')});
+ rootZoneVwcBindFile('rootVwcPredictionFile',async(text,name)=>{const p=rootVwcBuildPredictions(rootVwcParseCsv(text)),splits=new Map(rootZoneVwcFieldDates.map(x=>[x.fieldNo,x.split]));rootZoneVwcModelResult=null;p.forEach(x=>{if(splits.has(x.fieldNo)&&x.split!=='operational'&&splits.get(x.fieldNo)!==x.split)throw new Error('Prediction split does not match ground-reference split for field '+x.fieldNo+'.')});rootZoneVwcPredictions=p;const m=rootVwcMetrics(rootZoneVwcFieldDates,p);rootZoneVwcPredictionStatus='Imported '+p.length+' predictions · '+m.count+' independent test pairs · '+new Set(p.map(x=>x.modelVersion)).size+' model version. File: '+name;notify('Model predictions imported; independent test metrics calculated.')});
  document.getElementById('rootVwcClearGround')?.addEventListener('click',()=>{rootZoneVwcGroundRows=[];rootZoneVwcCompletePoints=[];rootZoneVwcFieldDates=[];rootZoneVwcPredictions=[];rootZoneVwcModelResult=null;rootZoneVwcIncompleteCount=0;rootZoneVwcImportStatus='Ground measurements cleared.';rootZoneVwcPredictionStatus='Predictions cleared.';renderManager()});
  document.getElementById('rootVwcClearPredictions')?.addEventListener('click',()=>{rootZoneVwcPredictions=[];rootZoneVwcPredictionStatus='Predictions cleared.';renderManager()});
  document.getElementById('rootVwcExportGround')?.addEventListener('click',()=>{const h=['field_no','date','sample_point_id','depth_top_cm','depth_bottom_cm','vwc_m3_m3','measurement_method','validation_split','soil_texture','bulk_density_g_cm3','crop'];const rows=[h,...rootZoneVwcGroundRows.map(x=>[x.fieldNo,x.date,x.point,x.top,x.bottom,x.vwc,x.method,x.split,x.soilTexture,x.bulkDensity,x.crop])];rootVwcDownload('root-zone-vwc-validated-depth-rows.csv',rows)});
