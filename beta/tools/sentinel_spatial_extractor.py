@@ -135,8 +135,11 @@ def extract(session,bearer,field,geom_wgs,day,window,start,end,default_split,poi
     v1=(a1[2]>.5)&np.isfinite(a1[0])&np.isfinite(a1[1])&(a1[0]>0)&(a1[1]>0)
     valid=inside&v2&v1
     sample=points.get((field,day),{}); splits={p["split"] for p in sample.values()}
-    if len(splits)>1: raise ValueError(f"{field}/{day}: sample points have mixed validation splits.")
-    split=next(iter(splits)) if splits else default_split
+    all_splits={p["split"] for (f,d),items in points.items() if f==field for p in items.values()}
+    if len(all_splits)>1: raise ValueError(f"{field}: ground samples across dates have mixed validation splits.")
+    field_split=next(iter(all_splits)) if all_splits else default_split
+    if splits and next(iter(splits))!=field_split: raise ValueError(f"{field}/{day}: sample split differs from the field-level split.")
+    split=field_split
     cell_points={}; unmatched=[]
     for pid,p in sample.items():
         x,y=project.transform(p["lon"],p["lat"])
