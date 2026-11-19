@@ -281,7 +281,7 @@ begin
     (v_company_id, v_event_id, auth.uid(), v_action, v_old, v_new);
   return new;
 end;
-$;
+$$;
 
 drop trigger if exists vm0051_drainage_event_review_guard on public.vm0051_drainage_events;
 create trigger vm0051_drainage_event_review_guard
