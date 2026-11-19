@@ -26,7 +26,7 @@ Adds an operational evidence register to the Seed Production Monitor Beta. It re
 - No service-role or secret key is used in the browser.
 
 ## Audit interpretation safeguards
-- The field-officer name is reported information; the authenticated submitting account is separately captured in the event and audit history. The farmer acknowledgement is a recorded field report, not a cryptographic farmer signature.
+- The field-officer name and confirmation method/time are recorded as reported information; the authenticated submitting account is separately captured in the event and audit history. Neither field-officer nor farmer confirmation is represented as a cryptographic signature. The farmer acknowledgement is a recorded field report, not a cryptographic farmer signature.
 - A SHA-256 digest supports file-integrity comparison; it does not prove when, where, or by whom the source file was originally created.
 - Satellite indices and radar backscatter remain supporting remote-sensing context, not direct field water-level measurements.
 - **Reviewed** means an internal evidence review checklist was completed. It does not mean Verra has validated the project, that VM0051 requirements are met, or that carbon credits are eligible/issuable.
