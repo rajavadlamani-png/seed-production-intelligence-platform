@@ -280,12 +280,13 @@ async function satelliteOnlyRetrieveWeather() {
    if(!response.ok)throw new Error('Weather provider returned HTTP '+response.status+'.');
    const payload=await response.json(),daily=payload.daily||{},times=Array.isArray(daily.time)?daily.time:[];
    if(!times.length)throw new Error('The weather provider returned no daily records for the requested period.');
+   const numeric=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value))?Number(value):null;
    const rows=times.map((date,index)=>({
     date,
-    precipitation:Number.isFinite(Number(daily.precipitation_sum?.[index]))?Number(daily.precipitation_sum[index]):null,
-    temperature:Number.isFinite(Number(daily.temperature_2m_mean?.[index]))?Number(daily.temperature_2m_mean[index]):null,
-    et0:Number.isFinite(Number(daily.et0_fao_evapotranspiration?.[index]))?Number(daily.et0_fao_evapotranspiration[index]):null,
-    soilMoisture:Number.isFinite(Number(daily.soil_moisture_0_to_100cm_mean?.[index]))?Number(daily.soil_moisture_0_to_100cm_mean[index]):null
+    precipitation:numeric(daily.precipitation_sum?.[index]),
+    temperature:numeric(daily.temperature_2m_mean?.[index]),
+    et0:numeric(daily.et0_fao_evapotranspiration?.[index]),
+    soilMoisture:numeric(daily.soil_moisture_0_to_100cm_mean?.[index])
    }));
    satelliteOnlyWeatherByField[fieldNo]={
     fieldNo,farmer:record.name||'',village:record.village||'',district:record.district||'',
