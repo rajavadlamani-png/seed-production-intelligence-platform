@@ -332,7 +332,7 @@ function rootVwcRunSpatialEstimation(){
  rootZoneVwcSpatialModel=rootVwcTrainSpatialModel(rootZoneVwcSpatialRows,rootZoneVwcCompletePoints);
  rootZoneVwcSpatialResult=rootVwcEstimateSpatialFields(rootZoneVwcSpatialRows,rootZoneVwcSpatialModel);
  const operational=rootZoneVwcSpatialResult.filter(x=>x.split==='operational');
- const imported=operational.map(x=>({fieldNo:x.fieldNo,date:x.date,predictedVwc:x.meanVwc??0,modelVersion:x.modelVersion,split:'operational',windowId:x.windowId,lower90:null,upper90:null,areaBelowThresholdPct:x.areaBelowThresholdPct,validAreaPct:x.validAreaPct}));
+ const imported=operational.filter(x=>x.meanVwc!==null).map(x=>({fieldNo:x.fieldNo,date:x.date,predictedVwc:x.meanVwc,modelVersion:x.modelVersion,split:'operational',windowId:x.windowId,lower90:null,upper90:null,areaBelowThresholdPct:x.areaBelowThresholdPct,validAreaPct:x.validAreaPct}));
  rootZoneVwcPredictions=rootZoneVwcPredictions.filter(x=>x.split!=='operational').concat(imported);
  rootZoneVwcSpatialStatus='Spatial model '+rootZoneVwcSpatialModel.modelVersion+' trained from '+rootZoneVwcSpatialModel.trainCount+' matched sample-point/pixel pairs across '+rootZoneVwcSpatialModel.trainFields+' training fields. Estimated '+rootZoneVwcSpatialResult.length+' field-date-window records; '+operational.length+' operational records passed to the event classifier.';
 }
