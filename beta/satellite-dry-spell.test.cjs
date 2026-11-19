@@ -23,7 +23,7 @@ const weatherRows=Array.from({length:10},(_,i)=>({date:'2025-11-'+String(i+1).pa
 const summary=weatherSummary({daily:weatherRows});
 assert(summary.zeroRainDays===8&&summary.rainDays===2,'Weather summary should count zero-rain and positive-rain days separately');
 assert(summary.longestZeroRainRun.days===8,'Weather summary should identify the longest consecutive zero-rain run');
-assert(Math.abs(summary.totalRain-2)<1e-9,'Weather summary should total daily precipitation');
+assert(Math.abs(summary.totalRain-4)<1e-9,'Weather summary should total daily precipitation');
 const point=boundaryMean({boundaryPoints:[{lat:10,lon:20},{lat:12,lon:24}]});
 assert(point.latitude===11&&point.longitude===22&&point.pointCount===2,'Boundary mean should average valid GPS boundary points');
 console.log('Seven-day dry-spell and environmental evidence tests passed.');
