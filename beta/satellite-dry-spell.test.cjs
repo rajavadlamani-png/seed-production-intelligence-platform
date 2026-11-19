@@ -21,7 +21,7 @@ result=classify({fieldNo:'WH-SYN-001',observationSeries:[{date:'2025-11-01',ndmi
 assert(result.status==='amber','Sparse Sentinel observations must not independently establish a seven-day dry spell');
 const weatherRows=Array.from({length:10},(_,i)=>({date:'2025-11-'+String(i+1).padStart(2,'0'),precipitation:i<8?0:2,soilMoisture:0.2+i/100,et0:3,temperature:25}));
 const summary=weatherSummary({daily:weatherRows});
-assert(summary.zeroRainDays===8&&summary.rainDays===1,'Weather summary should count zero-rain and positive-rain days separately');
+assert(summary.zeroRainDays===8&&summary.rainDays===2,'Weather summary should count zero-rain and positive-rain days separately');
 assert(summary.longestZeroRainRun.days===8,'Weather summary should identify the longest consecutive zero-rain run');
 assert(Math.abs(summary.totalRain-2)<1e-9,'Weather summary should total daily precipitation');
 const point=boundaryMean({boundaryPoints:[{lat:10,lon:20},{lat:12,lon:24}]});
