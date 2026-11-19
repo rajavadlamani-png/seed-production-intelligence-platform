@@ -46,13 +46,25 @@ function rootVwcBuildGround(rows){
  return {parsed,points,fieldDates,incomplete,fieldCount:fieldSplits.size,pointGroups:groups.size};
 }
 function rootVwcBuildPredictions(rows){
- const required=['field_no','date','predicted_vwc_0_30_m3_m3','model_version','validation_split'];for(const h of required)if(!(h in (rows[0]||{})))throw new Error('Prediction CSV is missing required column: '+h);
+ const required=['field_no','date','predicted_vwc_0_30_m3_m3','model_version','validation_split'];
+ for(const h of required)if(!(h in (rows[0]||{})))throw new Error('Prediction CSV is missing required column: '+h);
  const seen=new Set(),splits=new Map(),versions=new Set();
- const predictions=rows.map(r=>{const n=r.__row,field=String(r.field_no||'').trim(),date=rootVwcDate(r.date,n),pred=rootVwcNum(r.predicted_vwc_0_30_m3_m3,'predicted_vwc_0_30_m3',n),version=String(r.model_version||'').trim(),split=rootVwcPredictionSplit(r.validation_split,n);if(!field||!version)throw new Error('Row '+n+': field_no and model_version are required.');if(pred<0||pred>1)throw new Error('Row '+n+': predicted VWC must be between 0 and 1.');const key=[field,date,version].join('|');if(seen.has(key))throw new Error('Row '+n+': duplicate field/date/model_version prediction.');seen.add(key);const old=splits.get(field);if(old&&old!==split)throw new Error('Prediction field '+field+' appears in multiple data splits.');splits.set(field,split);versions.add(version);const lower=rootVwcNum(r.lower_90,'lower_90',n,false),upper=rootVwcNum(r.upper_90,'upper_90',n,false),areaBelow=rootVwcNum(r.area_below_threshold_pct,'area_below_threshold_pct',n,false),validArea=rootVwcNum(r.valid_area_pct,'valid_area_pct',n,false);if((lower!==null&&(lower<0||lower>1))||(upper!==null&&(upper<0||upper>1))||(lower!==null&&upper!==null&&lower>upper))throw new Error('Row '+n+': lower_90 and upper_90 must be ordered VWC values between 0 and 1.');if((areaBelow!==null&&(areaBelow<0||areaBelow>100))||(validArea!==null&&(validArea<0||validArea>100))||(areaBelow!==null&&validArea!==null&&areaBelow>validArea))throw new Error('Row '+n+': area percentages must be between 0 and 100, and area_below_threshold_pct cannot exceed valid_area_pct.');return {fieldNo:field,date,predictedVwc:pred,modelVersion:version,split,lower90:lower,upper90:upper,areaBelowThresholdPct:areaBelow,validAreaPct:validArea}});
+ const predictions=rows.map(r=>{
+  const n=r.__row,field=String(r.field_no||'').trim(),date=rootVwcDate(r.date,n),pred=rootVwcNum(r.predicted_vwc_0_30_m3_m3,'predicted_vwc_0_30_m3',n),version=String(r.model_version||'').trim(),split=rootVwcPredictionSplit(r.validation_split,n),windowId=String(r.observation_window_id||'').trim();
+  if(!field||!version)throw new Error('Row '+n+': field_no and model_version are required.');
+  if(split==='operational'&&!windowId)throw new Error('Row '+n+': observation_window_id is required for operational predictions. Use the same window ID for every observation belonging to the same field/window.');
+  if(pred<0||pred>1)throw new Error('Row '+n+': predicted VWC must be between 0 and 1.');
+  const key=[field,date,version].join('|');if(seen.has(key))throw new Error('Row '+n+': duplicate field/date/model_version prediction.');seen.add(key);
+  const old=splits.get(field);if(old&&old!==split)throw new Error('Prediction field '+field+' appears in multiple data splits.');splits.set(field,split);versions.add(version);
+  const lower=rootVwcNum(r.lower_90,'lower_90',n,false),upper=rootVwcNum(r.upper_90,'upper_90',n,false),areaBelow=rootVwcNum(r.area_below_threshold_pct,'area_below_threshold_pct',n,false),validArea=rootVwcNum(r.valid_area_pct,'valid_area_pct',n,false);
+  if((lower!==null&&(lower<0||lower>1))||(upper!==null&&(upper<0||upper>1))||(lower!==null&&upper!==null&&lower>upper))throw new Error('Row '+n+': lower_90 and upper_90 must be ordered VWC values between 0 and 1.');
+  if((areaBelow!==null&&(areaBelow<0||areaBelow>100))||(validArea!==null&&(validArea<0||validArea>100))||(areaBelow!==null&&validArea!==null&&areaBelow>validArea))throw new Error('Row '+n+': area percentages must be between 0 and 100, and area_below_threshold_pct (percentage of total mapped field area) cannot exceed valid_area_pct.');
+  if(split==='operational'&&(areaBelow===null||validArea===null))throw new Error('Row '+n+': operational predictions require area_below_threshold_pct and valid_area_pct from spatial pixel-level estimates.');
+  return {fieldNo:field,date,predictedVwc:pred,modelVersion:version,split,windowId,lower90:lower,upper90:upper,areaBelowThresholdPct:areaBelow,validAreaPct:validArea};
+ });
  if(versions.size>1)throw new Error('Import one model_version per prediction file so each model is evaluated separately.');
  return predictions;
 }
-
 const ROOT_VWC_SATELLITE_FEATURES=['ndvi','ndmi','vv','vh'];
 const ROOT_VWC_RIDGE_CANDIDATES=[0.01,0.1,1,10];
 let rootZoneVwcModelResult=null;
@@ -217,17 +229,55 @@ function rootZoneVwcRunSatelliteModel(){
 }
 
 function rootVwcClassifyOperational(predictions,areaThresholdPct=80,coverageMinPct=80){
- const grouped=new Map();predictions.filter(p=>p.split==='operational').forEach(p=>{if(!grouped.has(p.fieldNo))grouped.set(p.fieldNo,[]);grouped.get(p.fieldNo).push(p)});
- const fields=[];for(const [fieldNo,items] of grouped){items.sort((a,b)=>a.date.localeCompare(b.date));let run=[];const events=[];let evaluable=0;for(const p of items){const valid=p.areaBelowThresholdPct!==null&&p.validAreaPct!==null&&p.validAreaPct>=coverageMinPct;if(valid)evaluable++;const qualifies=valid&&p.areaBelowThresholdPct>=areaThresholdPct;if(qualifies)run.push(p);else{if(run.length>=2)events.push(rootVwcOperationalEvent(fieldNo,run));run=[]}}if(run.length>=2)events.push(rootVwcOperationalEvent(fieldNo,run));fields.push({fieldNo,observationCount:items.length,evaluableCount:evaluable,events,status:events.length?'QUALIFYING VWC-BASED DRYNESS PERIOD':evaluable?'NO QUALIFYING TWO-OBSERVATION PERIOD':'INSUFFICIENT AREA-COVERAGE DATA'});}
- return {fields,events:fields.flatMap(x=>x.events),areaThresholdPct,coverageMinPct,observationRule:'Two consecutive available modelled observation dates'};
+ const grouped=new Map();
+ predictions.filter(p=>p.split==='operational').forEach(p=>{
+  const key=JSON.stringify([p.fieldNo,p.windowId]);
+  if(!grouped.has(key))grouped.set(key,[]);
+  grouped.get(key).push(p);
+ });
+ const fields=[];
+ for(const items of grouped.values()){
+  items.sort((a,b)=>a.date.localeCompare(b.date));
+  const fieldNo=items[0].fieldNo,windowId=items[0].windowId;
+  let qualifyingRun=[],event=null,evaluable=0;
+  for(const p of items){
+   const valid=p.areaBelowThresholdPct!==null&&p.validAreaPct!==null&&p.validAreaPct>=coverageMinPct;
+   if(valid)evaluable++;
+   const qualifies=valid&&p.areaBelowThresholdPct>=areaThresholdPct;
+   if(qualifies){
+    if(event){
+     event.lastDate=p.date;event.qualifyingObservationCount++;
+     event.minimumAreaBelowPct=Math.min(event.minimumAreaBelowPct,p.areaBelowThresholdPct);
+     event.minimumValidAreaPct=Math.min(event.minimumValidAreaPct,p.validAreaPct);
+     event.vwcSum+=p.predictedVwc;event.meanVwc=event.vwcSum/event.qualifyingObservationCount;
+    }else{
+     qualifyingRun.push(p);
+     if(qualifyingRun.length===2){
+      const first=qualifyingRun[0],second=qualifyingRun[1];
+      event={eventKey:[fieldNo,windowId,'VWC_DRYNESS'].join('::'),fieldNo,windowId,from:first.date,triggerDate:second.date,lastDate:second.date,qualifyingObservationCount:2,minimumAreaBelowPct:Math.min(first.areaBelowThresholdPct,second.areaBelowThresholdPct),minimumValidAreaPct:Math.min(first.validAreaPct,second.validAreaPct),vwcSum:first.predictedVwc+second.predictedVwc,meanVwc:(first.predictedVwc+second.predictedVwc)/2,modelVersion:first.modelVersion};
+     }
+    }
+   }else if(!event){
+    qualifyingRun=[];
+   }
+  }
+  fields.push({fieldNo,windowId,observationCount:items.length,evaluableCount:evaluable,event,status:event?'ONE EVENT · TRIGGERED':evaluable?'NO QUALIFYING TWO-OBSERVATION TRIGGER':'INSUFFICIENT AREA-COVERAGE DATA'});
+ }
+ const events=fields.map(x=>x.event).filter(Boolean);
+ return {fields,events,areaThresholdPct,coverageMinPct,observationRule:'Two consecutive qualifying available observations to trigger; one event per field and observation window; later qualifying observations update that event'};
 }
-function rootVwcOperationalEvent(fieldNo,run){return {fieldNo,from:run[0].date,triggerDate:run[1].date,lastDate:run[run.length-1].date,observationCount:run.length,minimumAreaBelowPct:Math.min(...run.map(x=>x.areaBelowThresholdPct)),minimumValidAreaPct:Math.min(...run.map(x=>x.validAreaPct)),meanVwc:run.reduce((s,x)=>s+x.predictedVwc,0)/run.length,modelVersion:run[0].modelVersion};}
 function rootVwcOperationalMarkup(){
- if(!rootZoneVwcPredictions.some(p=>p.split==='operational'))return '<p class="root-vwc-muted">Import operational model predictions (validation_split=operational) with both area_below_threshold_pct and valid_area_pct to run the field rule. Mean field VWC alone is not sufficient to determine what percentage of the mapped field is below 0.15 m³/m³. Use train / validation / test only for model evaluation.</p>';
- const result=rootVwcClassifyOperational(rootZoneVwcPredictions,rootZoneVwcAreaThresholdPct,rootZoneVwcCoverageMinPct),rows=result.fields.map(f=>'<tr><td>'+rootVwcEscape(f.fieldNo)+'</td><td>'+f.observationCount+'</td><td>'+f.evaluableCount+'</td><td>'+f.events.length+'</td><td>'+rootVwcEscape(f.status)+'</td></tr>').join(''),events=result.events.map(e=>'<tr><td>'+rootVwcEscape(e.fieldNo)+'</td><td>'+e.from+'</td><td>'+e.triggerDate+'</td><td>'+e.lastDate+'</td><td>'+e.observationCount+'</td><td>'+e.minimumAreaBelowPct.toFixed(1)+'%</td><td>'+e.minimumValidAreaPct.toFixed(1)+'%</td><td>'+e.meanVwc.toFixed(3)+'</td><td>'+rootVwcEscape(e.modelVersion)+'</td></tr>').join('');
- return '<div class="root-vwc-kpis"><article><small>Fields assessed</small><b>'+result.fields.length+'</b></article><article><small>Qualifying periods</small><b>'+result.events.length+'</b></article><article><small>Field-area threshold</small><b>'+result.areaThresholdPct+'%</b></article><article><small>Minimum valid coverage</small><b>'+result.coverageMinPct+'%</b></article></div><div class="root-vwc-section-head"><div><p>Rule: model-estimated 0–30 cm VWC below 0.15 m³/m³ across at least '+result.areaThresholdPct+'% of the mapped field on two consecutive available observation dates. Each date must have at least '+result.coverageMinPct+'% valid field coverage.</p></div><div class="root-vwc-actions"><label class="root-vwc-config">Area below 15% VWC (%) <input id="rootVwcAreaThreshold" type="number" min="1" max="100" step="1" value="'+result.areaThresholdPct+'"></label><label class="root-vwc-config">Minimum valid field coverage (%) <input id="rootVwcCoverageMin" type="number" min="1" max="100" step="1" value="'+result.coverageMinPct+'"></label><button type="button" class="outline" id="rootVwcExportOperational">Export classification CSV</button></div></div><h4>Field-level result</h4><div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Model dates</th><th>Evaluable dates</th><th>Qualifying periods</th><th>Classification</th></tr></thead><tbody>'+rows+'</tbody></table></div><h4>Qualifying periods</h4>'+(events?'<div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>First qualifying date</th><th>Trigger date (2nd observation)</th><th>Last qualifying date</th><th>Observations</th><th>Minimum area below 15%</th><th>Minimum valid coverage</th><th>Mean field VWC</th><th>Model</th></tr></thead><tbody>'+events+'</tbody></table></div>':'<p class="root-vwc-muted">No field has met the two-observation rule in the imported prediction set.</p>')+'<p class="root-vwc-muted">The event date is the second qualifying available observation. This is a VWC-based dryness classification under the selected rule; it does not establish the physical cause of drying. The engine does not create or alter VM0051 audit records.</p>';
+ if(!rootZoneVwcPredictions.some(p=>p.split==='operational'))return '<p class="root-vwc-muted">Import operational spatial-model predictions (validation_split=operational) with observation_window_id, area_below_threshold_pct and valid_area_pct. area_below_threshold_pct must be the percentage of the total mapped field area below 0.15 m³/m³, not merely the percentage of valid pixels. Mean field VWC alone cannot establish the affected area.</p>';
+ const result=rootVwcClassifyOperational(rootZoneVwcPredictions,rootZoneVwcAreaThresholdPct,rootZoneVwcCoverageMinPct);
+ const rows=result.fields.map(f=>'<tr><td>'+rootVwcEscape(f.fieldNo)+'</td><td>'+rootVwcEscape(f.windowId)+'</td><td>'+f.observationCount+'</td><td>'+f.evaluableCount+'</td><td>'+(f.event?1:0)+'</td><td>'+rootVwcEscape(f.status)+'</td></tr>').join('');
+ const events=result.events.map(e=>'<tr><td>'+rootVwcEscape(e.eventKey)+'</td><td>'+rootVwcEscape(e.fieldNo)+'</td><td>'+rootVwcEscape(e.windowId)+'</td><td>'+e.from+'</td><td>'+e.triggerDate+'</td><td>'+e.lastDate+'</td><td>'+e.qualifyingObservationCount+'</td><td>'+e.minimumAreaBelowPct.toFixed(1)+'%</td><td>'+e.minimumValidAreaPct.toFixed(1)+'%</td><td>'+e.meanVwc.toFixed(3)+'</td><td>'+rootVwcEscape(e.modelVersion)+'</td></tr>').join('');
+ return '<div class="root-vwc-kpis"><article><small>Field/windows assessed</small><b>'+result.fields.length+'</b></article><article><small>Unique events triggered</small><b>'+result.events.length+'</b></article><article><small>Field-area threshold</small><b>'+result.areaThresholdPct+'%</b></article><article><small>Minimum valid coverage</small><b>'+result.coverageMinPct+'%</b></article></div><div class="root-vwc-section-head"><div><p>Trigger: at least '+result.areaThresholdPct+'% of the total mapped field area below 0.15 m³/m³ on two consecutive qualifying available observations; each observation must have at least '+result.coverageMinPct+'% valid field coverage. One event is created per field/window. Further qualifying observations update that event.</p></div><div class="root-vwc-actions"><label class="root-vwc-config">Area below 15% VWC (%) <input id="rootVwcAreaThreshold" type="number" min="1" max="100" step="1" value="'+result.areaThresholdPct+'"></label><label class="root-vwc-config">Minimum valid field coverage (%) <input id="rootVwcCoverageMin" type="number" min="1" max="100" step="1" value="'+result.coverageMinPct+'"></label><button type="button" class="outline" id="rootVwcExportOperational">Export event CSV</button></div></div><h4>Field/window result</h4><div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Window ID</th><th>Model dates</th><th>Evaluable dates</th><th>Events</th><th>Classification</th></tr></thead><tbody>'+rows+'</tbody></table></div><h4>Unique dryness events</h4>'+(events?'<div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Event key</th><th>Field</th><th>Window</th><th>First qualifying date</th><th>Trigger date</th><th>Last updated date</th><th>Qualifying observations</th><th>Minimum area below 15%</th><th>Minimum valid coverage</th><th>Mean field VWC</th><th>Model</th></tr></thead><tbody>'+events+'</tbody></table></div>':'<p class="root-vwc-muted">No field/window has met the two-observation trigger.</p>')+'<p class="root-vwc-muted">Event key is deterministic for this preview; this POC does not persist an event register or write database/audit records. The event records a VWC-based dryness condition, not proof of a physical drainage action.</p>';
 }
-function rootVwcDownloadOperational(){const r=rootVwcClassifyOperational(rootZoneVwcPredictions,rootZoneVwcAreaThresholdPct,rootZoneVwcCoverageMinPct),h=['field_no','first_qualifying_date','trigger_date','last_qualifying_date','qualifying_observations','minimum_area_below_15_pct','minimum_valid_field_coverage_pct','mean_predicted_vwc_0_30_m3_m3','model_version'];const rows=r.events.map(e=>[e.fieldNo,e.from,e.triggerDate,e.lastDate,e.observationCount,e.minimumAreaBelowPct,e.minimumValidAreaPct,e.meanVwc,e.modelVersion]);rootVwcDownload('root-zone-vwc-operational-classification.csv',[h,...rows]);}
+function rootVwcDownloadOperational(){
+ const r=rootVwcClassifyOperational(rootZoneVwcPredictions,rootZoneVwcAreaThresholdPct,rootZoneVwcCoverageMinPct),h=['event_key','field_no','observation_window_id','first_qualifying_date','trigger_date','last_updated_qualifying_date','qualifying_observations','minimum_area_below_15_pct_of_total_field','minimum_valid_field_coverage_pct','mean_predicted_vwc_0_30_m3_m3','model_version'];
+ const rows=r.events.map(e=>[e.eventKey,e.fieldNo,e.windowId,e.from,e.triggerDate,e.lastDate,e.qualifyingObservationCount,e.minimumAreaBelowPct,e.minimumValidAreaPct,e.meanVwc,e.modelVersion]);
+ rootVwcDownload('root-zone-vwc-operational-events.csv',[h,...rows]);
+}
 function rootVwcMetrics(actualRows,predictions,split='test'){
  const actual=new Map(actualRows.filter(x=>x.split===split).map(x=>[[x.fieldNo,x.date].join('|'),x]));
  const pairs=predictions.filter(p=>p.split===split&&actual.has([p.fieldNo,p.date].join('|'))).map(p=>({a:actual.get([p.fieldNo,p.date].join('|')).actualVwc,p:p.predictedVwc,field:p.fieldNo,lo:p.lower90,hi:p.upper90}));
@@ -242,7 +292,7 @@ function rootZoneVwcDownloadGroundTemplate(){rootVwcDownload('root-zone-vwc-grou
  ['field_no','date','sample_point_id','depth_top_cm','depth_bottom_cm','vwc_m3_m3','gravimetric_water_content_kg_kg','measurement_method','validation_split','soil_texture','bulk_density_g_cm3','crop','crop_stage','latitude','longitude','probe_id','notes'],
  ...['P1','P2','P3'].flatMap(p=>[[ 'FIELD-001','2026-07-01',p,0,10,'','','probe','train','loam','','Paddy rice','vegetative','','','PROBE-01',''],['FIELD-001','2026-07-01',p,10,20,'','','probe','train','loam','','Paddy rice','vegetative','','','PROBE-01',''],['FIELD-001','2026-07-01',p,20,30,'','','probe','train','loam','','Paddy rice','vegetative','','','PROBE-01','']])
  ])}
-function rootZoneVwcDownloadPredictionTemplate(){rootVwcDownload('root-zone-vwc-model-prediction-template.csv',[['field_no','date','predicted_vwc_0_30_m3_m3','area_below_threshold_pct','valid_area_pct','model_version','validation_split','lower_90','upper_90'],['FIELD-001','2026-07-01','','','','model-v0.1','operational','','']])}
+function rootZoneVwcDownloadPredictionTemplate(){rootVwcDownload('root-zone-vwc-model-prediction-template.csv',[['field_no','date','predicted_vwc_0_30_m3_m3','area_below_threshold_pct','valid_area_pct','model_version','validation_split','observation_window_id','lower_90','upper_90'],['FIELD-001','2026-07-01','','','','model-v0.1','operational','RABI-2026-WINDOW-01','','']])}
 function rootZoneVwcGroundSummaryMarkup(){
  if(!rootZoneVwcGroundRows.length)return '<p class="root-vwc-muted">No ground measurements imported. Download the template and upload field measurements.</p>';
  const d=rootZoneVwcFieldDates,points=rootZoneVwcCompletePoints,fields=new Set(points.map(x=>x.fieldNo)),splits=['train','validation','test'].map(s=>s+': '+[...fields].filter(f=>points.some(x=>x.fieldNo===f&&x.split===s)).length).join(' · ');
