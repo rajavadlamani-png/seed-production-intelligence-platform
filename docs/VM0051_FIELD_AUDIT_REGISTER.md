@@ -13,7 +13,7 @@ Adds an operational evidence register to the Seed Production Monitor Beta. It re
 1. An authorized manager/field officer selects a saved field record and submits the event chronology and any known water-level readings.
 2. The submitter may attach field photographs, water-level records, irrigation/drainage logs, farmer confirmation records, satellite exports, or other supporting documents.
 3. Each file is stored privately; its SHA-256 digest and metadata are written to the evidence table.
-4. A company management reviewer records a decision: **Reviewed** or **Returned**. A Reviewed decision requires the internal review checklist to be completed. A Returned decision requires reviewer notes.
+4. A company management reviewer records a decision: **Reviewed** or **Returned**. A Reviewed decision requires the internal review checklist to be completed and the approved methodology version and monitoring plan reference to be recorded. A Returned decision requires reviewer notes.
 5. Database triggers append a read-only audit record for each event submission, review decision, and evidence attachment.
 
 ## Security
