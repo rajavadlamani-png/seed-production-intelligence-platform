@@ -410,29 +410,29 @@ function rootZoneVwcSatelliteCoverageMarkup(){
  if(!map.size)return '<p class="root-vwc-muted">No saved satellite observations are currently available. Generate a saved Sentinel-1/2 run first.</p>';
  return '<div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Sentinel-1 rows</th><th>Sentinel-2 rows</th><th>Observation date span</th><th>Saved runs</th></tr></thead><tbody>'+[...map].map(([f,x])=>{const d=[...new Set(x.dates)].sort();return '<tr><td>'+rootVwcEscape(f)+'</td><td>'+x.s1+'</td><td>'+x.s2+'</td><td>'+(d.length?d[0]+' to '+d[d.length-1]:'No dates')+'</td><td>'+new Set(x.runs).size+'</td></tr>'}).join('')+'</tbody></table></div><p class="root-vwc-muted">Coverage inventory only; it does not retrieve pixel-level features or estimate VWC.</p>';
 }
+function rootVwcBuildPeriodSatelliteModel(featureRows,startDate='2026-06-01',endDate='2026-11-19'){
+ const grouped=new Map();
+ (featureRows||[]).filter(x=>x.date>=startDate&&x.date<=endDate).forEach(x=>{if(!grouped.has(x.fieldNo))grouped.set(x.fieldNo,[]);grouped.get(x.fieldNo).push(x)});
+ const fields=[];
+ for(const [fieldNo,items] of grouped){
+  items.sort((a,b)=>a.date.localeCompare(b.date));
+  const ndmiValues=items.map(x=>x.features.ndmi),ndviValues=items.map(x=>x.features.ndvi);
+  const history=items.map(x=>({date:x.date,ndmi:x.features.ndmi,ndvi:x.features.ndvi,vv:x.features.vv,vh:x.features.vh,score:0}));
+  history.forEach((x,i)=>{const a=rootVwcPercentile(ndmiValues,x.ndmi),b=rootVwcPercentile(ndviValues,x.ndvi);x.score=a===null||b===null?null:0.7*a+0.3*b});
+  const valid=history.filter(x=>Number.isFinite(x.score)),first=valid[0],last=valid[valid.length-1],delta=first&&last?last.score-first.score:null;
+  fields.push({fieldNo,history,latest:last||null,observationCount:history.length,periodDirection:delta===null?'Insufficient history':delta>0?'Increasing relative signal':delta<0?'Decreasing relative signal':'No net change',periodChange:delta});
+ }
+ return {modelVersion:'SAT-PERIOD-1.0',startDate,endDate,fields,features:['NDMI','NDVI','VV','VH'],scoreFormula:'70% within-period NDMI percentile + 30% within-period NDVI percentile',interpretation:'Relative satellite moisture/canopy-condition proxy; not absolute root-zone VWC'};
+}
+function rootVwcPeriodSatelliteModelMarkup(model){
+ if(!model.fields.length)return '<p class="root-vwc-muted">No combined Sentinel-1/Sentinel-2 observations are available for 1 June–19 November 2026 in this workspace.</p>';
+ const rows=model.fields.map(x=>'<tr><td>'+rootVwcEscape(x.fieldNo)+'</td><td>'+(x.latest?x.latest.score.toFixed(1)+'/100':'—')+'</td><td>'+rootVwcEscape(x.periodDirection)+'</td><td>'+(x.latest?x.latest.date:'—')+'</td><td>'+x.observationCount+'</td></tr>').join('');
+ const history=model.fields.map(x=>x.history.map(o=>'<tr><td>'+rootVwcEscape(x.fieldNo)+'</td><td>'+o.date+'</td><td>'+(o.score===null?'—':o.score.toFixed(1))+'</td><td>'+o.ndmi.toFixed(4)+'</td><td>'+o.ndvi.toFixed(4)+'</td><td>'+o.vv.toFixed(4)+'</td><td>'+o.vh.toFixed(4)+'</td></tr>').join('')).join('');
+ return '<div class="root-vwc-kpis"><article><small>Monitoring period</small><b>1 Jun–19 Nov 2026</b></article><article><small>Fields modelled</small><b>'+model.fields.length+'</b></article><article><small>Matched observations</small><b>'+model.fields.reduce((n,x)=>n+x.observationCount,0)+'</b></article><article><small>Satellite inputs</small><b>4 features</b></article></div><div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Latest relative index</th><th>Period direction</th><th>Latest date</th><th>Observations</th></tr></thead><tbody>'+rows+'</tbody></table></div><details class="root-vwc-section"><summary><strong>View observation-by-observation model output</strong></summary><div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Date</th><th>Relative index</th><th>NDMI</th><th>NDVI</th><th>VV</th><th>VH</th></tr></thead><tbody>'+history+'</tbody></table></div></details><p class="root-vwc-muted"><b>Model:</b> '+model.modelVersion+'. Inputs are saved Sentinel-1 VV/VH and Sentinel-2 NDMI/NDVI. The 0–100 index is ranked against each field’s own observations within this monitoring period. “Increasing/decreasing” compares the first and latest index only. This is a satellite-only relative condition proxy, not root-zone VWC in m³/m³, a calibrated soil-moisture estimate, or proof of a physical drainage event. No weather, ground measurements, or external validation are used.</p>';
+}
 function rootVwcSimpleFieldResultsMarkup(){
- const operational=rootZoneVwcSpatialResult||[];
- const latest=new Map();
- operational.filter(x=>x.split==='operational').forEach(x=>{
-  const old=latest.get(x.fieldNo);
-  if(!old||x.date>old.date)latest.set(x.fieldNo,x);
- });
- const classifier=rootVwcClassifyOperational(rootZoneVwcPredictions,80,80);
- const statuses=new Map(classifier.fields.map(x=>[[x.fieldNo,x.windowId].join('|'),x]));
- const polygonFields=(typeof records!=='undefined'&&Array.isArray(records)?records:[])
-  .filter(r=>String(r.fieldNo||r.field_no||'').trim()&&(r.boundaryPoints||[]).length>=3)
-  .map(r=>String(r.fieldNo||r.field_no).trim());
- const fieldNos=[...new Set([...polygonFields,...latest.keys()])].sort((a,b)=>a.localeCompare(b));
- if(!fieldNos.length)return '<p class="root-vwc-muted">No saved field polygons are available in this company workspace.</p>';
- const rows=fieldNos.map(fieldNo=>{
-  const x=latest.get(fieldNo),status=x?statuses.get([fieldNo,x.windowId].join('|')):null;
-  const event=status?.event?'YES':status&&status.evaluableCount>=2?'NO':'PENDING';
-  const vwc=x&&x.meanVwc!==null?x.meanVwc.toFixed(3)+' m³/m³':'—';
-  const date=x?x.date:'Awaiting estimate';
-  const coverage=x?x.validAreaPct.toFixed(0)+'%':'—';
-  return '<tr><td>'+rootVwcEscape(fieldNo)+'</td><td>'+vwc+'</td><td>'+event+'</td><td>'+date+'</td><td>'+coverage+'</td></tr>';
- }).join('');
- return '<div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Root-zone VWC · 0–30 cm</th><th>Drainage event</th><th>Latest observation</th><th>Valid coverage</th></tr></thead><tbody>'+rows+'</tbody></table></div><p class="root-vwc-muted">YES = dryness rule met on two consecutive observations. NO = sufficient observations assessed, rule not met. PENDING = insufficient valid observations or no estimate yet.</p>';
+ const features=rootVwcSatelliteFeatureRows(),model=rootVwcBuildPeriodSatelliteModel(features);
+ return '<div class="root-vwc-model-output"><h3>Satellite-only moisture-condition model</h3>'+rootVwcPeriodSatelliteModelMarkup(model)+'</div><p class="root-vwc-muted">Absolute root-zone VWC (0–30 cm) and the physical drainage-event YES/NO rule are not inferred from this relative satellite index. Those fields remain unassessed rather than assigning unsupported values.</p>';
 }
 function rootZoneVwcPocPage(){
  return '<section class="panel root-vwc-panel" id="rootZoneVwcPoc"><div class="panel-head"><div><p class="eyebrow">FIELD SOIL MOISTURE</p><h2>Root-zone VWC & drainage event</h2><p class="muted">One result per saved field polygon · soil depth 0–30 cm · VWC in m³/m³</p></div><span class="status-chip planned">PROVISIONAL MODEL</span></div>'+rootVwcSimpleFieldResultsMarkup()+'<details class="root-vwc-section"><summary><strong>Update field estimates</strong></summary><p class="root-vwc-muted">To refresh estimates, import measured 0–30 cm soil samples and the matching Sentinel-1/2 spatial cell CSV, then run the estimator.</p><div class="root-vwc-actions"><button type="button" class="outline" id="rootVwcExportFieldBoundaries">Export saved field polygons</button><a class="outline root-vwc-upload" href="tools/sentinel_spatial_extractor.py" download>Download Sentinel extractor</a><a class="outline root-vwc-upload" href="tools/requirements.txt" download>Download requirements</a><button type="button" class="outline" id="rootVwcGroundTemplate">Download soil sample template</button><label class="outline root-vwc-upload" for="rootVwcGroundFile">Import soil measurements</label><input hidden type="file" id="rootVwcGroundFile" accept=".csv,text/csv"><label class="outline root-vwc-upload" for="rootVwcSpatialFile">Import satellite cell data</label><input hidden type="file" id="rootVwcSpatialFile" accept=".csv,text/csv"><button type="button" class="primary" id="rootVwcRunSpatial" '+(rootZoneVwcSpatialRows.length&&rootZoneVwcCompletePoints.length?'':'disabled')+'>Calculate field VWC</button></div><p class="root-vwc-status">'+rootVwcEscape(rootZoneVwcSpatialStatus||'No field estimates have been calculated yet. Estimates require actual satellite cell data matched to measured soil samples. No values are fabricated.')+'</p></details><p class="root-vwc-muted">Drainage event rule: at least 80% of total mapped field area below 0.15 m³/m³, with at least 80% valid coverage, on two consecutive observations. One event per field per observation window; later qualifying observations update the same event. This identifies a dryness condition, not proof of a physical drainage action.</p></section>';
