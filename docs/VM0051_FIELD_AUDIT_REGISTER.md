@@ -1,0 +1,36 @@
+# VM0051 Field-Level Audit Evidence Register
+
+## Purpose
+Adds an operational evidence register to the Seed Production Monitor Beta. It records field-linked single-drainage event submissions, water-level observations, field-officer and farmer-reported confirmation, supporting files, satellite evidence-run linkage, reviewer decisions, and append-only audit history.
+
+## Data model
+- `vm0051_drainage_events`: one submitted drainage-event record linked to a company and a `beta_field_records` row.
+- `vm0051_drainage_event_evidence`: uploaded evidence metadata, private Storage path, SHA-256 file digest, source classification, capture time and optional GPS.
+- `vm0051_drainage_event_audit`: trigger-generated event/evidence submission and review history.
+- Storage bucket `vm0051-audit-evidence`: private; object keys are `<company UUID>/<event UUID>/<random UUID>-<filename>`.
+
+## Workflow
+1. An authorized manager/field officer selects a saved field record and submits the event chronology and any known water-level readings.
+2. The submitter may attach field photographs, water-level records, irrigation/drainage logs, farmer confirmation records, satellite exports, or other supporting documents.
+3. Each file is stored privately; its SHA-256 digest and metadata are written to the evidence table.
+4. A company management reviewer records a decision: **Reviewed** or **Returned**. A Reviewed decision requires the internal review checklist to be completed. A Returned decision requires reviewer notes.
+5. Database triggers append a read-only audit record for each event submission, review decision, and evidence attachment.
+
+## Security
+- Company-scoped row-level security is enabled on all three tables.
+- Active company members can read event, evidence metadata and audit history.
+- Event submission is restricted to authorized company management and field-officer roles.
+- Only company management roles can record a review decision.
+- Client roles cannot update/delete event evidence metadata or mutate the audit trail.
+- Storage is private. Company membership and event identity are checked on reads; upload requires a submitted event and the event creator or an authorized manager.
+- No service-role or secret key is used in the browser.
+
+## Audit interpretation safeguards
+- The submitter's confirmation is a recorded field report, not a cryptographic farmer signature.
+- A SHA-256 digest supports file-integrity comparison; it does not prove when, where, or by whom the source file was originally created.
+- Satellite indices and radar backscatter remain supporting remote-sensing context, not direct field water-level measurements.
+- **Reviewed** means an internal evidence review checklist was completed. It does not mean Verra has validated the project, that VM0051 requirements are met, or that carbon credits are eligible/issuable.
+- Methodology version, monitoring plan, applicability, quantification and verification must be checked against the project-specific approved documents and the current Verra methodology.
+
+## Validation
+Run `supabase/tests/vm0051_drainage_audit_smoke.sql` against a disposable/local Supabase stack. Browser acceptance requires a real authorized account, field record, GPS permission and evidence file; it is not simulated by the schema smoke test.
