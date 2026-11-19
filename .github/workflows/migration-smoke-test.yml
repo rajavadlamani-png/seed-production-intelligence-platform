@@ -146,6 +146,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119024704_vm0051_methodology_references.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119024928_vm0051_event_gps_metadata.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119025102_vm0051_submitter_attribution.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119025244_vm0051_field_officer_confirmation.sql
 
       - name: Run VM0051 audit schema and privilege smoke test
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/vm0051_drainage_audit_smoke.sql
