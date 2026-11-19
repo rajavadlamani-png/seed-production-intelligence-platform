@@ -60,6 +60,11 @@ begin
     raise exception 'Field-officer confirmation columns are missing';
   end if;
 
+  if position('methodology_version' in pg_get_functiondef('private.guard_vm0051_drainage_event_review()'::regprocedure)) = 0
+     or position('monitoring_plan_reference' in pg_get_functiondef('private.guard_vm0051_drainage_event_review()'::regprocedure)) = 0 then
+    raise exception 'Internal review methodology reference gate is missing';
+  end if;
+
   if not exists (
     select 1 from pg_trigger
     where tgrelid = 'public.vm0051_drainage_events'::regclass
