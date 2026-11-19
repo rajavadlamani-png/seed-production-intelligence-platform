@@ -25,6 +25,7 @@ jobs:
           node --check app.js
           node --check supabase-config.js
           node --check beta/app.js
+          node --check beta/vm0051-audit.js
       - name: Check Beta company selector wiring
         run: |
           node --input-type=module <<'NODE'
