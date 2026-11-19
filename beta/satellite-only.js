@@ -135,6 +135,9 @@ function bindSatelliteOnlyPage() {
   document.getElementById('satelliteHistoricalRun')?.addEventListener('click', satelliteOnlyRunHistoricalTest);
   document.getElementById('satelliteBhuvanTemplate')?.addEventListener('click', satelliteOnlyDownloadBhuvanTemplate);
   document.getElementById('satelliteHistoricalMoistureCsv')?.addEventListener('change', satelliteOnlyImportBhuvanFile);
+  document.getElementById('satelliteHistoricalWeather')?.addEventListener('click', satelliteOnlyRetrieveWeather);
+  document.querySelector('[data-satellite-environment-download]')?.addEventListener('click', satelliteOnlyDownloadEnvironmentalEvidence);
+  document.querySelector('[data-satellite-environment-print]')?.addEventListener('click', () => window.print());
   document.querySelector('[data-satellite-historical-download]')?.addEventListener('click', satelliteOnlyDownloadHistoricalTest);
 }
 function satelliteOnlyDownload(format) {
@@ -222,7 +225,111 @@ function satelliteOnlyHistoricalPanel(){
  const a=satelliteOnlyHistoricalResults||[],cls={green:'sat-historical-green',red:'sat-historical-red',amber:'sat-historical-amber'};
  const cards=a.map(x=>'<article class="sat-historical-card '+cls[x.status]+'"><div class="sat-historical-card-head"><b>'+satelliteOnlyEsc(x.fieldNo)+'</b><span>'+satelliteOnlyEsc(x.label)+'</span></div><small>'+satelliteOnlyEsc(x.farmer)+'</small><p>'+satelliteOnlyEsc(x.reason)+'</p><div class="sat-historical-stats"><span>NDMI observations <b>'+x.ndmi+'</b></span><span>Radar observations <b>'+x.radar+'</b></span><span>Daily moisture records <b>'+x.rootZoneCount+'</b></span><span>Consecutive dry days <b>'+x.dryDays+'</b></span></div><p>Optical: '+satelliteOnlyDate(x.first)+' to '+satelliteOnlyDate(x.last)+'</p>'+(x.event?'<p><b>Single-event trigger:</b> '+satelliteOnlyDate(x.event.from)+' → '+satelliteOnlyDate(x.event.to)+' ('+x.event.days+' consecutive days; dry spell continued through '+satelliteOnlyDate(x.event.spellEnd)+')</p>':'')+(x.candidates.length>1?'<p>Additional dry spells for review: '+x.candidates.slice(1).map(y=>satelliteOnlyDate(y.from)+' → '+satelliteOnlyDate(y.to)+' ('+y.days+' days)').join('; ')+'</p>':'')+(x.rootZoneCount?'<p>Bhuvan daily series: '+satelliteOnlyDate(x.rootZoneFirst)+' to '+satelliteOnlyDate(x.rootZoneLast)+' · classified days '+x.classifiedDays+'/181</p>':'')+'</article>').join('');
  const imported=satelliteOnlyBhuvanImport?'Loaded '+satelliteOnlyBhuvanImport.accepted+' daily rows from '+satelliteOnlyBhuvanImport.fileName+' · '+satelliteOnlyBhuvanImport.ignored+' rows outside scope ignored.':'No daily Bhuvan moisture file imported.';
- return '<section class="panel sat-historical-panel"><div class="panel-head"><div><p class="eyebrow">HISTORICAL RETRIEVAL · DEMO BOUNDARIES ONLY</p><h2>Rabi 2025–26 · Seven-day dry-spell test</h2><p class="muted">WH-SYN-001, WH-SYN-004 and WH-SYN-050 · 1 Nov 2025 to 30 Apr 2026</p></div><span class="status-chip planned">EXPLORATORY TEST</span></div><div class="sat-evidence-note"><b>Seven-day event rule</b><p>GREEN requires at least seven consecutive daily dry/non-ponded records. For root-zone moisture, each daily value is compared with the field-specific dry threshold supplied in the CSV. RED is permitted only when all 181 days have classified daily evidence and no seven-day spell exists. Otherwise the result is AMBER. Sparse Sentinel-1/2 acquisitions and NDMI alone are not treated as proof of seven consecutive dry days. One qualifying spell is counted as the single event trigger; additional spells are shown for review. This is not a confirmed drainage operation or VM0051 compliance finding.</p></div><div class="sat-historical-controls"><button type="button" class="primary" id="satelliteHistoricalRun" '+(satelliteOnlyHistoricalRunning?'disabled':'')+'>'+(satelliteOnlyHistoricalRunning?'Retrieving…':'Retrieve Sentinel-1 and Sentinel-2 for the three demo fields')+'</button><button type="button" class="outline" id="satelliteBhuvanTemplate">Download Bhuvan CSV template</button><label class="outline sat-moisture-upload-label" for="satelliteHistoricalMoistureCsv">Import daily Bhuvan moisture CSV</label><input type="file" id="satelliteHistoricalMoistureCsv" accept=".csv,text/csv" class="sat-moisture-file-input">'+(a.length?'<button type="button" class="outline" data-satellite-historical-download>Download CSV report</button>':'')+'</div><p id="satelliteHistoricalProgress" class="muted">'+(satelliteOnlyHistoricalRunning?'Retrieving historical Sentinel-1 and Sentinel-2 observations…':a.length?'Results from the latest browser-session test.':'No historical test has been run yet.')+'</p><p class="muted sat-bhuvan-import-status">'+satelliteOnlyEsc(imported)+'</p><p class="sat-bhuvan-instructions">CSV columns: field_no,date,root_zone_moisture_m3_m3,dry_threshold_m3_m3. One row per field per day. Moisture and threshold must be volumetric m³/m³ values from 0 to 1. A field-specific threshold must be established by the project agronomist using soil/crop context; the platform does not invent one. Optional surface_water_status accepts dry / not_ponded or wet / ponded. Obtain daily root-zone products from the registered Bhuvan–NHP service and prepare field/date rows from the source grid. NHP is a coarse, model-derived grid, not a field sensor.</p>'+(a.length?'<div class="sat-historical-results">'+cards+'</div>':'')+'</section>';
+ return '<section class="panel sat-historical-panel"><div class="panel-head"><div><p class="eyebrow">HISTORICAL RETRIEVAL · DEMO BOUNDARIES ONLY</p><h2>Rabi 2025–26 · Seven-day dry-spell test</h2><p class="muted">WH-SYN-001, WH-SYN-004 and WH-SYN-050 · 1 Nov 2025 to 30 Apr 2026</p></div><span class="status-chip planned">EXPLORATORY TEST</span></div><div class="sat-evidence-note"><b>Seven-day event rule</b><p>GREEN requires at least seven consecutive daily dry/non-ponded records. For root-zone moisture, each daily value is compared with the field-specific dry threshold supplied in the CSV. RED is permitted only when all 181 days have classified daily evidence and no seven-day spell exists. Otherwise the result is AMBER. Sparse Sentinel-1/2 acquisitions and NDMI alone are not treated as proof of seven consecutive dry days. One qualifying spell is counted as the single event trigger; additional spells are shown for review. This is not a confirmed drainage operation or VM0051 compliance finding.</p></div><div class="sat-historical-controls"><button type="button" class="primary" id="satelliteHistoricalRun" '+(satelliteOnlyHistoricalRunning?'disabled':'')+'>'+(satelliteOnlyHistoricalRunning?'Retrieving…':'Retrieve Sentinel-1 and Sentinel-2 for the three demo fields')+'</button><button type="button" class="outline" id="satelliteBhuvanTemplate">Download Bhuvan CSV template</button><label class="outline sat-moisture-upload-label" for="satelliteHistoricalMoistureCsv">Import daily Bhuvan moisture CSV</label><input type="file" id="satelliteHistoricalMoistureCsv" accept=".csv,text/csv" class="sat-moisture-file-input">'+(a.length?'<button type="button" class="outline" data-satellite-historical-download>Download CSV report</button>':'')+'</div><p id="satelliteHistoricalProgress" class="muted">'+(satelliteOnlyHistoricalRunning?'Retrieving historical Sentinel-1 and Sentinel-2 observations…':a.length?'Results from the latest browser-session test.':'No historical test has been run yet.')+'</p><p class="muted sat-bhuvan-import-status">'+satelliteOnlyEsc(imported)+'</p><p class="sat-bhuvan-instructions">CSV columns: field_no,date,root_zone_moisture_m3_m3,dry_threshold_m3_m3. One row per field per day. Moisture and threshold must be volumetric m³/m³ values from 0 to 1. A field-specific threshold must be established by the project agronomist using soil/crop context; the platform does not invent one. Optional surface_water_status accepts dry / not_ponded or wet / ponded. Obtain daily root-zone products from the registered Bhuvan–NHP service and prepare field/date rows from the source grid. NHP is a coarse, model-derived grid, not a field sensor.</p>'+(a.length?'<div class="sat-historical-results">'+cards+'</div>':'')+'</section>'+satelliteOnlyEnvironmentalPanel();
+}
+
+
+let satelliteOnlyWeatherByField = {};
+let satelliteOnlyWeatherRunning = false;
+const SAT_HIST_WEATHER_SOURCE = 'Open-Meteo Historical Weather API · ERA5-Land reanalysis';
+function satHistBoundaryPointMean(record) {
+ const points=Array.isArray(record?.boundaryPoints)?record.boundaryPoints:[];
+ const valid=points.filter(p=>Number.isFinite(Number(p?.lat))&&Number.isFinite(Number(p?.lon)));
+ if(!valid.length)return null;
+ return {latitude:valid.reduce((sum,p)=>sum+Number(p.lat),0)/valid.length,longitude:valid.reduce((sum,p)=>sum+Number(p.lon),0)/valid.length,pointCount:valid.length};
+}
+function satHistLongestZeroRainRun(rows) {
+ let current=[],best=null;
+ for(const row of rows||[]){
+  if(Number.isFinite(row.precipitation)&&row.precipitation===0){current.push(row.date)}
+  else{if(current.length&&(!best||current.length>best.days))best={from:current[0],to:current[current.length-1],days:current.length};current=[]}
+ }
+ if(current.length&&(!best||current.length>best.days))best={from:current[0],to:current[current.length-1],days:current.length};
+ return best;
+}
+function satHistWeatherSummary(weather) {
+ const rows=weather?.daily||[];
+ const vals=key=>rows.map(x=>x[key]).filter(v=>Number.isFinite(v));
+ const sum=a=>a.length?a.reduce((n,v)=>n+v,0):null;
+ const avg=a=>a.length?sum(a)/a.length:null;
+ const rain=vals('precipitation'),soil=vals('soilMoisture'),et0=vals('et0'),temp=vals('temperature');
+ return {days:rows.length,rainDays:rain.filter(v=>v>0).length,zeroRainDays:rain.filter(v=>v===0).length,totalRain:sum(rain),meanSoilMoisture:avg(soil),minSoilMoisture:soil.length?Math.min(...soil):null,maxSoilMoisture:soil.length?Math.max(...soil):null,totalEt0:sum(et0),meanTemperature:avg(temp),longestZeroRainRun:satHistLongestZeroRainRun(rows)};
+}
+function satHistWeatherNumber(value,digits) {
+ return value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'—':Number(value).toFixed(digits===undefined?2:digits);
+}
+async function satelliteOnlyRetrieveWeather() {
+ if(satelliteOnlyWeatherRunning)return;
+ satelliteOnlyWeatherRunning=true;
+ satelliteOnlyWeatherByField={};
+ renderManager();
+ for(let i=0;i<SAT_HIST_FIELDS.length;i++){
+  const fieldNo=SAT_HIST_FIELDS[i],record=(records||[]).find(x=>String(x.fieldNo||'')===fieldNo);
+  if(!record){satelliteOnlyWeatherByField[fieldNo]={error:'Demo field record was not found.'};continue}
+  const point=satHistBoundaryPointMean(record);
+  if(!point){satelliteOnlyWeatherByField[fieldNo]={error:'No valid GPS boundary points are available for this field.'};continue}
+  try{
+   const params=new URLSearchParams({
+    latitude:point.latitude.toFixed(6),longitude:point.longitude.toFixed(6),
+    start_date:'2025-11-01',end_date:'2026-04-30',
+    daily:'precipitation_sum,temperature_2m_mean,et0_fao_evapotranspiration,soil_moisture_0_to_100cm_mean',
+    timezone:'Asia/Kolkata',models:'era5_land',precipitation_unit:'mm',temperature_unit:'celsius'
+   });
+   const sourceUrl='https://archive-api.open-meteo.com/v1/archive?'+params.toString();
+   const response=await fetch(sourceUrl,{headers:{Accept:'application/json'}});
+   if(!response.ok)throw new Error('Weather provider returned HTTP '+response.status+'.');
+   const payload=await response.json(),daily=payload.daily||{},times=Array.isArray(daily.time)?daily.time:[];
+   if(!times.length)throw new Error('The weather provider returned no daily records for the requested period.');
+   const rows=times.map((date,index)=>({
+    date,
+    precipitation:Number.isFinite(Number(daily.precipitation_sum?.[index]))?Number(daily.precipitation_sum[index]):null,
+    temperature:Number.isFinite(Number(daily.temperature_2m_mean?.[index]))?Number(daily.temperature_2m_mean[index]):null,
+    et0:Number.isFinite(Number(daily.et0_fao_evapotranspiration?.[index]))?Number(daily.et0_fao_evapotranspiration[index]):null,
+    soilMoisture:Number.isFinite(Number(daily.soil_moisture_0_to_100cm_mean?.[index]))?Number(daily.soil_moisture_0_to_100cm_mean[index]):null
+   }));
+   satelliteOnlyWeatherByField[fieldNo]={
+    fieldNo,farmer:record.name||'',village:record.village||'',district:record.district||'',
+    requestedLatitude:point.latitude,requestedLongitude:point.longitude,boundaryPointCount:point.pointCount,
+    resolvedLatitude:payload.latitude??null,resolvedLongitude:payload.longitude??null,elevation:payload.elevation??null,
+    timezone:payload.timezone||'Asia/Kolkata',model:'ERA5-Land',source:SAT_HIST_WEATHER_SOURCE,
+    sourceUrl:'https://open-meteo.com/en/docs/historical-weather-api',license:'CC BY 4.0; verify commercial-use terms before production deployment',
+    units:daily&&payload.daily_units?payload.daily_units:{},daily:rows,summary:satHistWeatherSummary({daily:rows})
+   };
+  }catch(error){satelliteOnlyWeatherByField[fieldNo]={fieldNo,error:error?.message||'Weather retrieval failed.'}}
+ }
+ satelliteOnlyWeatherRunning=false;
+ renderManager();
+}
+function satelliteOnlyEnvironmentalPanel() {
+ const loaded=Object.keys(satelliteOnlyWeatherByField).length>0;
+ const cards=SAT_HIST_FIELDS.map(fieldNo=>{
+  const w=satelliteOnlyWeatherByField[fieldNo];
+  if(!w)return '<article class="sat-env-card"><b>'+satelliteOnlyEsc(fieldNo)+'</b><p>Daily weather not retrieved yet.</p></article>';
+  if(w.error)return '<article class="sat-env-card sat-env-error"><b>'+satelliteOnlyEsc(fieldNo)+'</b><p>'+satelliteOnlyEsc(w.error)+'</p></article>';
+  const s=w.summary||satHistWeatherSummary(w);
+  const rainRun=s.longestZeroRainRun?satelliteOnlyDate(s.longestZeroRainRun.from)+' to '+satelliteOnlyDate(s.longestZeroRainRun.to)+' ('+s.longestZeroRainRun.days+' days)':'No zero-precipitation run identified';
+  const dailyRows=w.daily.map(row=>'<tr><td>'+satelliteOnlyEsc(row.date)+'</td><td>'+satHistWeatherNumber(row.precipitation)+'</td><td>'+satHistWeatherNumber(row.soilMoisture,3)+'</td><td>'+satHistWeatherNumber(row.et0)+'</td><td>'+satHistWeatherNumber(row.temperature)+'</td></tr>').join('');
+  return '<article class="sat-env-card"><div class="sat-env-head"><b>'+satelliteOnlyEsc(fieldNo)+'</b><span>'+satelliteOnlyEsc(w.farmer)+'</span></div><p>'+satelliteOnlyEsc(w.village)+(w.district?', '+satelliteOnlyEsc(w.district):'')+'</p><div class="sat-env-stats"><span>Daily records<b>'+s.days+'/181</b></span><span>Total precipitation<b>'+satHistWeatherNumber(s.totalRain)+' mm</b></span><span>Zero-rain days<b>'+s.zeroRainDays+'</b></span><span>Longest zero-rain spell<b>'+satelliteOnlyEsc(rainRun)+'</b></span><span>Mean soil moisture, 0–100 cm<b>'+satHistWeatherNumber(s.meanSoilMoisture,3)+' m³/m³</b></span><span>Total reference ET₀<b>'+satHistWeatherNumber(s.totalEt0)+' mm</b></span></div><p class="sat-env-coords">Boundary-point mean: '+w.requestedLatitude.toFixed(5)+', '+w.requestedLongitude.toFixed(5)+' · Provider grid: '+satelliteOnlyEsc(w.resolvedLatitude)+', '+satelliteOnlyEsc(w.resolvedLongitude)+' · '+w.boundaryPointCount+' boundary points</p><details class="sat-env-details"><summary>View daily weather and modelled soil-moisture data ('+w.daily.length+' rows)</summary><div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Date</th><th>Precipitation (mm)</th><th>Soil moisture 0–100 cm (m³/m³)</th><th>ET₀ (mm)</th><th>Mean temp (°C)</th></tr></thead><tbody>'+dailyRows+'</tbody></table></div></details><p class="sat-env-source">Source: '+satelliteOnlyEsc(w.source)+'. Reanalysis/model estimates, not field measurements. Coordinates are derived from the stored DEMO boundary; village/district alignment has not been independently verified.</p></article>';
+ }).join('');
+ return '<section class="panel sat-env-panel"><div class="panel-head"><div><p class="eyebrow">ENVIRONMENTAL CORROBORATION · DEMO BOUNDARIES</p><h2>Daily weather and modelled soil-moisture evidence</h2><p class="muted">Historical period: 1 Nov 2025 to 30 Apr 2026 · ERA5-Land reanalysis</p></div><span class="status-chip planned">SUPPORTING EVIDENCE</span></div><div class="sat-evidence-note"><b>How to interpret this source</b><p>Daily precipitation, reference evapotranspiration and modelled 0–100 cm soil moisture are retrieved from Open-Meteo Historical Weather API using the ERA5-Land reanalysis. Zero-precipitation runs indicate rain-free weather periods only; they do not prove that a field was dry or drained. Modelled soil moisture is displayed as a separate supporting series and is not used to change the seven-day drainage trigger classification. The location is the mean of the stored boundary points and must be checked against the actual field location.</p></div><div class="sat-historical-controls"><button type="button" class="primary" id="satelliteHistoricalWeather" '+(satelliteOnlyWeatherRunning?'disabled':'')+'>'+(satelliteOnlyWeatherRunning?'Retrieving daily weather…':'Retrieve daily weather and modelled soil moisture')+'</button>'+(loaded?'<button type="button" class="outline" data-satellite-environment-download>Download combined evidence CSV</button><button type="button" class="outline" data-satellite-environment-print>Print / Save evidence PDF</button>':'')+'</div><p class="sat-env-status">'+(satelliteOnlyWeatherRunning?'Retrieving historical daily weather for the three demo boundaries…':loaded?'Weather retrieval results from this browser session.':'No historical weather retrieval has been run yet.')+'</p>'+(loaded?'<div class="sat-env-grid">'+cards+'</div>':'')+'<p class="sat-env-license">Attribution: Open-Meteo Historical Weather API, ERA5-Land reanalysis (CC BY 4.0). Confirm the provider’s current commercial-use terms before using this feed in a production commercial service. This report is exploratory supporting evidence, not an auditor acceptance or VM0051 compliance determination.</p></section>';
+}
+function satelliteOnlyDownloadEnvironmentalEvidence() {
+ const headers=['Field','Farmer (demo)','Village','District','Date','Precipitation (mm)','ERA5-Land soil moisture 0-100 cm (m3/m3)','Reference ET0 (mm)','Mean temperature (C)','Bhuvan root-zone moisture (m3/m3)','Bhuvan dry status','NDMI','Sentinel-1 VV','Sentinel-1 VH','Boundary mean latitude','Boundary mean longitude','Weather provider grid latitude','Weather provider grid longitude','Weather model','Source'];
+ const rows=[];
+ for(const fieldNo of SAT_HIST_FIELDS){
+  const w=satelliteOnlyWeatherByField[fieldNo];if(!w||w.error)continue;
+  const historical=(satelliteOnlyHistoricalResults||[]).find(x=>x.fieldNo===fieldNo);
+  const optical=new Map((historical?.series||[]).map(x=>[x.date,x]));
+  const moisture=new Map((satelliteOnlyBhuvanDailyByField[fieldNo]||[]).map(x=>[x.date,x]));
+  for(const day of w.daily){
+   const sat=optical.get(day.date)||{},b=moisture.get(day.date)||{};
+   rows.push([fieldNo,w.farmer,w.village,w.district,day.date,day.precipitation,day.soilMoisture,day.et0,day.temperature,b.rootZoneMoisture??'',b.dry===true?'dry':b.dry===false?'non-dry':'',sat.ndmi??'',sat.vv??'',sat.vh??'',w.requestedLatitude,w.requestedLongitude,w.resolvedLatitude??'',w.resolvedLongitude??'',w.model,w.source]);
+  }
+ }
+ const quote=value=>'"'+String(value??'').replaceAll('"','""')+'"';
+ const csv='\uFEFF'+[headers,...rows].map(row=>row.map(quote).join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');
+ link.href=url;link.download='rabi-2025-26-environmental-evidence.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 
 async function satelliteOnlyRunHistoricalTest(){
