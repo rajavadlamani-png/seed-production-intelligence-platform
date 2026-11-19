@@ -180,7 +180,7 @@ function satHistImportBhuvanCsv(fileText,fileName){
  for(let i=1;i<rows.length;i++){
   const cells=rows[i],fieldNo=String(cells[fi]||'').trim(),date=String(cells[di]||'').trim().slice(0,10);
   if(!SAT_HIST_FIELDS.includes(fieldNo)){ignored++;continue}
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date<'2025-11-01'||date>'2026-04-30'){ignored++;continue}
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date+'T00:00:00Z').toISOString().slice(0,10)!==date||date<'2025-11-01'||date>'2026-04-30'){ignored++;continue}
   const rawMoisture=mi>=0?String(cells[mi]??'').trim():'',rawThreshold=ti>=0?String(cells[ti]??'').trim():'';
   const moisture=rawMoisture===''?null:Number(rawMoisture),threshold=rawThreshold===''?null:Number(rawThreshold);
   if(moisture!==null&&(!Number.isFinite(moisture)||moisture<0||moisture>1))throw new Error('Invalid root-zone moisture value on CSV row '+(i+1)+'. Values must be m³/m³ between 0 and 1.');
@@ -214,7 +214,7 @@ function satHistClassify(f){
  const status=runs.length?'green':completeCoverage?'red':'amber';
  const label=status==='green'?'GREEN · 7-day dry-spell trigger met':status==='red'?'RED · No 7-day dry spell detected':'AMBER · Insufficient daily moisture evidence';
  const reason=status==='green'?'At least seven consecutive daily records meet the supplied field-specific root-zone moisture threshold or explicitly report a non-ponded condition. One qualifying spell is counted as the single event trigger; any further spells are shown for review. This is a satellite/model evidence candidate, not proof of a physical drainage operation.':status==='red'?'Daily condition evidence covers every day of the 181-day monitoring window, with no seven-day consecutive dry spell.':'A complete daily dry/non-dry series is not available. Sentinel-1/2 acquisition intervals and NDMI alone cannot establish seven consecutive dry days. Import daily Bhuvan/ISRO moisture evidence with a field-specific dry threshold, or explicit daily surface-water status.';
- const og=satHistGap(o),rg=satHistGap(r),event=runs[0]||null;
+ const og=satHistGap(o),rg=satHistGap(r),firstRun=runs[0]||null,event=firstRun?{from:firstRun.from,to:new Date(Date.parse(firstRun.from+'T00:00:00Z')+6*86400000).toISOString().slice(0,10),days:7,spellEnd:firstRun.to,spellDays:firstRun.days}:null;
  return {fieldNo:f.fieldNo,farmer:f.farmer||'',status,label,reason,ndmi:o.length,radar:r.length,og,rg,first:o[0]?.date||'',last:o[o.length-1]?.date||'',candidates:runs,event,rootZoneCount:daily.filter(x=>Number.isFinite(x.rootZoneMoisture)).length,dryDays:daily.filter(x=>x.dry===true).length,classifiedDays,completeCoverage,rootZoneFirst:daily[0]?.date||'',rootZoneLast:daily[daily.length-1]?.date||'',series:s,bhuvanDaily:daily};
 }
 
@@ -240,8 +240,8 @@ async function satelliteOnlyRunHistoricalTest(){
 }
 function satelliteOnlyDownloadHistoricalTest(){
  const a=satelliteOnlyHistoricalResults;if(!a?.length)return;
- const h=['Field','Farmer (demo)','Status','Reason','NDMI count','Radar count','Daily moisture records','Classified days','Dry days','Longest dry spell days','Single-event start','Single-event end','Other qualifying dry spells','First optical date','Last optical date'];
- const rows=a.map(x=>[x.fieldNo,x.farmer,x.label,x.reason,x.ndmi,x.radar,x.rootZoneCount,x.classifiedDays,x.dryDays,x.candidates.reduce((m,y)=>Math.max(m,y.days),0),x.event?.from||'',x.event?.to||'',x.candidates.slice(1).map(y=>y.from+' to '+y.to+' ('+y.days+' days)').join('; '),x.first,x.last]);
+ const h=['Field','Farmer (demo)','Status','Reason','NDMI count','Radar count','Daily moisture records','Classified days','Dry days','Longest dry spell days','Single-event start','Single-event trigger date','Full dry-spell end','Other qualifying dry spells','First optical date','Last optical date'];
+ const rows=a.map(x=>[x.fieldNo,x.farmer,x.label,x.reason,x.ndmi,x.radar,x.rootZoneCount,x.classifiedDays,x.dryDays,x.candidates.reduce((m,y)=>Math.max(m,y.days),0),x.event?.from||'',x.event?.to||'',x.event?.spellEnd||'',x.candidates.slice(1).map(y=>y.from+' to '+y.to+' ('+y.days+' days)').join('; '),x.first,x.last]);
  const q=v=>'"'+String(v??'').replaceAll('"','""')+'"',csv='\uFEFF'+[h,...rows].map(r=>r.map(q).join(',')).join('\r\n'),url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download='rabi-2025-26-seven-day-dry-spell-test.csv';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function satelliteOnlyDownloadBhuvanTemplate(){
