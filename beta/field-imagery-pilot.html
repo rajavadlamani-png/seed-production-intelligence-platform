@@ -77,7 +77,7 @@
     <div class="notice"><b>Important:</b> Google satellite imagery is not used for NDVI, crop-stress detection, object identification, or model training. Use only the Sentinel-2 output and other appropriately licensed datasets for those analytical tasks. Neither image alone confirms a crop diagnosis.</div>
   </main>
   <footer>SageHarvest · Prototype only · No production field records are saved. Google Maps Platform terms apply to the Google map display. Sentinel-2 imagery is requested separately through the configured SageHarvest Worker.</footer>
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
   <script>
     (() => {
       const $ = id => document.getElementById(id);
@@ -97,7 +97,7 @@
         return [Math.min(...lons),Math.min(...lats),Math.max(...lons),Math.max(...lats)];
       }
       function updateBoundary(points, name){
-        boundary=points;
+        registeredGeoJson=null;boundary=points;
         const b=bbox(points);
         setStatus('boundaryStatus',name+' loaded · '+points.length+' boundary points · bounding box '+b.map(v=>v.toFixed(6)).join(', '));
         $('runSentinel').disabled=false;
