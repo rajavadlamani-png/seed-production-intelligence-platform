@@ -33,10 +33,22 @@
       <p class="muted">Upload or replace a field KML to update the boundary on Google satellite imagery. Then request a separate Copernicus Sentinel-2 image for the same field. Google imagery is for visual reference only; crop indices and image analysis come from Sentinel-2.</p>
     </div>
     <section class="panel">
-      <h2>1. Load the field boundary</h2>
-      <p class="muted">Upload the field's KML polygon. The viewer reads the boundary locally in your browser and does not upload the KML file.</p>
-      <label for="kml">Field boundary (.kml)</label><input id="kml" type="file" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml">
-      <div id="boundaryStatus" class="status" role="status">No field loaded. Upload a KML to display its boundary on the map.</div>
+      <h2>1. Select a registered field</h2>
+      <p class="muted">Fields and their latest mapped boundaries are loaded from the active company workspace using your existing Beta application sign-in. No additional Supabase key or login is required.</p>
+      <div class="keyrow">
+        <div>
+          <label for="registeredField">Registered field</label>
+          <select id="registeredField" disabled><option value="">Checking your signed-in workspace…</option></select>
+        </div>
+        <button id="refreshFields" class="btn secondary" type="button" disabled>Refresh fields</button>
+      </div>
+      <div id="registeredStatus" class="status" role="status">Connecting to your existing Beta session…</div>
+      <details style="margin-top:14px">
+        <summary style="cursor:pointer;font-weight:700;color:var(--green)">Manual KML upload (fallback)</summary>
+        <p class="muted">Use this only when a field boundary has not yet been registered in the database. The KML is read locally and is not uploaded.</p>
+        <label for="kml">Field boundary (.kml)</label><input id="kml" type="file" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml">
+      </details>
+      <div id="boundaryStatus" class="status" role="status">Select a registered field to display its saved boundary.</div>
     </section>
     <div class="grid" style="margin-top:18px">
       <section class="panel">
@@ -65,12 +77,17 @@
     <div class="notice"><b>Important:</b> Google satellite imagery is not used for NDVI, crop-stress detection, object identification, or model training. Use only the Sentinel-2 output and other appropriately licensed datasets for those analytical tasks. Neither image alone confirms a crop diagnosis.</div>
   </main>
   <footer>SageHarvest · Prototype only · No production field records are saved. Google Maps Platform terms apply to the Google map display. Sentinel-2 imagery is requested separately through the configured SageHarvest Worker.</footer>
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
   <script>
     (() => {
       const $ = id => document.getElementById(id);
       const worker = 'https://seed-intelligence-imagery.raja-vadlamani.workers.dev/api/sentinel2/image';
+      const SUPABASE_URL = 'https://xjtzvhtoeormizrhozoy.supabase.co';
+      const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp';
+      const FIELD_MAP_SERVICE = SUPABASE_URL + '/functions/v1/field-map-service';
+      const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{storage:window.sessionStorage,persistSession:true,autoRefreshToken:true}});
       const centre = {lat:20.7070,lng:81.6034};
-      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false;
+      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false, registeredFields = [], fieldBoundaries = new Map(), activeCompanyId = null, activeSession = null, registeredGeoJson = null;
       const today = new Date(), from = new Date(today); from.setDate(from.getDate()-60);
       const iso = d => d.toISOString().slice(0,10);
       $('from').value = iso(from); $('to').value = iso(today);
@@ -89,10 +106,65 @@
       function drawPolygon(){
         if(!map||!boundary||!window.google?.maps)return;
         polygons.forEach(shape=>shape.setMap(null));polygons=[];
-        const paths=[boundary.map(p=>({lat:p.lat,lng:p.lng}))];
+        const paths=registeredGeoJson || [boundary.map(p=>({lat:p.lat,lng:p.lng}))];
         paths.forEach(path=>{const shape=new google.maps.Polygon({paths:path,strokeColor:'#c9a75a',strokeOpacity:1,strokeWeight:2,fillColor:'#c9a75a',fillOpacity:.12,clickable:false});shape.setMap(map);polygons.push(shape);});
         const bounds=new google.maps.LatLngBounds();paths.flat().forEach(p=>bounds.extend(p));map.fitBounds(bounds,36);
       }
+      function setFieldOptions(fields){
+        const select=$('registeredField'),previous=select.value;
+        select.replaceChildren();
+        if(!fields.length){const option=document.createElement('option');option.value='';option.textContent='No registered fields found in this company';select.appendChild(option);select.disabled=true;return;}
+        const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Choose a field…';select.appendChild(placeholder);
+        fields.forEach(field=>{const option=document.createElement('option');option.value=field.id;const area=field.declared_area!=null?' · '+field.declared_area+' '+(field.declared_area_unit||'') : '';option.textContent=field.field_code+area;select.appendChild(option);});
+        select.disabled=false;
+        if(previous&&fields.some(field=>field.id===previous))select.value=previous;
+        else select.selectedIndex=0;
+      }
+      async function loadRegisteredFields(){
+        const select=$('registeredField'),button=$('refreshFields');
+        if(!supabaseClient){setStatus('registeredStatus','Supabase client could not load. Refresh this page.');return;}
+        button.disabled=true;select.disabled=true;setStatus('registeredStatus','Checking your existing Beta sign-in…');
+        try{
+          const {data:{session},error:sessionError}=await supabaseClient.auth.getSession();
+          if(sessionError)throw sessionError;
+          if(!session){setStatus('registeredStatus','No active Beta sign-in was found in this browser tab. Open the Beta application, sign in, select your company workspace, then open this viewer in the same tab.');setFieldOptions([]);return;}
+          activeSession=session;
+          activeCompanyId=sessionStorage.getItem('seed-production-active-company-id');
+          if(!activeCompanyId){setStatus('registeredStatus','Your sign-in is valid, but no active company workspace was found. Return to the Beta application, select SageHarvest or SeedWorks, and open this viewer again in the same tab.');setFieldOptions([]);return;}
+          setStatus('registeredStatus','Loading fields from your active company workspace…');
+          const response=await fetch(FIELD_MAP_SERVICE,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+session.access_token,'Accept':'application/json'},body:JSON.stringify({company_id:activeCompanyId})});
+          const data=await response.json();
+          if(!response.ok||!data.ok)throw new Error(data.error||('HTTP '+response.status));
+          registeredFields=data.fields||[];fieldBoundaries.clear();
+          for(const feature of (data.boundaries?.features||[])){
+            const fieldId=feature.properties?.field_id;
+            if(fieldId&&feature.geometry)fieldBoundaries.set(fieldId,feature.geometry);
+          }
+          setFieldOptions(registeredFields);
+          const withBoundary=registeredFields.filter(field=>fieldBoundaries.has(field.id)).length;
+          setStatus('Loaded '+registeredFields.length+' field(s) from '+(data.company_name||'your active company')+'; '+withBoundary+' have mapped boundaries. Select a field to display it.');
+        }catch(error){
+          setStatus('Could not load company fields: '+(error.message||String(error)));
+          setFieldOptions([]);
+        }finally{button.disabled=false;}
+      }
+      function selectRegisteredField(fieldId){
+        const field=registeredFields.find(item=>item.id===fieldId);
+        const geometry=fieldBoundaries.get(fieldId);
+        if(!field){boundary=null;$('runSentinel').disabled=true;setStatus('boundaryStatus','Select a registered field.');if(map)drawPolygon();return;}
+        if(!geometry){boundary=null;$('runSentinel').disabled=true;registeredGeoJson=null;setStatus('boundaryStatus',field.field_code+' has no saved boundary. Upload its KML as a temporary fallback or register a boundary in the application.');if(map){polygons.forEach(shape=>shape.setMap(null));polygons=[];}return;}
+        const polys=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
+        if(!polys.length)throw new Error('The saved boundary geometry is not a supported Polygon or MultiPolygon.');
+        const paths=polys.map(poly=>poly[0].map(([lng,lat])=>({lat,lng})));
+        boundary=paths.flat();registeredGeoJson=paths;
+        $('runSentinel').disabled=false;
+        setStatus('boundaryStatus',field.field_code+' · '+(field.declared_area??'area not recorded')+' '+(field.declared_area_unit||'')+' · latest registered boundary');
+        if(map)drawPolygon();
+      }
+      $('registeredField').addEventListener('change',event=>{
+        try{selectRegisteredField(event.target.value);}catch(error){setStatus('boundaryStatus',error.message||String(error));}
+      });
+      $('refreshFields').addEventListener('click',loadRegisteredFields);
       $('kml').addEventListener('change',async e=>{
         const file=e.target.files?.[0];if(!file)return;
         try{
@@ -141,6 +213,7 @@
         }catch(err){setStatus('sentinelStatus','Sentinel-2 request failed: '+(err.message||String(err)));}
         finally{button.disabled=false;button.textContent='Request Sentinel-2 image';}
       });
+      loadRegisteredFields();
     })();
   </script>
 </body>
