@@ -30,26 +30,13 @@
     <div class="intro">
       <p class="eyebrow">FIELD DIGITAL TWIN · PILOT</p>
       <h1>Field imagery viewer</h1>
-      <p class="muted">View the uploaded field boundary over Google satellite imagery, then request a separate Copernicus Sentinel-2 image for the same area. Google imagery is for visual reference only; crop indices and image analysis come from Sentinel-2.</p>
+      <p class="muted">Upload or replace a field KML to update the boundary on Google satellite imagery. Then request a separate Copernicus Sentinel-2 image for the same field. Google imagery is for visual reference only; crop indices and image analysis come from Sentinel-2.</p>
     </div>
-      <section class="panel" style="margin-bottom:18px">
-        <h2>0. Load a registered SageHarvest field</h2>
-        <p class="muted">Retrieve field boundaries already registered in Supabase. Access is governed by your signed-in user's permissions. Credentials are used only for this page session and are not saved.</p>
-        <div class="grid">
-          <div><label for="supabaseKey">Supabase publishable / anon key</label><input id="supabaseKey" type="password" autocomplete="off" placeholder="Paste project publishable key"></div>
-          <div><label for="accessToken">Supabase user access token</label><input id="accessToken" type="password" autocomplete="off" placeholder="Paste current user access token"></div>
-        </div>
-        <button id="loadRegistered" class="btn" type="button" style="margin-top:12px">Load my authorised fields</button>
-        <label for="registeredField">Registered field</label>
-        <select id="registeredField" disabled><option value="">Load authorised fields first</option></select>
-        <button id="showRegistered" class="btn secondary" type="button" style="margin-top:10px" disabled>Show selected field on map</button>
-        <div id="registeredStatus" class="status" role="status">Not connected to Supabase. This step is optional; local KML upload remains available.</div>
-      </section>
     <section class="panel">
       <h2>1. Load the field boundary</h2>
       <p class="muted">Upload the field's KML polygon. The viewer reads the boundary locally in your browser and does not upload the KML file.</p>
       <label for="kml">Field boundary (.kml)</label><input id="kml" type="file" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml">
-      <div id="boundaryStatus" class="status" role="status">No boundary loaded. The pilot opens centred on the Banjari field area as a starting reference.</div>
+      <div id="boundaryStatus" class="status" role="status">No field loaded. Upload a KML to display its boundary on the map.</div>
     </section>
     <div class="grid" style="margin-top:18px">
       <section class="panel">
@@ -58,8 +45,8 @@
         <label for="mapsKey">Google Maps JavaScript API key / Maps Demo Key</label>
         <div class="keyrow"><input id="mapsKey" type="password" autocomplete="off" placeholder="Paste your restricted Maps key here"><button id="loadMap" class="btn" type="button">Load map</button></div>
         <p class="help">For a no-cost prototype, request a <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener">Google Maps Demo Key</a> if your account is eligible. Do not commit a key to GitHub. For production, restrict it to the app's website and Maps JavaScript API.</p>
-        <div id="map"><div class="map-placeholder">Load a Google Maps key to display satellite imagery and the field polygon.</div></div>
-        <div id="mapStatus" class="status" role="status">Google map not loaded. No key is stored by this page.</div>
+        <div id="map"><div class="map-placeholder">Enter your Demo Key and load the map. Then upload any field KML; changing the KML replaces the boundary and automatically recentres the map.</div></div>
+        <div id="mapStatus" class="status" role="status">Paste your Google Maps Demo Key above and select Load map. The key is used only in this browser session.</div>
       </section>
       <section class="panel">
         <h2>3. Sentinel-2 image</h2>
@@ -83,7 +70,7 @@
       const $ = id => document.getElementById(id);
       const worker = 'https://seed-intelligence-imagery.raja-vadlamani.workers.dev/api/sentinel2/image';
       const centre = {lat:20.7070,lng:81.6034};
-      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false, registeredFields = [], registeredFeatures = [], registeredGeoJson = null;
+      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false;
       const today = new Date(), from = new Date(today); from.setDate(from.getDate()-60);
       const iso = d => d.toISOString().slice(0,10);
       $('from').value = iso(from); $('to').value = iso(today);
@@ -93,7 +80,7 @@
         return [Math.min(...lons),Math.min(...lats),Math.max(...lons),Math.max(...lats)];
       }
       function updateBoundary(points, name){
-        registeredGeoJson=null;boundary=points;
+        boundary=points;
         const b=bbox(points);
         setStatus('boundaryStatus',name+' loaded · '+points.length+' boundary points · bounding box '+b.map(v=>v.toFixed(6)).join(', '));
         $('runSentinel').disabled=false;
@@ -102,43 +89,10 @@
       function drawPolygon(){
         if(!map||!boundary||!window.google?.maps)return;
         polygons.forEach(shape=>shape.setMap(null));polygons=[];
-        const paths=registeredGeoJson || [boundary.map(p=>({lat:p.lat,lng:p.lng}))];
+        const paths=[boundary.map(p=>({lat:p.lat,lng:p.lng}))];
         paths.forEach(path=>{const shape=new google.maps.Polygon({paths:path,strokeColor:'#c9a75a',strokeOpacity:1,strokeWeight:2,fillColor:'#c9a75a',fillOpacity:.12,clickable:false});shape.setMap(map);polygons.push(shape);});
         const bounds=new google.maps.LatLngBounds();paths.flat().forEach(p=>bounds.extend(p));map.fitBounds(bounds,36);
       }
-      const supabaseFunction='https://xjtzvhtoeormizrhozoy.supabase.co/functions/v1/field-map-service';
-      $('loadRegistered').addEventListener('click',async()=>{
-        const apiKey=$('supabaseKey').value.trim(),token=$('accessToken').value.trim();
-        if(!apiKey||!token){setStatus('registeredStatus','Enter both the project publishable/anon key and a current Supabase user access token.');return;}
-        const button=$('loadRegistered');button.disabled=true;setStatus('registeredStatus','Requesting fields permitted by your Supabase account…');
-        try{
-          const response=await fetch(supabaseFunction,{method:'POST',headers:{'Content-Type':'application/json','apikey':apiKey,'Authorization':'Bearer '+token,'Accept':'application/json'},body:JSON.stringify({})});
-          const data=await response.json();
-          if(!response.ok||!data.ok)throw new Error(data.error||('HTTP '+response.status));
-          registeredFields=data.fields||[];registeredFeatures=data.boundaries?.features||[];registeredGeoJson=null;
-          const select=$('registeredField');select.replaceChildren();
-          registeredFields.forEach(field=>{const option=document.createElement('option');option.value=field.id;option.textContent=field.field_code+' · '+(field.declared_area??'area n/a')+' '+(field.declared_area_unit||'');select.appendChild(option);});
-          select.disabled=registeredFields.length===0;$('showRegistered').disabled=registeredFields.length===0;
-          const bcount=data.counts?.fields_with_boundary??0;
-          setStatus('registeredStatus',registeredFields.length+' authorised field(s) returned; '+bcount+' with a boundary. The server applies Supabase row-level security.');
-          const target=registeredFields.find(f=>f.field_code==='BANJARI-USRH24-001');
-          if(target)select.value=target.id;
-        }catch(err){registeredGeoJson=null;setStatus('registeredStatus','Could not load registered fields: '+(err.message||String(err)));}
-        finally{button.disabled=false;}
-      });
-      $('showRegistered').addEventListener('click',()=>{
-        const id=$('registeredField').value,field=registeredFields.find(f=>f.id===id);
-        if(!field){setStatus('registeredStatus','Select a registered field first.');return;}
-        const feature=registeredFeatures.find(f=>f.properties?.field_id===id);
-        if(!feature?.geometry){setStatus('registeredStatus','This field has no boundary available to your account.');return;}
-        const geometry=feature.geometry,polygonsGeo=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
-        if(!polygonsGeo.length){setStatus('registeredStatus','The returned boundary geometry type is not supported by this viewer.');return;}
-        registeredGeoJson=polygonsGeo.map(poly=>poly[0].map(([lng,lat])=>({lat,lng})));
-        boundary=registeredGeoJson.flat();$('runSentinel').disabled=false;
-        setStatus('boundaryStatus',field.field_code+' loaded from SageHarvest Supabase · '+field.declared_area+' '+(field.declared_area_unit||'')+' · registered boundary');
-        if(map)drawPolygon();
-        setStatus('registeredStatus','Showing '+field.field_code+' from Supabase. Sentinel-2 requests will use this registered boundary extent.');
-      });
       $('kml').addEventListener('change',async e=>{
         const file=e.target.files?.[0];if(!file)return;
         try{
@@ -155,7 +109,7 @@
       $('loadMap').addEventListener('click',()=>{
         const key=$('mapsKey').value.trim();
         if(!key){setStatus('mapStatus','Enter a Google Maps key first.');return;}
-        if(map){setStatus('mapStatus','Map already loaded for this page session.');return;}
+        if(map){setStatus('mapStatus','Map is already loaded. Upload or select another KML to update the field boundary.');return;}
         if(mapsLoading)return;
         mapsLoading=true;setStatus('mapStatus','Loading Google Maps…');
         window.gm_authFailure=()=>{mapsLoading=false;setStatus('mapStatus','Google rejected the key. Check API enablement, key restrictions, and billing/demo-key eligibility.');};
@@ -166,7 +120,7 @@
         document.head.appendChild(script);
         window.initSageHarvestMap=()=>{
           map=new google.maps.Map($('map'),{center:centre,zoom:16,mapTypeId:'satellite',mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
-          mapsLoading=false;setStatus('mapStatus','Google satellite map loaded. Upload a KML to draw and zoom to the field boundary.');
+          mapsLoading=false;setStatus('mapStatus','Google satellite map loaded. Upload or replace the KML; the boundary and map view will update automatically.');
           if(boundary)drawPolygon();
         };
       });
