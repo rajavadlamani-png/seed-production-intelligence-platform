@@ -143,10 +143,11 @@
     const a=activeRecord?assess(activeRecord):null;
     if(!a||a.path.length<3)return;
     const latlngs=a.path.map(function(p){return [p.lat,p.lng];});
-    fieldOverlay=L.polygon(latlngs,{color:'#e3b34e',weight:3,opacity:1,fillColor:'#e3b34e',fillOpacity:0.16});
-    fieldOverlay.addTo(mapInstance);
+    fieldOverlay=L.featureGroup();
+    const polygon=L.polygon(latlngs,{color:'#e3b34e',weight:3,opacity:1,fillColor:'#e3b34e',fillOpacity:0.16}).addTo(fieldOverlay);
     if(showVertices)a.path.forEach(function(p){L.circleMarker([p.lat,p.lng],{radius:4,color:'#fff',weight:1,fillColor:'#174b35',fillOpacity:1}).addTo(fieldOverlay);});
-    mapInstance.fitBounds(fieldOverlay.getBounds(),{padding:[30,30],maxZoom:20});
+    fieldOverlay.addTo(mapInstance);
+    mapInstance.fitBounds(polygon.getBounds(),{padding:[30,30],maxZoom:20});
   }
   function parseKml(text) {
     const xml=new DOMParser().parseFromString(text,'application/xml');
