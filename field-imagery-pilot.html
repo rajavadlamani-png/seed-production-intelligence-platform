@@ -112,7 +112,7 @@
         if(map){setStatus('mapStatus','Map already loaded for this page session.');return;}
         if(mapsLoading)return;
         mapsLoading=true;setStatus('mapStatus','Loading Google Maps…');
-        window.gm_authFailure=()=>setStatus('mapStatus','Google rejected the key. Check API enablement, key restrictions, and billing/demo-key eligibility.');
+        window.gm_authFailure=()=>{mapsLoading=false;setStatus('mapStatus','Google rejected the key. Check API enablement, key restrictions, and billing/demo-key eligibility.');};
         const script=document.createElement('script');
         script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback=initSageHarvestMap&v=weekly';
         script.async=true;script.defer=true;
