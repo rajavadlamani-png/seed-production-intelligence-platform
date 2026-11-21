@@ -61,7 +61,7 @@
     if(raw.length<3 || path.length<3) flags.push('Fewer than three usable boundary points');
     if(points.length!==raw.length) flags.push('One or more GPS coordinates are invalid');
     const seen=new Set(), duplicates=[];
-    points.forEach(function(p){const k=p.lat.toFixed(7)+','+p.lng.toFixed(7);if(seen.has(k))duplicates.push(k);seen.add(k);});
+    path.forEach(function(p){const k=p.lat.toFixed(7)+','+p.lng.toFixed(7);if(seen.has(k))duplicates.push(k);seen.add(k);});
     if(duplicates.length) flags.push('Duplicate GPS coordinates detected');
     let selfCross=false;
     if(path.length>=4){
