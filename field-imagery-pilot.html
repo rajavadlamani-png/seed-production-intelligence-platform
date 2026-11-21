@@ -83,7 +83,7 @@
       const $ = id => document.getElementById(id);
       const worker = 'https://seed-intelligence-imagery.raja-vadlamani.workers.dev/api/sentinel2/image';
       const centre = {lat:20.7070,lng:81.6034};
-      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false, registeredFields = [], registeredGeoJson = null;
+      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false, registeredFields = [], registeredFeatures = [], registeredGeoJson = null;
       const today = new Date(), from = new Date(today); from.setDate(from.getDate()-60);
       const iso = d => d.toISOString().slice(0,10);
       $('from').value = iso(from); $('to').value = iso(today);
@@ -93,7 +93,7 @@
         return [Math.min(...lons),Math.min(...lats),Math.max(...lons),Math.max(...lats)];
       }
       function updateBoundary(points, name){
-        boundary=points;
+        registeredGeoJson=null;boundary=points;
         const b=bbox(points);
         setStatus('boundaryStatus',name+' loaded · '+points.length+' boundary points · bounding box '+b.map(v=>v.toFixed(6)).join(', '));
         $('runSentinel').disabled=false;
@@ -115,7 +115,7 @@
           const response=await fetch(supabaseFunction,{method:'POST',headers:{'Content-Type':'application/json','apikey':apiKey,'Authorization':'Bearer '+token,'Accept':'application/json'},body:JSON.stringify({})});
           const data=await response.json();
           if(!response.ok||!data.ok)throw new Error(data.error||('HTTP '+response.status));
-          registeredFields=data.fields||[];registeredGeoJson=data.boundaries||{type:'FeatureCollection',features:[]};
+          registeredFields=data.fields||[];registeredFeatures=data.boundaries?.features||[];registeredGeoJson=null;
           const select=$('registeredField');select.replaceChildren();
           registeredFields.forEach(field=>{const option=document.createElement('option');option.value=field.id;option.textContent=field.field_code+' · '+(field.declared_area??'area n/a')+' '+(field.declared_area_unit||'');select.appendChild(option);});
           select.disabled=registeredFields.length===0;$('showRegistered').disabled=registeredFields.length===0;
@@ -129,12 +129,12 @@
       $('showRegistered').addEventListener('click',()=>{
         const id=$('registeredField').value,field=registeredFields.find(f=>f.id===id);
         if(!field){setStatus('registeredStatus','Select a registered field first.');return;}
-        const feature=(registeredGeoJson?.features||[]).find(f=>f.properties?.field_id===id);
+        const feature=registeredFeatures.find(f=>f.properties?.field_id===id);
         if(!feature?.geometry){setStatus('registeredStatus','This field has no boundary available to your account.');return;}
         const geometry=feature.geometry,polygonsGeo=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
         if(!polygonsGeo.length){setStatus('registeredStatus','The returned boundary geometry type is not supported by this viewer.');return;}
         registeredGeoJson=polygonsGeo.map(poly=>poly[0].map(([lng,lat])=>({lat,lng})));
-        boundary=registeredGeoJson[0];$('runSentinel').disabled=false;
+        boundary=registeredGeoJson.flat();$('runSentinel').disabled=false;
         setStatus('boundaryStatus',field.field_code+' loaded from SageHarvest Supabase · '+field.declared_area+' '+(field.declared_area_unit||'')+' · registered boundary');
         if(map)drawPolygon();
         setStatus('registeredStatus','Showing '+field.field_code+' from Supabase. Sentinel-2 requests will use this registered boundary extent.');
