@@ -33,6 +33,17 @@ Open `index.html` in a browser, or use the [live demo](https://rajavadlamani-png
 
 All figures, locations and observations are illustrative. The mobile-number and demo-code screens are not authentication and do not send an OTP. The prototype does not include server-side persistence, production data, a backend, database or secure production Excel import, SAP integration, satellite or weather feeds, or AI models. GPS capture runs in the browser only while the page is open; captured points and area are not sent to a server or retained after refresh. Nearby matching requires assigned field boundaries in the current browser session and does not run against production maps. Inspection entries, chat messages and selected photo previews exist only in the current browser session; photos are not uploaded or analysed, and chat messages are not sent to an AI. Satellite observations are unavailable until a provider and secure data service are connected. Ask Ram is a UI preview only: microphone access, multilingual speech, and Google AI answers are not implemented. The final summary uses field-officer entries and is a prototype report, not a verified production document. Stage completion is a demo workflow gate, not a server-enforced permission. Do not enter or upload real farmer, mobile, or bank data on the public demo.
 
+## Field imagery pilot
+
+The separate `field-imagery-pilot.html` page provides a browser-only pilot for:
+- Loading a field polygon from a local KML file (the KML is not uploaded).
+- Displaying the polygon over Google Maps satellite imagery after the user supplies a Google Maps JavaScript API key / eligible Maps Demo Key.
+- Requesting a separate Copernicus Sentinel-2 image from the existing Seed Intelligence Worker for the same boundary bounding box.
+
+Google imagery is a visual reference only. It is not passed to crop analytics, AI image interpretation, object detection, or model training. Sentinel-2 output is a bounding-box image, not a polygon-clipped field mask. The page does not save field data or imagery. Google Maps usage is subject to its API key, billing/demo-key eligibility, usage limits and terms.
+
+Open the pilot from the field app's Satellite observations page. The Google Maps key is entered in the browser page for that session and is not written to source code or browser storage. For production, use a key restricted to the deployed website and Maps JavaScript API.
+
 ## Project development skill
 
 The project-specific Codex skill is in `.agents/skills/sageharvest-seed-monitor/`. Use `$sageharvest-seed-monitor` for future work on this application to keep requirements, branding, and implementation boundaries consistent.
