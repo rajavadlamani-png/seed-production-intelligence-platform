@@ -2,25 +2,29 @@
 
 ## Scope
 
-This first implementation adds a company-scoped GPS field inspection page to the beta application. It reads existing `beta_field_records` and their `boundaryPoints` coordinates. It does not add or modify database tables, columns, RLS policies, or saved field records.
+The page reads existing company-scoped field records and their `boundaryPoints`. It does not add or modify database tables, columns, RLS policies, or saved field records.
 
-## Google Maps imagery
+## Open imagery map
 
-The page uses the Google Maps JavaScript API with `satellite` as the initial map type and offers `hybrid` and `roadmap` map types. Existing GPS polygons are drawn from the application's saved coordinates.
+The page uses Leaflet 1.9.4 for map display and the OpenAerialMap / Open Imagery Network global imagery tile service:
 
-To enable imagery:
+`https://global.imagery.hotosm.org/{z}/{x}/{y}.png`
 
-1. Create or select a Google Cloud project.
-2. Enable Maps JavaScript API and attach billing.
-3. Create a browser API key.
-4. Apply an HTTP referrer restriction for the exact deployed application host(s).
-5. Restrict API usage to Maps JavaScript API.
-6. Set quota and budget alerts.
-7. Sign in, open **GPS Boundary Intelligence**, paste the key and select **Load imagery**.
+- No Google Maps API key or Google Cloud billing setup is required.
+- OpenAerialMap imagery is openly licensed under CC BY 4.0; the map displays imagery attribution.
+- The global service displays a coverage grid at zoom levels 0–13 and requests actual imagery at zoom 14 and above.
+- High-resolution aerial/UAV coverage is contributed and uneven. A missing image at a farm location is possible; do not interpret the coverage grid as a photograph.
+- OpenStreetMap is available as a reference layer, not as satellite imagery.
+- Leaflet is loaded from the pinned unpkg CDN version 1.9.4.
 
-The key is stored in browser local storage on that device. It is not written to GitHub or Supabase. A browser Maps API key is visible to the browser by design; protect it with referrer and API restrictions. Clear the saved key from the page when needed.
+## KML import
 
-Google's API requires a key and billing. Imagery availability, acquisition date and maximum useful zoom vary by location.
+- Select a local `.kml` file. The browser parses KML Polygon/LinearRing geometries and overlays them on the map.
+- The map zooms to the imported polygon automatically.
+- Multiple polygons and inner rings are retained.
+- Upload is local to the browser; the KML file is not sent to Supabase.
+- Current importer accepts plain KML only, not zipped KMZ.
+- Maximum file size is 20 MB.
 
 ## Implemented checks
 
@@ -34,28 +38,22 @@ The page calculates checks from saved GPS geometry:
 - Polygon area recalculated from stored vertices.
 - Comparison against assigned acreage, with a review flag above 10% variance.
 
-The 30 m and 10% values are review heuristics, not surveyed-boundary accuracy standards. An acreage variance is not proof that the GPS boundary is wrong.
+The 30 m and 10% values are review heuristics, not surveyed-boundary accuracy standards. An acreage variance is not proof that the GPS boundary is wrong. KML overlays are for visual inspection and do not automatically overwrite saved company field records.
 
-## Google imagery usage boundary
+## Important resolution and coverage limits
 
-Google imagery is provided for visual inspection only. Do not scrape, export, cache, trace, digitise or run machine interpretation/object detection on Google Maps content. Geometry checks in this module use only the application's own saved GPS coordinates.
+OpenAerialMap is a contributor imagery catalogue, not a guaranteed global high-resolution basemap. Some fields may have recent, high-resolution UAV/aerial imagery; other locations may have no contributed imagery. If no OAM image exists for a farm, this version does not silently substitute a lower-resolution satellite image and label it as high resolution. A later Copernicus Sentinel-2 layer can be added as a broad-coverage, lower-resolution fallback through the Copernicus Data Space Ecosystem, subject to its current API quotas and account/configuration requirements.
 
-The module does not automatically detect or correct physical field edges. A correction must be obtained from a fresh authorised GPS boundary walk or a separately licensed geospatial source, reviewed by an authorised user, and saved through the existing field workflow.
+## Verification status
 
-## Verification performed
-
-- JavaScript syntax check for the new module and modified application entry point.
-- Static render test using a synthetic field record to confirm the screen renders its field, GPS assessment and API-key setup instructions.
-
-Not yet verified:
-- Live Google imagery, because no API key was supplied.
-- Browser interaction on the deployed application.
-- Google imagery coverage/clarity for actual production fields.
-- Production deployment or live billing/quota behavior.
+- JavaScript syntax and static render tests are performed before commit.
+- Live imagery tile coverage and browser rendering must still be checked in the deployed app; this environment could not reach the public tile host during implementation.
+- No database schema, RLS, or saved field data is changed.
+- No automatic boundary extraction or correction from imagery is performed.
 
 ## Files
 
-- `beta/gps-boundary-intelligence.js`: page, Google Maps loader, polygon overlay and geometry assessment.
-- `beta/app.js`: route rendering and page binding.
-- `beta/index.html`: navigation and script loading.
-- `beta/styles.css`: responsive map and assessment layout.
+- `beta/gps-boundary-intelligence.js`: KML parsing, Leaflet map, OAM imagery layer, field polygon overlay and geometry assessment.
+- `beta/app.js`: existing route rendering and page binding (unchanged).
+- `beta/index.html`: Leaflet assets and cache-busted module loading.
+- `beta/styles.css`: responsive map and assessment styling.
