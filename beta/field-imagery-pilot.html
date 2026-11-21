@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b2b">
+  <title>Field Imagery Pilot | SageHarvest</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <style>
+    :root{--green:#123b2b;--sage:#8fa68e;--gold:#c9a75a;--paper:#fbfaf6;--ink:#17231d;--muted:#607066;--line:#dce1da}
+    *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+    header{background:var(--green);color:white;padding:18px max(20px,calc((100vw - 1200px)/2));display:flex;align-items:center;gap:16px}
+    header img{width:155px;max-height:46px;object-fit:contain}header span{font-size:12px;letter-spacing:.12em;color:#e4eadf}
+    main{max-width:1200px;margin:28px auto;padding:0 20px}.eyebrow{font-size:11px;letter-spacing:.14em;color:#64796b;font-weight:700;margin:0 0 7px}
+    h1{font-size:clamp(27px,4vw,38px);line-height:1.15;margin:0 0 8px;color:var(--green)}h2{font-size:18px;margin:0 0 6px;color:var(--green)}
+    .muted{color:var(--muted)}.intro{max-width:760px;margin-bottom:22px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;min-width:0;box-shadow:0 4px 18px #17231d0a}
+    label{display:block;font-size:12px;font-weight:700;color:#405448;margin:10px 0 5px}input,select{font:inherit;width:100%;padding:10px 11px;border:1px solid #cbd5cc;border-radius:9px;background:#fff;color:var(--ink)}
+    .keyrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.btn{border:0;border-radius:9px;padding:11px 15px;font-weight:700;cursor:pointer;background:var(--green);color:#fff}.btn.secondary{background:#edf2ec;color:var(--green);border:1px solid var(--line)}.btn:disabled{opacity:.55;cursor:wait}
+    .help{font-size:12px;color:var(--muted);margin:7px 0}.help a{color:var(--green)}.status{padding:10px 12px;background:#f2f5f1;border-radius:9px;font-size:13px;margin-top:12px;overflow-wrap:anywhere}
+    #map{height:430px;background:#e7ece6;border-radius:12px;margin-top:12px}.map-placeholder{height:100%;display:grid;place-items:center;text-align:center;padding:20px;color:var(--muted)}
+    .image-frame{min-height:300px;background:#f2f4f1;border:1px dashed #cbd5cc;border-radius:12px;display:grid;place-items:center;overflow:hidden;margin-top:12px}.image-frame img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}.image-frame p{padding:20px;text-align:center;color:var(--muted)}
+    .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:10px}.notice{border-left:3px solid var(--gold);padding:10px 13px;background:#fbf7ed;border-radius:0 8px 8px 0;font-size:13px;margin:18px 0}
+    footer{max-width:1200px;margin:20px auto 40px;padding:0 20px;color:var(--muted);font-size:12px}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}.keyrow{grid-template-columns:1fr}#map{height:340px}.toolbar{grid-template-columns:1fr}main{margin:20px auto}}
+  </style>
+</head>
+<body>
+  <header><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"><span>SEED PRODUCTION MONITOR · FIELD IMAGERY PILOT</span></header>
+  <main>
+    <div class="intro">
+      <p class="eyebrow">FIELD DIGITAL TWIN · PILOT</p>
+      <h1>Field imagery viewer</h1>
+      <p class="muted">View the uploaded field boundary over Google satellite imagery, then request a separate Copernicus Sentinel-2 image for the same area. Google imagery is for visual reference only; crop indices and image analysis come from Sentinel-2.</p>
+    </div>
+      <section class="panel" style="margin-bottom:18px">
+        <h2>0. Load a registered SageHarvest field</h2>
+        <p class="muted">Retrieve field boundaries already registered in Supabase. Access is governed by your signed-in user's permissions. Credentials are used only for this page session and are not saved.</p>
+        <div class="grid">
+          <div><label for="supabaseKey">Supabase publishable / anon key</label><input id="supabaseKey" type="password" autocomplete="off" placeholder="Paste project publishable key"></div>
+          <div><label for="accessToken">Supabase user access token</label><input id="accessToken" type="password" autocomplete="off" placeholder="Paste current user access token"></div>
+        </div>
+        <button id="loadRegistered" class="btn" type="button" style="margin-top:12px">Load my authorised fields</button>
+        <label for="registeredField">Registered field</label>
+        <select id="registeredField" disabled><option value="">Load authorised fields first</option></select>
+        <button id="showRegistered" class="btn secondary" type="button" style="margin-top:10px" disabled>Show selected field on map</button>
+        <div id="registeredStatus" class="status" role="status">Not connected to Supabase. This step is optional; local KML upload remains available.</div>
+      </section>
+    <section class="panel">
+      <h2>1. Load the field boundary</h2>
+      <p class="muted">Upload the field's KML polygon. The viewer reads the boundary locally in your browser and does not upload the KML file.</p>
+      <label for="kml">Field boundary (.kml)</label><input id="kml" type="file" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml">
+      <div id="boundaryStatus" class="status" role="status">No boundary loaded. The pilot opens centred on the Banjari field area as a starting reference.</div>
+    </section>
+    <div class="grid" style="margin-top:18px">
+      <section class="panel">
+        <h2>2. Google satellite view</h2>
+        <p class="muted">Boundary overlay and visual inspection only. Google imagery is not sent to the AI or Sentinel analytics service.</p>
+        <label for="mapsKey">Google Maps JavaScript API key / Maps Demo Key</label>
+        <div class="keyrow"><input id="mapsKey" type="password" autocomplete="off" placeholder="Paste your restricted Maps key here"><button id="loadMap" class="btn" type="button">Load map</button></div>
+        <p class="help">For a no-cost prototype, request a <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener">Google Maps Demo Key</a> if your account is eligible. Do not commit a key to GitHub. For production, restrict it to the app's website and Maps JavaScript API.</p>
+        <div id="map"><div class="map-placeholder">Load a Google Maps key to display satellite imagery and the field polygon.</div></div>
+        <div id="mapStatus" class="status" role="status">Google map not loaded. No key is stored by this page.</div>
+      </section>
+      <section class="panel">
+        <h2>3. Sentinel-2 image</h2>
+        <p class="muted">Request a Copernicus image for the same field boundary and date range.</p>
+        <div class="toolbar">
+          <div><label for="from">From date</label><input id="from" type="date"></div>
+          <div><label for="to">To date</label><input id="to" type="date"></div>
+        </div>
+        <label for="mode">Image rendering</label>
+        <select id="mode"><option value="true-colour">True colour</option><option value="false-colour">False colour (vegetation)</option><option value="ndvi">NDVI visualisation</option></select>
+        <button id="runSentinel" class="btn" style="margin-top:14px;width:100%" type="button" disabled>Request Sentinel-2 image</button>
+        <div id="sentinelStatus" class="status" role="status">Load a KML boundary first. The request uses the existing SageHarvest imagery Worker.</div>
+        <div id="sentinelImage" class="image-frame"><p>Sentinel-2 image preview will appear here. Actual availability depends on acquisition dates, cloud cover, and the field location.</p></div>
+      </section>
+    </div>
+    <div class="notice"><b>Important:</b> Google satellite imagery is not used for NDVI, crop-stress detection, object identification, or model training. Use only the Sentinel-2 output and other appropriately licensed datasets for those analytical tasks. Neither image alone confirms a crop diagnosis.</div>
+  </main>
+  <footer>SageHarvest · Prototype only · No production field records are saved. Google Maps Platform terms apply to the Google map display. Sentinel-2 imagery is requested separately through the configured SageHarvest Worker.</footer>
+  <script>
+    (() => {
+      const $ = id => document.getElementById(id);
+      const worker = 'https://seed-intelligence-imagery.raja-vadlamani.workers.dev/api/sentinel2/image';
+      const centre = {lat:20.7070,lng:81.6034};
+      let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false, registeredFields = [], registeredFeatures = [], registeredGeoJson = null;
+      const today = new Date(), from = new Date(today); from.setDate(from.getDate()-60);
+      const iso = d => d.toISOString().slice(0,10);
+      $('from').value = iso(from); $('to').value = iso(today);
+      function setStatus(id, message){$(id).textContent=message;}
+      function bbox(points){
+        const lons=points.map(p=>p.lng),lats=points.map(p=>p.lat);
+        return [Math.min(...lons),Math.min(...lats),Math.max(...lons),Math.max(...lats)];
+      }
+      function updateBoundary(points, name){
+        registeredGeoJson=null;boundary=points;
+        const b=bbox(points);
+        setStatus('boundaryStatus',name+' loaded · '+points.length+' boundary points · bounding box '+b.map(v=>v.toFixed(6)).join(', '));
+        $('runSentinel').disabled=false;
+        if(map) drawPolygon();
+      }
+      function drawPolygon(){
+        if(!map||!boundary||!window.google?.maps)return;
+        polygons.forEach(shape=>shape.setMap(null));polygons=[];
+        const paths=registeredGeoJson || [boundary.map(p=>({lat:p.lat,lng:p.lng}))];
+        paths.forEach(path=>{const shape=new google.maps.Polygon({paths:path,strokeColor:'#c9a75a',strokeOpacity:1,strokeWeight:2,fillColor:'#c9a75a',fillOpacity:.12,clickable:false});shape.setMap(map);polygons.push(shape);});
+        const bounds=new google.maps.LatLngBounds();paths.flat().forEach(p=>bounds.extend(p));map.fitBounds(bounds,36);
+      }
+      const supabaseFunction='https://xjtzvhtoeormizrhozoy.supabase.co/functions/v1/field-map-service';
+      $('loadRegistered').addEventListener('click',async()=>{
+        const apiKey=$('supabaseKey').value.trim(),token=$('accessToken').value.trim();
+        if(!apiKey||!token){setStatus('registeredStatus','Enter both the project publishable/anon key and a current Supabase user access token.');return;}
+        const button=$('loadRegistered');button.disabled=true;setStatus('registeredStatus','Requesting fields permitted by your Supabase account…');
+        try{
+          const response=await fetch(supabaseFunction,{method:'POST',headers:{'Content-Type':'application/json','apikey':apiKey,'Authorization':'Bearer '+token,'Accept':'application/json'},body:JSON.stringify({})});
+          const data=await response.json();
+          if(!response.ok||!data.ok)throw new Error(data.error||('HTTP '+response.status));
+          registeredFields=data.fields||[];registeredFeatures=data.boundaries?.features||[];registeredGeoJson=null;
+          const select=$('registeredField');select.replaceChildren();
+          registeredFields.forEach(field=>{const option=document.createElement('option');option.value=field.id;option.textContent=field.field_code+' · '+(field.declared_area??'area n/a')+' '+(field.declared_area_unit||'');select.appendChild(option);});
+          select.disabled=registeredFields.length===0;$('showRegistered').disabled=registeredFields.length===0;
+          const bcount=data.counts?.fields_with_boundary??0;
+          setStatus('registeredStatus',registeredFields.length+' authorised field(s) returned; '+bcount+' with a boundary. The server applies Supabase row-level security.');
+          const target=registeredFields.find(f=>f.field_code==='BANJARI-USRH24-001');
+          if(target)select.value=target.id;
+        }catch(err){registeredGeoJson=null;setStatus('registeredStatus','Could not load registered fields: '+(err.message||String(err)));}
+        finally{button.disabled=false;}
+      });
+      $('showRegistered').addEventListener('click',()=>{
+        const id=$('registeredField').value,field=registeredFields.find(f=>f.id===id);
+        if(!field){setStatus('registeredStatus','Select a registered field first.');return;}
+        const feature=registeredFeatures.find(f=>f.properties?.field_id===id);
+        if(!feature?.geometry){setStatus('registeredStatus','This field has no boundary available to your account.');return;}
+        const geometry=feature.geometry,polygonsGeo=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
+        if(!polygonsGeo.length){setStatus('registeredStatus','The returned boundary geometry type is not supported by this viewer.');return;}
+        registeredGeoJson=polygonsGeo.map(poly=>poly[0].map(([lng,lat])=>({lat,lng})));
+        boundary=registeredGeoJson.flat();$('runSentinel').disabled=false;
+        setStatus('boundaryStatus',field.field_code+' loaded from SageHarvest Supabase · '+field.declared_area+' '+(field.declared_area_unit||'')+' · registered boundary');
+        if(map)drawPolygon();
+        setStatus('registeredStatus','Showing '+field.field_code+' from Supabase. Sentinel-2 requests will use this registered boundary extent.');
+      });
+      $('kml').addEventListener('change',async e=>{
+        const file=e.target.files?.[0];if(!file)return;
+        try{
+          if(!/\.kml$/i.test(file.name))throw new Error('Choose a .kml file.');
+          const xml=new DOMParser().parseFromString(await file.text(),'application/xml');
+          if(xml.querySelector('parsererror'))throw new Error('The KML could not be parsed.');
+          const polygonNode=xml.getElementsByTagNameNS('*','Polygon')[0];
+          const coordsNode=polygonNode?.getElementsByTagNameNS('*','outerBoundaryIs')[0]?.getElementsByTagNameNS('*','coordinates')[0]||xml.getElementsByTagNameNS('*','coordinates')[0];
+          const points=(coordsNode?.textContent||'').trim().split(/\s+/).map(s=>s.split(',')).filter(a=>a.length>=2).map(a=>({lng:Number(a[0]),lat:Number(a[1])})).filter(p=>Number.isFinite(p.lng)&&Number.isFinite(p.lat)&&Math.abs(p.lng)<=180&&Math.abs(p.lat)<=90);
+          if(points.length<3)throw new Error('No valid field polygon with at least three points was found.');
+          updateBoundary(points,file.name);
+        }catch(err){setStatus('boundaryStatus',err.message||'Could not read the KML file.');}
+      });
+      $('loadMap').addEventListener('click',()=>{
+        const key=$('mapsKey').value.trim();
+        if(!key){setStatus('mapStatus','Enter a Google Maps key first.');return;}
+        if(map){setStatus('mapStatus','Map already loaded for this page session.');return;}
+        if(mapsLoading)return;
+        mapsLoading=true;setStatus('mapStatus','Loading Google Maps…');
+        window.gm_authFailure=()=>{mapsLoading=false;setStatus('mapStatus','Google rejected the key. Check API enablement, key restrictions, and billing/demo-key eligibility.');};
+        const script=document.createElement('script');
+        script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback=initSageHarvestMap&v=weekly';
+        script.async=true;script.defer=true;
+        script.onerror=()=>{mapsLoading=false;setStatus('mapStatus','Google Maps JavaScript API could not be loaded. Check network access and the key.');};
+        document.head.appendChild(script);
+        window.initSageHarvestMap=()=>{
+          map=new google.maps.Map($('map'),{center:centre,zoom:16,mapTypeId:'satellite',mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
+          mapsLoading=false;setStatus('mapStatus','Google satellite map loaded. Upload a KML to draw and zoom to the field boundary.');
+          if(boundary)drawPolygon();
+        };
+      });
+      $('runSentinel').addEventListener('click',async()=>{
+        if(!boundary){setStatus('sentinelStatus','Upload a KML boundary first.');return;}
+        const [west,south,east,north]=bbox(boundary),fromValue=$('from').value,toValue=$('to').value;
+        if(!fromValue||!toValue||fromValue>toValue){setStatus('sentinelStatus','Check the date range.');return;}
+        const button=$('runSentinel');button.disabled=true;button.textContent='Requesting image…';
+        setStatus('sentinelStatus','Request sent to the Sentinel-2 imagery Worker. Waiting for an image response…');
+        try{
+          const response=await fetch(worker,{method:'POST',headers:{'Content-Type':'application/json','Accept':'image/png, application/json'},body:JSON.stringify({bbox:[west,south,east,north],from:fromValue,to:toValue,mode:$('mode').value,width:768,height:768})});
+          const type=response.headers.get('content-type')||'';
+          if(!response.ok||!type.includes('image/')){const raw=await response.text();let detail=raw;try{const j=JSON.parse(raw);detail=j.details||j.error||raw;}catch(_){}throw new Error('HTTP '+response.status+' · '+String(detail).slice(0,700));}
+          const blob=await response.blob();if(objectUrl)URL.revokeObjectURL(objectUrl);objectUrl=URL.createObjectURL(blob);
+          const img=document.createElement('img');img.src=objectUrl;img.alt='Copernicus Sentinel-2 '+$('mode').value+' image for the uploaded field boundary';
+          $('sentinelImage').replaceChildren(img);
+          setStatus('sentinelStatus','Sentinel-2 image received · '+$('mode').value+' · '+fromValue+' to '+toValue+' · '+Math.round(blob.size/1024)+' KB. This is a bounding-box image; the field polygon is not a pixel mask.');
+        }catch(err){setStatus('sentinelStatus','Sentinel-2 request failed: '+(err.message||String(err)));}
+        finally{button.disabled=false;button.textContent='Request Sentinel-2 image';}
+      });
+    })();
+  </script>
+</body>
+</html>
