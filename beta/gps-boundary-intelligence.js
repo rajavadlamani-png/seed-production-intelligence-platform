@@ -1,27 +1,21 @@
-/* GPS Boundary Intelligence — Google Maps visual inspection + GPS geometry checks.
-   Google imagery is displayed only. No image scraping, tracing, feature extraction or AI analysis. */
+/* GPS Boundary Intelligence — OpenAerialMap visual inspection + KML import + GPS geometry checks.
+   Uses openly licensed OAM imagery tiles; no Google Maps API key or Google imagery dependency. */
 (function () {
   'use strict';
 
-  const KEY_STORAGE = 'sageharvest.gpsBoundary.googleMapsApiKey.v1';
   let mapInstance = null;
-  let polygonOverlay = null;
-  let pointOverlays = [];
-  let mapsLoadPromise = null;
+  let imageryLayer = null;
+  let fieldOverlay = null;
+  let kmlOverlay = null;
   let activeRecord = null;
   let activeList = [];
   let showVertices = true;
+  let imageryErrors = 0;
 
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (ch) {
       return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]);
     });
-  }
-  function getKey() {
-    try { return localStorage.getItem(KEY_STORAGE) || ''; } catch (_) { return ''; }
-  }
-  function saveKey(value) {
-    try { localStorage.setItem(KEY_STORAGE, value); return true; } catch (_) { return false; }
   }
   function pointsFor(record) {
     return (Array.isArray(record && record.boundaryPoints) ? record.boundaryPoints : [])
@@ -103,132 +97,137 @@
       activeList.find(function(r){return Array.isArray(r.boundaryPoints)&&r.boundaryPoints.length>=3;}) || activeList[0] || null;
     activeRecord=preferred;
     const a=preferred?assess(preferred):null;
-    const keyConfigured=!!getKey();
-    const mapMessage=keyConfigured?'Google Maps key is configured in this browser. Select Load imagery to open the map.':'Add a restricted Google Maps API key to load satellite imagery.';
-    return '<div class="page-heading"><div><p class="eyebrow">GEOSPATIAL FIELD QUALITY</p><h1>GPS Boundary Intelligence</h1><p class="muted">Inspect registered field polygons over Google satellite imagery and review GPS geometry quality.</p></div><span class="status-chip planned">VISUAL INSPECTION</span></div>'+
+    return '<div class="page-heading"><div><p class="eyebrow">GEOSPATIAL FIELD QUALITY</p><h1>GPS Boundary Intelligence</h1><p class="muted">Inspect KML and registered field polygons over openly licensed aerial imagery, then review GPS geometry quality.</p></div><span class="status-chip planned">OPEN IMAGERY</span></div>'+
       '<section class="panel gps-boundary-panel"><div class="gps-boundary-toolbar">'+
       '<label>Company field<select id="gpsBoundaryField" '+(activeList.length?'':'disabled')+'>'+fieldOptions(activeList,preferred&&preferred.id)+'</select></label>'+
-      '<label class="gps-boundary-key-label">Google Maps API key<input id="gpsBoundaryApiKey" type="password" autocomplete="off" placeholder="Paste restricted browser API key" value=""></label>'+
-      '<button type="button" class="primary" id="gpsBoundaryLoadMap">Load imagery</button>'+
-      '<button type="button" class="outline" id="gpsBoundaryClearKey">Clear key</button></div>'+
-      '<p class="gps-boundary-key-note" id="gpsBoundaryKeyStatus">'+esc(mapMessage)+' The key is stored only in this browser. Restrict it by HTTP referrer and Maps JavaScript API in Google Cloud.</p>'+
-      '<div class="gps-boundary-map-actions"><button type="button" class="outline" id="gpsBoundaryZoom" '+(a&&a.path.length>=3?'':'disabled')+'>Zoom to field</button><button type="button" class="outline" id="gpsBoundaryVertices" '+(a&&a.path.length>=3?'':'disabled')+'>'+ (showVertices?'Hide':'Show') +' GPS points</button><a class="outline gps-boundary-google-link" id="gpsBoundaryOpenGoogle" href="https://www.google.com/maps" target="_blank" rel="noopener">Open in Google Maps ↗</a></div>'+
-      '<div class="gps-boundary-map-wrap"><div id="gpsBoundaryMap" class="gps-boundary-map" role="region" aria-label="Google satellite map showing the selected GPS field boundary"><div class="gps-boundary-map-placeholder"><strong>Google satellite imagery</strong><span>'+esc(mapMessage)+'</span></div></div></div>'+
-      '<p class="gps-boundary-map-caption">Google satellite imagery is used for visual inspection only. Imagery availability, age and zoom detail vary by location.</p></section>'+
-      '<section class="panel gps-boundary-assessment"><div class="panel-head"><div><h2>GPS geometry assessment</h2><p class="muted">Checks are calculated from the saved GPS coordinates, not from Google imagery.</p></div><span class="status-chip '+(a&&a.valid&&a.flags.length===0?'complete':'planned')+'">'+(a?(a.flags.length?'REVIEW':'NO GEOMETRY FLAGS'):'NO FIELD SELECTED')+'</span></div>'+
-      (preferred?assessmentMarkup(preferred,a):'<div class="gps-boundary-empty">No company field records are available in the current view.</div>')+
+      '<label class="gps-boundary-file-label">Upload field boundary (.KML)<input id="gpsBoundaryKmlFile" type="file" accept=".kml,application/vnd.google-earth.kml+xml,application/xml,text/xml"></label>'+
+      '<button type="button" class="outline" id="gpsBoundaryClearKml">Clear uploaded KML</button></div>'+
+      '<p class="gps-boundary-key-note" id="gpsBoundaryStatus">OpenAerialMap imagery is loading. Select a company field or upload a KML file to zoom to its boundary. No Google API key is required.</p>'+
+      '<div class="gps-boundary-map-actions"><button type="button" class="outline" id="gpsBoundaryZoom" '+(a&&a.path.length>=3?'':'disabled')+'>Zoom to field</button><button type="button" class="outline" id="gpsBoundaryVertices" '+(a&&a.path.length>=3?'':'disabled')+'>'+ (showVertices?'Hide':'Show') +' GPS points</button><a class="outline gps-boundary-google-link" id="gpsBoundaryOpenEarth" href="https://openaerialmap.org/" target="_blank" rel="noopener">OpenAerialMap catalogue ↗</a></div>'+
+      '<div class="gps-boundary-map-wrap"><div id="gpsBoundaryMap" class="gps-boundary-map" role="region" aria-label="Open aerial imagery map showing the selected field boundary"><div class="gps-boundary-map-placeholder"><strong>Open aerial imagery</strong><span>Initialising map…</span></div></div></div>'+
+      '<p class="gps-boundary-map-caption">Imagery source: OpenAerialMap / Open Imagery Network, CC BY 4.0, with attribution to imagery contributors. Coverage and image dates vary by location. The low-zoom coverage grid is not itself an aerial photograph.</p></section>'+
+      '<section class="panel gps-boundary-assessment"><div class="panel-head"><div><h2>GPS geometry assessment</h2><p class="muted">Checks are calculated from the saved GPS coordinates, not from aerial imagery.</p></div><span class="status-chip '+(a&&a.valid&&a.flags.length===0?'complete':'planned')+'">'+(a?(a.flags.length?'REVIEW':'NO GEOMETRY FLAGS'):'NO FIELD SELECTED')+'</span></div>'+
+      (preferred?assessmentMarkup(preferred,a):'<div class="gps-boundary-empty">No company field records are available in the current view. You can still upload a KML file for map inspection.</div>')+
       '<p class="gps-boundary-disclaimer">These checks identify coordinate and geometry issues. They do not establish that the polygon matches the physical field edge. Visual confirmation by an authorised reviewer is still required.</p></section>'+
-      '<section class="panel gps-boundary-guidance"><h2>Google Maps setup</h2><ol><li>Create or select a Google Cloud project and enable the Maps JavaScript API.</li><li>Create a browser API key with HTTP referrer restrictions for the deployed application domain.</li><li>Restrict the key to the Maps JavaScript API only and enable billing/usage limits.</li><li>Paste the key above. It is saved in this browser local storage and is not written to Supabase or GitHub.</li></ol><p><a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener">Google Maps API key setup guide ↗</a></p></section>';
+      '<section class="panel gps-boundary-guidance"><h2>Imagery and KML notes</h2><ul><li>Choose a KML file to display its polygon automatically on the map. This page currently accepts .kml files; zipped .kmz files are not supported.</li><li>OpenAerialMap coverage is contributed imagery and may be absent for some farms. At high zoom, unavailable imagery may appear blank.</li><li>Use the layer selector to switch to OpenStreetMap for geographic reference only; it is not satellite imagery.</li><li>Uploaded KML is read locally in this browser and is not uploaded to Supabase.</li></ul><p><a href="https://openaerialmap.org/legal/" target="_blank" rel="noopener">OpenAerialMap terms and imagery licence ↗</a> · <a href="https://docs.imagery.hotosm.org/usage/using-imagery/" target="_blank" rel="noopener">Imagery tile usage ↗</a></p></section>';
   }
   function assessmentMarkup(record,a) {
     const flags=a.flags.length?'<ul class="gps-boundary-flags">'+a.flags.map(function(f){return '<li>'+esc(f)+'</li>';}).join('')+'</ul>':'<p class="gps-boundary-ok">No geometry issues detected by the current checks.</p>';
     return '<div class="gps-boundary-summary"><div><small>FIELD</small><b>'+esc(record.fieldNo||'—')+'</b></div><div><small>GPS POINTS</small><b>'+a.path.length+'</b></div><div><small>CALCULATED POLYGON AREA</small><b>'+(a.calculatedArea>0?a.calculatedArea.toFixed(2)+' ac':'—')+'</b></div><div><small>RECORDED GPS AREA</small><b>'+(a.registeredArea!==null?a.registeredArea.toFixed(2)+' ac':'—')+'</b></div><div><small>MEAN GPS ACCURACY</small><b>'+(a.meanAccuracy!==null?'±'+a.meanAccuracy.toFixed(1)+' m':'Not recorded')+'</b></div><div><small>ASSIGNED AREA VARIANCE</small><b>'+(a.acreageVariance!==null?(a.acreageVariance>0?'+':'')+a.acreageVariance.toFixed(1)+'%':'Not comparable')+'</b></div></div>'+flags;
   }
-  function loadMaps(key) {
-    if(window.google&&window.google.maps)return Promise.resolve(window.google.maps);
-    if(mapsLoadPromise)return mapsLoadPromise;
-    mapsLoadPromise=new Promise(function(resolve,reject){
-      const old=document.querySelector('script[data-gps-boundary-google-maps]');
-      if(old){old.addEventListener('load',function(){resolve(window.google.maps);},{once:true});old.addEventListener('error',function(){reject(new Error('Google Maps could not be loaded. Check the API key, billing and referrer restrictions.'));},{once:true});return;}
-      const script=document.createElement('script');
-      script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&v=weekly';
-      script.async=true;script.defer=true;script.dataset.gpsBoundaryGoogleMaps='true';
-      script.onload=function(){if(window.google&&window.google.maps)resolve(window.google.maps);else reject(new Error('Google Maps loaded without the Maps JavaScript API.'));};
-      script.onerror=function(){reject(new Error('Google Maps could not be loaded. Check network access and the API key.'));};
-      document.head.appendChild(script);
-    }).catch(function(error){mapsLoadPromise=null;throw error;});
-    return mapsLoadPromise;
-  }
-  function clearOverlays() {
-    if(polygonOverlay){polygonOverlay.setMap(null);polygonOverlay=null;}
-    pointOverlays.forEach(function(o){o.setMap(null);});pointOverlays=[];
-  }
-  function updateGoogleLink(record,assessment) {
-    const link=document.getElementById('gpsBoundaryOpenGoogle');
-    if(!link)return;
-    if(assessment.path.length>=3){
-      const p=assessment.path[0];
-      link.href='https://www.google.com/maps/@'+p.lat+','+p.lng+',19z/data=!3m1!1e3';
-    } else link.href='https://www.google.com/maps';
-  }
-  function drawSelected() {
-    const record=activeRecord,assessment=record?assess(record):null,container=document.getElementById('gpsBoundaryMap');
-    if(!container||!mapInstance)return;
-    clearOverlays();
-    if(!assessment||assessment.path.length<3){
-      mapInstance.setCenter({lat:20.5937,lng:78.9629});
-      mapInstance.setZoom(5);
-      return;
-    }
-    const bounds=new google.maps.LatLngBounds();
-    assessment.path.forEach(function(p){bounds.extend(p);});
-    polygonOverlay=new google.maps.Polygon({paths:assessment.path,strokeColor:'#e3b34e',strokeOpacity:1,strokeWeight:3,fillColor:'#e3b34e',fillOpacity:0.18,clickable:false,map:mapInstance});
-    if(showVertices)assessment.path.forEach(function(p,index){
-      const marker=new google.maps.Circle({center:p,radius:2.2,strokeColor:'#ffffff',strokeOpacity:1,strokeWeight:1,fillColor:'#174b35',fillOpacity:1,map:mapInstance});
-      pointOverlays.push(marker);
+  function initMap() {
+    if(mapInstance)return mapInstance;
+    const el=document.getElementById('gpsBoundaryMap');
+    const status=document.getElementById('gpsBoundaryStatus');
+    if(!el)return null;
+    if(!window.L){if(status)status.textContent='The map library could not be loaded. Check network access and refresh the page.';return null;}
+    el.innerHTML='';
+    mapInstance=L.map(el,{center:[20.5937,78.9629],zoom:5,preferCanvas:true});
+    imageryErrors=0;
+    imageryLayer=L.tileLayer('https://global.imagery.hotosm.org/{z}/{x}/{y}.png',{
+      minZoom:0,maxZoom:22,maxNativeZoom:22,attribution:'Imagery © OpenAerialMap contributors / Open Imagery Network (CC BY 4.0)'
+    }).addTo(mapInstance);
+    imageryLayer.on('tileerror',function(){imageryErrors++;if(imageryErrors>=3&&status)status.textContent='Some aerial tiles could not be retrieved. Coverage may be unavailable at this location; try another zoom level or use the reference map layer.';});
+    const reference=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,attribution:'© OpenStreetMap contributors'
     });
-    mapInstance.fitBounds(bounds,48);
-    google.maps.event.addListenerOnce(mapInstance,'idle',function(){if(mapInstance.getZoom()>20)mapInstance.setZoom(20);});
-    updateGoogleLink(record,assessment);
+    L.control.layers({'OpenAerialMap imagery':imageryLayer,'OpenStreetMap reference':reference},{},{collapsed:true}).addTo(mapInstance);
+    if(status)status.textContent='OpenAerialMap connected. Imagery coverage varies; upload a KML file or select a company field.';
+    if(activeRecord)drawSelectedField();
+    setTimeout(function(){if(mapInstance)mapInstance.invalidateSize();},100);
+    return mapInstance;
   }
-  async function initialiseMap() {
-    const keyInput=document.getElementById('gpsBoundaryApiKey');
-    const status=document.getElementById('gpsBoundaryKeyStatus');
-    const mapEl=document.getElementById('gpsBoundaryMap');
-    const key=(keyInput&&keyInput.value.trim())||getKey();
-    if(!key){if(status)status.textContent='A Google Maps API key is required. Create a referrer-restricted key and paste it above.';return;}
-    if(!saveKey(key)){if(status)status.textContent='This browser blocked local storage. Enable site storage and try again.';return;}
-    if(status)status.textContent='Loading Google satellite imagery…';
-    try{
-      await loadMaps(key);
-      if(!mapEl||!mapEl.isConnected)return;
-      const record=activeRecord,assessment=record?assess(record):null;
-      const center=assessment&&assessment.path.length?assessment.path[0]:{lat:20.5937,lng:78.9629};
-      mapEl.innerHTML='';
-      mapInstance=new google.maps.Map(mapEl,{center:center,zoom:assessment&&assessment.path.length>=3?18:5,mapTypeId:'satellite',mapTypeControl:true,mapTypeControlOptions:{mapTypeIds:['satellite','hybrid','roadmap']},streetViewControl:false,fullscreenControl:true,gestureHandling:'greedy'});
-      if(status)status.textContent='Google Maps loaded. Imagery is displayed for visual inspection only.';
-      drawSelected();
-    }catch(error){if(status)status.textContent=error.message||'Google Maps failed to load.';mapEl.innerHTML='<div class="gps-boundary-map-placeholder"><strong>Map could not be loaded</strong><span>'+esc(error.message||'Check API key, billing and referrer restrictions.')+'</span></div>';}
+  function drawSelectedField() {
+    if(!mapInstance)return;
+    if(fieldOverlay){mapInstance.removeLayer(fieldOverlay);fieldOverlay=null;}
+    const a=activeRecord?assess(activeRecord):null;
+    if(!a||a.path.length<3)return;
+    const latlngs=a.path.map(function(p){return [p.lat,p.lng];});
+    fieldOverlay=L.polygon(latlngs,{color:'#e3b34e',weight:3,opacity:1,fillColor:'#e3b34e',fillOpacity:0.16});
+    fieldOverlay.addTo(mapInstance);
+    if(showVertices)a.path.forEach(function(p){L.circleMarker([p.lat,p.lng],{radius:4,color:'#fff',weight:1,fillColor:'#174b35',fillOpacity:1}).addTo(fieldOverlay);});
+    mapInstance.fitBounds(fieldOverlay.getBounds(),{padding:[30,30],maxZoom:20});
+  }
+  function parseKml(text) {
+    const xml=new DOMParser().parseFromString(text,'application/xml');
+    if(xml.getElementsByTagName('parsererror').length)throw new Error('The selected file is not valid XML/KML.');
+    const polygons=Array.from(xml.getElementsByTagNameNS('*','Polygon'));
+    const features=[];
+    polygons.forEach(function(poly,index){
+      const rings=Array.from(poly.getElementsByTagNameNS('*','LinearRing')).map(function(ring){
+        const node=ring.getElementsByTagNameNS('*','coordinates')[0];
+        if(!node)return [];
+        return node.textContent.trim().split(/\s+/).map(function(tuple){
+          const values=tuple.split(',').map(Number);
+          if(values.length<2||!Number.isFinite(values[0])||!Number.isFinite(values[1])||Math.abs(values[0])>180||Math.abs(values[1])>90)return null;
+          return [values[0],values[1]];
+        }).filter(Boolean);
+      }).filter(function(ring){return ring.length>=4;});
+      if(!rings.length)return;
+      const placemark=(function(){let n=poly;while(n&&n.localName!=='Placemark')n=n.parentNode;return n;})();
+      const nameNode=placemark&&placemark.getElementsByTagNameNS('*','name')[0];
+      features.push({type:'Feature',properties:{name:nameNode?nameNode.textContent.trim():'KML polygon '+(index+1)},geometry:{type:'Polygon',coordinates:rings}});
+    });
+    if(!features.length)throw new Error('No valid KML Polygon was found. Export the field boundary as a KML polygon and try again.');
+    return {type:'FeatureCollection',features:features};
+  }
+  function showKml(text,fileName) {
+    if(!mapInstance&&!initMap())throw new Error('Map could not be initialised.');
+    const geojson=parseKml(text);
+    if(kmlOverlay){mapInstance.removeLayer(kmlOverlay);kmlOverlay=null;}
+    if(fieldOverlay){mapInstance.removeLayer(fieldOverlay);fieldOverlay=null;}
+    kmlOverlay=L.geoJSON(geojson,{style:function(){return {color:'#ef7d32',weight:3,opacity:1,fillColor:'#ef7d32',fillOpacity:0.18};},
+      onEachFeature:function(feature,layer){if(feature.properties&&feature.properties.name)layer.bindTooltip(esc(feature.properties.name));}}).addTo(mapInstance);
+    const bounds=kmlOverlay.getBounds();
+    if(bounds.isValid())mapInstance.fitBounds(bounds,{padding:[32,32],maxZoom:21});
+    const status=document.getElementById('gpsBoundaryStatus');
+    if(status)status.textContent='Loaded '+fileName+' — '+geojson.features.length+' KML polygon(s) displayed. Imagery is shown where OpenAerialMap coverage exists.';
+    const open=document.getElementById('gpsBoundaryOpenEarth');
+    if(open&&bounds.isValid()){const c=bounds.getCenter();open.href='https://openaerialmap.org/';}
   }
   function bind(list) {
     activeList=Array.isArray(list)?list:[];
     const select=document.getElementById('gpsBoundaryField');
-    const keyInput=document.getElementById('gpsBoundaryApiKey');
-    const status=document.getElementById('gpsBoundaryKeyStatus');
-    const saved=getKey();
-    if(keyInput&&saved)keyInput.placeholder='Key saved in this browser — paste to replace';
+    const fileInput=document.getElementById('gpsBoundaryKmlFile');
+    const status=document.getElementById('gpsBoundaryStatus');
+    initMap();
     if(select)select.addEventListener('change',function(){
       activeRecord=activeList.find(function(r){return String(r.id)===String(select.value);})||null;
-      const container=document.getElementById('gpsBoundaryMap');
-      if(mapInstance&&container){drawSelected();}
+      if(kmlOverlay&&mapInstance){mapInstance.removeLayer(kmlOverlay);kmlOverlay=null;}
+      drawSelectedField();
       const assessment=activeRecord?assess(activeRecord):null;
       const summary=document.querySelector('.gps-boundary-assessment');
-      if(summary)summary.innerHTML='<div class="panel-head"><div><h2>GPS geometry assessment</h2><p class="muted">Checks are calculated from the saved GPS coordinates, not from Google imagery.</p></div><span class="status-chip '+(assessment&&assessment.flags.length?'planned':'complete')+'">'+(assessment?(assessment.flags.length?'REVIEW':'NO GEOMETRY FLAGS'):'NO FIELD SELECTED')+'</span></div>'+(activeRecord?assessmentMarkup(activeRecord,assessment):'<div class="gps-boundary-empty">Select a field.</div>')+'<p class="gps-boundary-disclaimer">These checks identify coordinate and geometry issues. They do not establish that the polygon matches the physical field edge. Visual confirmation by an authorised reviewer is still required.</p>';
-      document.getElementById('gpsBoundaryZoom').disabled=!(assessment&&assessment.path.length>=3);
-      document.getElementById('gpsBoundaryVertices').disabled=!(assessment&&assessment.path.length>=3);
-      updateGoogleLink(activeRecord,assessment||{path:[]});
+      if(summary)summary.innerHTML='<div class="panel-head"><div><h2>GPS geometry assessment</h2><p class="muted">Checks are calculated from the saved GPS coordinates, not from aerial imagery.</p></div><span class="status-chip '+(assessment&&assessment.flags.length?'planned':'complete')+'">'+(assessment?(assessment.flags.length?'REVIEW':'NO GEOMETRY FLAGS'):'NO FIELD SELECTED')+'</span></div>'+(activeRecord?assessmentMarkup(activeRecord,assessment):'<div class="gps-boundary-empty">Select a field or upload a KML file.</div>')+'<p class="gps-boundary-disclaimer">These checks identify coordinate and geometry issues. They do not establish that the polygon matches the physical field edge. Visual confirmation by an authorised reviewer is still required.</p>';
+      const zoom=document.getElementById('gpsBoundaryZoom'),vertices=document.getElementById('gpsBoundaryVertices');
+      if(zoom)zoom.disabled=!(assessment&&assessment.path.length>=3);
+      if(vertices)vertices.disabled=!(assessment&&assessment.path.length>=3);
+      if(status)status.textContent=activeRecord?'Showing saved GPS boundary for '+(activeRecord.fieldNo||'selected field')+'.':'No company field selected.';
     });
-    document.getElementById('gpsBoundaryLoadMap')?.addEventListener('click',initialiseMap);
-    document.getElementById('gpsBoundaryClearKey')?.addEventListener('click',function(){
-      try{localStorage.removeItem(KEY_STORAGE);}catch(_){}
-      if(keyInput)keyInput.value='';
-      if(status)status.textContent='Saved API key cleared from this browser. Existing Google map session may remain active until the page is refreshed.';
+    if(fileInput)fileInput.addEventListener('change',function(){
+      const file=fileInput.files&&fileInput.files[0];if(!file)return;
+      if(!/\.kml$/i.test(file.name)){if(status)status.textContent='Please select a .kml file. KMZ archives are not supported in this version.';fileInput.value='';return;}
+      if(file.size>20*1024*1024){if(status)status.textContent='KML file exceeds the 20 MB browser import limit.';fileInput.value='';return;}
+      const reader=new FileReader();
+      reader.onload=function(){try{showKml(String(reader.result||''),file.name);}catch(error){if(status)status.textContent=error.message||'Could not read the KML file.';}};
+      reader.onerror=function(){if(status)status.textContent='The selected KML file could not be read.';};
+      reader.readAsText(file);
     });
-    document.getElementById('gpsBoundaryZoom')?.addEventListener('click',function(){drawSelected();});
+    document.getElementById('gpsBoundaryClearKml')?.addEventListener('click',function(){
+      if(kmlOverlay&&mapInstance){mapInstance.removeLayer(kmlOverlay);kmlOverlay=null;}
+      if(fileInput)fileInput.value='';
+      drawSelectedField();
+      if(status)status.textContent=activeRecord?'KML cleared. Showing the saved GPS boundary.':'KML cleared. Select a company field or upload another KML file.';
+    });
+    document.getElementById('gpsBoundaryZoom')?.addEventListener('click',drawSelectedField);
     document.getElementById('gpsBoundaryVertices')?.addEventListener('click',function(){
       showVertices=!showVertices;
       const button=document.getElementById('gpsBoundaryVertices');
       if(button)button.textContent=(showVertices?'Hide':'Show')+' GPS points';
-      drawSelected();
+      drawSelectedField();
     });
-    if(saved&&status)status.textContent='Google Maps key is saved in this browser. Select Load imagery to display the field.';
-    updateGoogleLink(activeRecord,activeRecord?assess(activeRecord):{path:[]});
+    if(activeRecord&&mapInstance)drawSelectedField();
   }
 
   window.gpsBoundaryIntelligencePage=page;
   window.bindGpsBoundaryIntelligencePage=bind;
-  window.gm_authFailure=function(){
-    const status=document.getElementById('gpsBoundaryKeyStatus');
-    if(status)status.textContent='Google rejected the API key. Check Maps JavaScript API enablement, billing and HTTP referrer restrictions.';
-  };
 })();
