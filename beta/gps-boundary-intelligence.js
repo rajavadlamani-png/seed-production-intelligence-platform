@@ -156,7 +156,8 @@
     if(!container||!mapInstance)return;
     clearOverlays();
     if(!assessment||assessment.path.length<3){
-      container.innerHTML='<div class="gps-boundary-map-placeholder"><strong>No saved GPS polygon</strong><span>Select a field with at least three valid boundary points, or capture/import its boundary in the field workflow.</span></div>';
+      mapInstance.setCenter({lat:20.5937,lng:78.9629});
+      mapInstance.setZoom(5);
       return;
     }
     const bounds=new google.maps.LatLngBounds();
