@@ -6,6 +6,17 @@ function sdeAlignedMappedFields() {
   const source = typeof scoped === 'function' ? scoped() : (records || []);
   return (source || []).filter(r => Array.isArray(r.boundaryPoints) && r.boundaryPoints.length >= 3 && r.fieldNo);
 }
+function sdeAlignedDateBounds(fieldNo) {
+  const dates = [];
+  (satelliteOnlyRuns || []).forEach(run => (satelliteOnlyRunFields(run) || []).filter(f => String(f.fieldNo || '') === String(fieldNo)).forEach(field => {
+    (Array.isArray(field.observationSeries) ? field.observationSeries : []).forEach(obs => {
+      const date = String(obs.date || obs.interval?.to || obs.interval?.from || '').slice(0, 10);
+      if (/^\\d{4}-\\d{2}-\\d{2}$/.test(date) && obs.vv !== null && obs.vv !== undefined && obs.vh !== null && obs.vh !== undefined) dates.push(date);
+    });
+  }));
+  dates.sort();
+  return dates.length ? { from: dates[0], to: dates[dates.length - 1] } : null;
+}
 function sdeAlignedSatelliteRows(fieldNo, from, to, runs = satelliteOnlyRuns) {
   const latest = new Map();
   (runs || []).forEach(run => {
@@ -168,7 +179,7 @@ function sdeAlignedStatusMarkup(result) {
 function rootZoneVwcPocPage() {
   const fields = sdeAlignedMappedFields();
   if (!sdeAlignedState.fieldNo || !fields.some(x => String(x.fieldNo) === String(sdeAlignedState.fieldNo))) sdeAlignedState.fieldNo = String(fields[0]?.fieldNo || '');
-  const available = satelliteOnlyRuns.flatMap(run => satelliteOnlyRunFields(run)).map(f => String(f.fieldNo || ''));
+  const bounds = sdeAlignedDateBounds(sdeAlignedState.fieldNo);\n  if (bounds && !sdeAlignedState.from) sdeAlignedState.from = bounds.from;\n  if (bounds && !sdeAlignedState.to) sdeAlignedState.to = bounds.to;\n  const available = satelliteOnlyRuns.flatMap(run => satelliteOnlyRunFields(run)).map(f => String(f.fieldNo || ''));
   const options = fields.map(f => '<option value="' + rootVwcEscape(f.fieldNo) + '" ' + (String(f.fieldNo) === sdeAlignedState.fieldNo ? 'selected' : '') + '>' + rootVwcEscape(f.fieldNo) + (available.includes(String(f.fieldNo)) ? '' : ' · satellite data pending') + '</option>').join('');
   const result = sdeAlignedState.result && sdeAlignedState.result.fieldNo === sdeAlignedState.fieldNo ? sdeAlignedState.result : null;
   return '<section class="panel root-vwc-panel" id="rootZoneVwcPoc"><div class="panel-head"><div><p class="eyebrow">FIELD MOISTURE MONITORING</p><h2>Single Drainage Event (SDE)</h2><p class="muted">Select a mapped field and monitoring period.</p></div></div>' +
