@@ -1,7 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const CRON_TOKEN_SHA256 = "5a7bedc7912302819261e2428494fa64afa8ab1e69c54d4fb2ef5b05e086ff21";
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SECRET_KEY") ?? "";
 const SENTINEL1_URL = "https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1";
 const CORS = {
@@ -230,13 +230,13 @@ async function eachLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promi
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST." }, 405);
-  if (!SUPABASE_URL || !SERVICE_KEY) return json({ error: "Supabase server configuration is incomplete." }, 500);
+  if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) return json({ error: "Supabase server configuration is incomplete." }, 500);
 
   const token = req.headers.get("x-vwc-cron-token") || "";
   if (!token) return json({ error: "Scheduled capture token is required." }, 401);
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
-  const tokenHash = Array.from(new Uint8Array(digest)).map(value => value.toString(16).padStart(2, "0")).join("");
-  if (tokenHash !== CRON_TOKEN_SHA256) return json({ error: "Scheduled capture token is invalid." }, 401);
+  const anon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: authorised, error: authError } = await anon.rpc("verify_vwc_cron_token", { p_token: token });
+  if (authError || authorised !== true) return json({ error: "Scheduled capture token is invalid." }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const today = localDateIndia();
