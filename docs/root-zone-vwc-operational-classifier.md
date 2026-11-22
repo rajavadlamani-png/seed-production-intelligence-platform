@@ -1,16 +1,22 @@
-# Root-zone VWC operational classifier
+# Root-zone VWC SDE classifier — Option B
+
+## Methodology change
+
+**Option B is the selected SDE rule for this release.** It replaces the earlier draft rule that required at least 80% of total mapped field area below the VWC threshold and at least 80% valid field coverage. Those 80% criteria are **not applied** by this classifier and must not be reported as the current SDE methodology.
 
 ## Operational rule
 
-The Beta classifier applies the selected operating rule to model-generated, per-field observation outputs:
+The Beta classifier applies the following rule to operational, per-field observation outputs:
 
 - Root-zone depth: 0–30 cm.
-- Moisture threshold: VWC strictly below 0.15 m³/m³.
-- Field-area rule: at least 80% of the mapped field area is estimated below 0.15 m³/m³.
-- Temporal rule: the condition is met on two consecutive available modelled observation dates.
-- Minimum usable model coverage: at least 80% of the mapped field area must have valid model estimates on each observation date.
+- Metric: field-average root-zone volumetric water content (VWC), in m³/m³.
+- Threshold: field-average VWC **strictly below 0.15 m³/m³**. A value equal to 0.15 does not qualify.
+- Temporal rule: the condition must occur on two consecutive available modelled observation dates.
+- Trigger date: the second qualifying available observation.
+- Event window: the first qualifying date is the event start. Further consecutive qualifying observations update the same event and its last qualifying date.
+- Grouping: one event per field and observation window in this classifier preview.
 
-The area and coverage percentages are configurable in the page. The VWC threshold and depth are fixed at 0.15 m³/m³ and 0–30 cm in this release.
+“Consecutive” means consecutive available observations in the imported series, not consecutive calendar days. A non-qualifying or unevaluable observation breaks the qualifying run. Once the event run is broken, later qualifying observations do not extend that event.
 
 ## Prediction CSV
 
@@ -18,25 +24,36 @@ Use the prediction template in Satellite Intelligence. Required columns:
 
 - `field_no`
 - `date` (YYYY-MM-DD)
-- `predicted_vwc_0_30_m3_m3` (field mean estimate, m³/m³)
+- `predicted_vwc_0_30_m3_m3` (field-average estimate, m³/m³)
 - `model_version`
-- `validation_split` (use `operational` for production classification; `train`, `validation`, and `test` are reserved for model evaluation)
+- `validation_split` (use `operational` for SDE classification; `train`, `validation`, and `test` are reserved for model evaluation)
+- `observation_window_id` (required for operational predictions)
 
-Required for operational classification:
+The following spatial fields may still be included as optional metadata, but they do not determine the Option B SDE trigger:
 
-- `area_below_threshold_pct`: percentage of the total mapped field area estimated below 0.15 m³/m³. This is not the percentage of valid pixels only.
-- `valid_area_pct`: percentage of the total mapped field area with valid model output.
+- `area_below_threshold_pct`
+- `valid_area_pct`
 
-Optional model evaluation fields: `lower_90`, `upper_90`.
+The parser validates optional percentages when supplied. It does not require them for operational Option B classification.
 
-The parser rejects percentages outside 0–100 and rejects below-threshold area greater than valid area. It rejects duplicate field/date/model rows and multiple model versions in one import.
+## Graph and evidence interpretation
 
-## Event window
+The SDE graph plots the imported field-average VWC at each actual available observation date and shows a horizontal 0.15 m³/m³ threshold. Observations below the threshold are highlighted. Lines between points are visual guides only; the graph does not imply daily measurements or interpolate missing observations.
 
-A continuous run of qualifying available observations is represented as one period. The first qualifying date is shown as the period start; the second qualifying date is the trigger date; the last qualifying date is the end of the available observation run. Missing, low-coverage, or non-qualifying available prediction rows break the run. This is based on available modelled observation dates, not consecutive calendar days.
+The event CSV identifies the methodology version, field, observation window, first qualifying date, trigger date, last consecutive qualifying date, qualifying observation count, minimum and mean qualifying field-average VWC, and model version.
 
-## Critical implementation boundary
+If spatial valid-coverage information is available, it may be disclosed separately as a data-quality indicator. It is not an eligibility threshold under Option B.
 
-This release implements the operational rule engine and CSV contract. It does **not** yet produce calibrated 0–30 cm VWC predictions from Sentinel-1/2. The existing saved satellite data contain field-level index/backscatter time series, not pixel-level VWC maps or area fractions. A model trained and independently tested against representative 0–30 cm ground profiles, plus pixel/field-area feature retrieval, is still required to generate trustworthy operational prediction CSVs.
+## Important limitations
 
-The existing ground-profile import and field-held-out test metrics remain available. Operational classifications are browser-session results and are not written to Supabase or to the VM0051 audit register. A VWC-based dryness classification is not, by itself, proof that drainage was physically carried out.
+- A field-average value below 0.15 m³/m³ does not mean that every part of the field is below the threshold. Option B deliberately classifies using the field average; it does not claim an affected-area percentage.
+- A VWC-based dryness classification is not, by itself, evidence that a physical drainage operation occurred. Physical drainage should be supported separately by field confirmation or other auditable operational evidence.
+- This release implements the SDE rule and visualisation for supplied operational predictions. It does **not** establish that Sentinel-1/2 alone currently produces calibrated, independently validated 0–30 cm VWC for every field.
+- The existing spatial model POC estimates field means from cell-level predictions, but model quality, field-held-out performance, sensor coverage, and ground-sample representativeness must be reviewed before operational or audit use.
+- Operational classifications remain browser-session results in this POC. They are not written to Supabase or to the VM0051 audit register.
+
+## Change control
+
+Methodology identifier in event exports: `OPTION_B_FIELD_AVERAGE_VWC_LT_0_15`.
+
+This identifier distinguishes Option B outputs from earlier draft outputs based on field-area and coverage percentages. Do not combine the two rule sets in one audit series without explicitly versioning and explaining the methodology change.
