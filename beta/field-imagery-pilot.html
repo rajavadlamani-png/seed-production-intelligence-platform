@@ -85,7 +85,19 @@
       const SUPABASE_URL = 'https://xjtzvhtoeormizrhozoy.supabase.co';
       const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp';
       const FIELD_MAP_SERVICE = SUPABASE_URL + '/functions/v1/field-map-service';
-      const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{storage:window.sessionStorage,persistSession:true,autoRefreshToken:true}});
+      // Use the same origin-wide auth storage as the manager so this viewer can open in another tab.
+      const SUPABASE_AUTH_STORAGE_KEY = 'sb-xjtzvhtoeormizrhozoy-auth-token';
+      try {
+        if (!localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY)) {
+          const tabSession = sessionStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+          if (tabSession) localStorage.setItem(SUPABASE_AUTH_STORAGE_KEY, tabSession);
+        }
+        if (!localStorage.getItem('seed-production-active-company-id')) {
+          const tabCompanyId = sessionStorage.getItem('seed-production-active-company-id');
+          if (tabCompanyId) localStorage.setItem('seed-production-active-company-id', tabCompanyId);
+        }
+      } catch {}
+      const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {auth:{storage:window.localStorage,persistSession:true,autoRefreshToken:true}});
       const centre = {lat:20.7070,lng:81.6034};
       let boundary = null, map = null, polygons = [], objectUrl = null, mapsLoading = false, registeredFields = [], fieldBoundaries = new Map(), activeCompanyId = null, activeSession = null, registeredGeoJson = null;
       const today = new Date(), from = new Date(today); from.setDate(from.getDate()-60);
@@ -145,8 +157,8 @@
           if(sessionError)throw sessionError;
           if(!session){setStatus('registeredStatus','No active Beta sign-in was found in this browser tab. Open the Beta application, sign in, select your company workspace, then open this viewer in the same tab.');setFieldOptions([]);return;}
           activeSession=session;
-          activeCompanyId=sessionStorage.getItem('seed-production-active-company-id');
-          if(!activeCompanyId){setStatus('registeredStatus','Your sign-in is valid, but no active company workspace was found. Return to the Beta application, select SageHarvest or SeedWorks, and open this viewer again in the same tab.');setFieldOptions([]);return;}
+          activeCompanyId=localStorage.getItem('seed-production-active-company-id')||sessionStorage.getItem('seed-production-active-company-id');
+          if(!activeCompanyId){setStatus('registeredStatus','Your sign-in is valid, but no active company workspace was found. Return to the Beta application, select SageHarvest or SeedWorks, and open this viewer again.');setFieldOptions([]);return;}
           setStatus('registeredStatus','Loading measured field boundaries from your active company workspace…');
           const response=await fetch(FIELD_MAP_SERVICE,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+session.access_token,'Accept':'application/json'},body:JSON.stringify({company_id:activeCompanyId})});
           const data=await response.json();
