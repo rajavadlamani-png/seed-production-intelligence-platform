@@ -155,10 +155,18 @@
     <div class="secure-workspace-card">
       <img src="assets/sage-harvest-logo.svg" alt="Sage Harvest" class="secure-workspace-logo">
       <p class="eyebrow">AUTHENTICATION VERIFIED</p>
-      <h1>Secure sign-in successful</h1>
+      <h1>Company access verified</h1>
       <p id="secureIdentity" class="secure-identity"></p>
-      <p class="secure-next-step">Your Supabase session and active company membership have been verified. The operational screens are not yet connected to live database records, so sample data is intentionally hidden in this secure session.</p>
-      <div class="secure-status-row"><span class="secure-status-dot"></span><span>Authentication and membership check complete</span></div>
+      <div id="secureCompanyChooser" class="secure-company-chooser hidden">
+        <label for="secureCompanySelect">Choose the company workspace</label>
+        <select id="secureCompanySelect" name="company">
+          <option value="">Choose a company…</option>
+        </select>
+        <button class="primary welcome-submit" id="secureCompanyContinue" type="button" disabled>Use selected company <span>→</span></button>
+        <p id="secureCompanyFeedback" class="secure-company-feedback" role="status"></p>
+      </div>
+      <p id="secureNextStep" class="secure-next-step">Your company membership will be verified before company-specific workspace access is established.</p>
+      <div class="secure-status-row"><span class="secure-status-dot"></span><span id="secureStatusText">Authentication verified</span></div>
       <button class="primary welcome-submit" id="secureSignOut" type="button">Sign out <span>↗</span></button>
     </div>
   </section>
