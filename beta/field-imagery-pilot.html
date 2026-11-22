@@ -115,7 +115,7 @@
         select.replaceChildren();
         if(!fields.length){const option=document.createElement('option');option.value='';option.textContent='No registered fields found in this company';select.appendChild(option);select.disabled=true;return;}
         const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='Choose a field…';select.appendChild(placeholder);
-        fields.forEach(field=>{const option=document.createElement('option');option.value=field.id;const area=field.declared_area!=null?' · '+field.declared_area+' '+(field.declared_area_unit||'') : '';option.textContent=field.field_code+area;select.appendChild(option);});
+        fields.forEach(field=>{const option=document.createElement('option');option.value=field.id;const area=field.declared_area!=null?' · '+field.declared_area+' '+(field.declared_area_unit||'') : '';option.textContent=field.field_code+(field.grower_name?' · '+field.grower_name:'')+(field.village?' · '+field.village:'')+area;select.appendChild(option);});
         select.disabled=false;
         if(previous&&fields.some(field=>field.id===previous))select.value=previous;
         else select.selectedIndex=0;
