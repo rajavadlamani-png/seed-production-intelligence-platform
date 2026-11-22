@@ -16,9 +16,9 @@ assert.match(auth, /companies\(id, name, slug, status\)/, 'Company status must b
 assert.match(auth, /company\?\.status==='active'/, 'Memberships in inactive companies must be excluded');
 assert.doesNotMatch(auth, /\.maybeSingle\(/, 'Multi-company users must not be forced into a single-row membership lookup');
 assert.match(app, /memberships\.length===1/, 'A single active membership should be handled without a chooser');
-assert.match(auth, /secureCompanyChooser\?\.classList\.remove\('hidden'\)/, 'Multiple memberships must display the company chooser');
+assert.match(app, /secureCompanyChooser\?\.classList\.remove\('hidden'\)/, 'Multiple memberships must display the company chooser');
 assert.match(auth, /availableCompanyMemberships\.find\(/, 'Selection must resolve only against the returned authorized memberships');
-assert.match(auth, /activeCompanyMembership=membership/, 'The selected membership must establish the current company context');
+assert.match(app, /activeCompanyMembership=membership/, 'The selected membership must establish the current company context');
 assert.match(app, /if\(event==='SIGNED_OUT'\)[\s\S]*?clearActiveCompanyContext\(\)/, 'Signing out must clear company context');
 
 for (const id of ['secureCompanyChooser', 'secureCompanySelect', 'secureCompanyContinue', 'secureCompanyFeedback', 'secureNextStep', 'secureStatusText']) {
