@@ -141,8 +141,13 @@ async function activateBetaSession(user,requestedCompanyId=null){
   if(companyError)throw companyError;
   companyChoices=(companies||[]).map(row=>({id:row.id,name:row.name}));
   if(companyChoices.length!==companyIds.length)throw new Error('Could not load every company workspace for this account.');
-  if(companyChoices.length>1&&!requestedCompanyId&&!requestedCompanyName){setCompanyChoiceScreen();return}
-  const company=requestedCompanyId?companyChoices.find(item=>item.id===requestedCompanyId):requestedCompanyName?companyChoices.find(item=>item.name.toLowerCase().replace(/[^a-z]/g,'').includes(requestedCompanyName.toLowerCase().replace(/[^a-z]/g,''))):companyChoices[0];
+  // Restore the last active workspace when returning from the field-imagery viewer.
+  // Only reuse the saved ID if the authenticated user still has active membership.
+  let savedCompanyId=null;
+  try{savedCompanyId=localStorage.getItem('seed-production-active-company-id')||sessionStorage.getItem('seed-production-active-company-id')}catch{}
+  const preferredCompanyId=requestedCompanyId||(companyChoices.some(item=>item.id===savedCompanyId)?savedCompanyId:null);
+  if(companyChoices.length>1&&!preferredCompanyId&&!requestedCompanyName){setCompanyChoiceScreen();return}
+  const company=preferredCompanyId?companyChoices.find(item=>item.id===preferredCompanyId):requestedCompanyName?companyChoices.find(item=>item.name.toLowerCase().replace(/[^a-z]/g,'').includes(requestedCompanyName.toLowerCase().replace(/[^a-z]/g,''))):companyChoices[0];
   if(requestedCompanyName&&!company)throw new Error(`This account does not have active access to ${requestedCompanyName} yet. Ask your company administrator to activate the workspace membership.`);
   if(!company)throw new Error('Choose a company where your account has active membership.');
   activeUser=user;activeCompanyId=company.id;activeCompanyName=company.name;try{localStorage.setItem('seed-production-active-company-id',company.id);sessionStorage.setItem('seed-production-active-company-id',company.id)}catch{};fieldSignedIn=true;fieldMobile=user.email||'';applySignedInProfile(user);
