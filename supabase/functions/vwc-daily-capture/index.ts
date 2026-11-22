@@ -236,7 +236,7 @@ Deno.serve(async (req: Request) => {
   if (!token) return json({ error: "Scheduled capture token is required." }, 401);
   const anon = createClient(SUPABASE_URL, ANON_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data: authorised, error: authError } = await anon.rpc("verify_vwc_cron_token", { p_token: token });
-  if (authError || authorised !== true) return json({ error: "Scheduled capture token is invalid.", detail: authError?.message || null, code: authError?.code || null, authorised }, 401);
+  if (authError || authorised !== true) return json({ error: "Scheduled capture token is invalid." }, 401);
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
   const today = localDateIndia();
@@ -332,6 +332,9 @@ Deno.serve(async (req: Request) => {
         }
       } else if (item.satelliteError) {
         errors.push({ fieldNo: field.fieldNo, source: "Sentinel-1", error: item.satelliteError });
+      }
+      if (item.archiveError) {
+        errors.push({ fieldNo: field.fieldNo, source: "Open-Meteo historical reference", error: item.archiveError });
       }
     }
     if (upserts.length) {
