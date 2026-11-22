@@ -55,6 +55,8 @@ jobs:
           if (satellite.includes("from('vm0051_drainage_events')")) throw new Error('Historical satellite test must not read physical drainage-event records');
           NODE
 
+      - name: Test multi-company workspace selection wiring
+        run: node tests/company-membership-context.test.cjs
       - name: Test seven-day dry-spell classifier
         run: node beta/satellite-dry-spell.test.cjs
       - name: Test root-zone VWC POC data validation and metrics
