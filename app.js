@@ -978,6 +978,12 @@ const secureLoginError=document.getElementById('secureLoginError');
 const secureLoginSubmit=document.getElementById('secureLoginSubmit');
 const secureWorkspaceGate=document.getElementById('secureWorkspaceGate');
 const secureIdentity=document.getElementById('secureIdentity');
+const secureCompanyChooser=document.getElementById('secureCompanyChooser');
+const secureCompanySelect=document.getElementById('secureCompanySelect');
+const secureCompanyContinue=document.getElementById('secureCompanyContinue');
+const secureCompanyFeedback=document.getElementById('secureCompanyFeedback');
+const secureNextStep=document.getElementById('secureNextStep');
+const secureStatusText=document.getElementById('secureStatusText');
 const secureSignOut=document.getElementById('secureSignOut');
 const showPasswordRecovery=document.getElementById('showPasswordRecovery');
 const passwordRecoveryForm=document.getElementById('passwordRecoveryForm');
@@ -992,6 +998,9 @@ const saveNewPassword=document.getElementById('saveNewPassword');
 const demoDetails=document.querySelector('.demo-details');
 const supabaseConfig=window.SEED_SUPABASE_CONFIG||{};
 let supabaseAuthClient=null;
+let activeCompanyMembership=null;
+let availableCompanyMemberships=[];
+let authenticatedUser=null;
 try{
   if(window.supabase?.createClient&&supabaseConfig.url&&supabaseConfig.publishableKey){
     supabaseAuthClient=window.supabase.createClient(supabaseConfig.url,supabaseConfig.publishableKey);
@@ -1009,32 +1018,102 @@ function setSecureWorkspaceVisible(visible){
     secureWorkspaceGate?.classList.add('hidden');
   }
 }
-async function verifyCompanyMembership(user){
-  if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
-  const {data:membership,error}=await supabaseAuthClient
-    .from('company_memberships')
-    .select('company_id, role_key, status, companies(name)')
-    .eq('user_id',user.id)
-    .eq('status','active')
-    .maybeSingle();
-  if(error){
-    console.error('Company membership check failed.',error);
-    await supabaseAuthClient.auth.signOut();
-    secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
-    return false;
-  }
-  if(!membership){
-    await supabaseAuthClient.auth.signOut();
-    secureAuthError('Your account does not have an active company membership. Please ask your company administrator for access.');
-    return false;
-  }
-  const companyName=membership.companies?.name||'Authorized company';
+function companyForMembership(membership){
+  const company=membership?.companies;
+  return Array.isArray(company)?company[0]||null:company||null;
+}
+function clearActiveCompanyContext(){
+  activeCompanyMembership=null;
+  availableCompanyMemberships=[];
+  authenticatedUser=null;
+  secureCompanyChooser?.classList.add('hidden');
+  if(secureCompanySelect)secureCompanySelect.replaceChildren();
+  if(secureCompanyContinue)secureCompanyContinue.disabled=true;
+  if(secureCompanyFeedback)secureCompanyFeedback.textContent='';
+}
+function activateCompanyMembership(membership,user){
+  const company=companyForMembership(membership);
+  if(!membership||!company||company.status!=='active')return false;
+  activeCompanyMembership=membership;
+  const companyName=company.name||'Authorized company';
   const roleName=String(membership.role_key||'').replaceAll('_',' ');
   if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nCompany: '+companyName+'\nRole: '+roleName;
+  if(secureNextStep)secureNextStep.textContent='Company context selected. The operational screens are not yet connected to live database records, so sample data remains hidden in this secure session. Supabase Row Level Security remains the authority for access to company records.';
+  if(secureStatusText)secureStatusText.textContent='Company membership verified · '+companyName;
+  if(secureCompanyFeedback)secureCompanyFeedback.textContent='Current company: '+companyName+'. You can switch to another authorized company here.';
   secureLoginError?.classList.add('hidden');
   setSecureWorkspaceVisible(true);
   return true;
 }
+function populateCompanyMemberships(memberships,user){
+  availableCompanyMemberships=memberships;
+  authenticatedUser=user;
+  if(secureCompanySelect){
+    secureCompanySelect.replaceChildren();
+    const placeholder=document.createElement('option');
+    placeholder.value='';
+    placeholder.textContent='Choose a company…';
+    secureCompanySelect.append(placeholder);
+    memberships.forEach(membership=>{
+      const company=companyForMembership(membership);
+      const option=document.createElement('option');
+      option.value=membership.id;
+      option.textContent=(company?.name||'Authorized company')+' — '+String(membership.role_key||'member').replaceAll('_',' ');
+      secureCompanySelect.append(option);
+    });
+    secureCompanySelect.value='';
+  }
+  if(secureCompanyContinue)secureCompanyContinue.disabled=true;
+  if(memberships.length===1){
+    secureCompanyChooser?.classList.add('hidden');
+    activateCompanyMembership(memberships[0],user);
+    return;
+  }
+  if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nActive company memberships: '+memberships.length;
+  if(secureNextStep)secureNextStep.textContent='Your account is authorized for more than one company. Select the company you intend to work with. Company-specific operational records remain hidden until you make this selection.';
+  if(secureStatusText)secureStatusText.textContent='Authentication verified · company selection required';
+  if(secureCompanyFeedback)secureCompanyFeedback.textContent='Select an authorized company to establish the current workspace context.';
+  secureCompanyChooser?.classList.remove('hidden');
+  setSecureWorkspaceVisible(true);
+}
+async function verifyCompanyMembership(user){
+  if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
+  const {data:memberships,error}=await supabaseAuthClient
+    .from('company_memberships')
+    .select('id, company_id, role_key, status, created_at, companies(id, name, slug, status)')
+    .eq('user_id',user.id)
+    .eq('status','active')
+    .order('created_at',{ascending:true});
+  if(error){
+    console.error('Company membership check failed.',error);
+    clearActiveCompanyContext();
+    await supabaseAuthClient.auth.signOut();
+    secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
+    return false;
+  }
+  const activeMemberships=(memberships||[]).filter(membership=>{
+    const company=companyForMembership(membership);
+    return membership.status==='active'&&company?.status==='active';
+  });
+  if(!activeMemberships.length){
+    clearActiveCompanyContext();
+    await supabaseAuthClient.auth.signOut();
+    secureAuthError('Your account does not have an active membership in an active company. Please ask your company administrator for access.');
+    return false;
+  }
+  populateCompanyMemberships(activeMemberships,user);
+  return true;
+}
+secureCompanySelect?.addEventListener('change',()=>{
+  if(secureCompanyContinue)secureCompanyContinue.disabled=!secureCompanySelect.value;
+});
+secureCompanyContinue?.addEventListener('click',()=>{
+  const membership=availableCompanyMemberships.find(item=>item.id===secureCompanySelect?.value);
+  if(!membership){if(secureCompanyFeedback)secureCompanyFeedback.textContent='Select a company from the authorized list.';return}
+  if(!activateCompanyMembership(membership,authenticatedUser)){
+    if(secureCompanyFeedback)secureCompanyFeedback.textContent='This company is no longer available. Sign out and sign in again to refresh your access.';
+  }
+});
 secureLoginForm?.addEventListener('submit',async event=>{
   event.preventDefault();
   secureLoginError?.classList.add('hidden');
@@ -1112,6 +1191,7 @@ setNewPasswordForm?.addEventListener('submit',async event=>{
 });
 secureSignOut?.addEventListener('click',async()=>{
   if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
+  clearActiveCompanyContext();
   setSecureWorkspaceVisible(false);
   if(secureLoginForm)secureLoginForm.reset();
   showPasswordFlow('login');
@@ -1120,7 +1200,12 @@ secureSignOut?.addEventListener('click',async()=>{
 if(supabaseAuthClient){
   supabaseAuthClient.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY'){
+      clearActiveCompanyContext();
       showPasswordFlow('set-password');
+      setSecureWorkspaceVisible(false);
+    }
+    if(event==='SIGNED_OUT'){
+      clearActiveCompanyContext();
       setSecureWorkspaceVisible(false);
     }
   });
