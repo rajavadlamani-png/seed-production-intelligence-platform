@@ -672,4 +672,58 @@ begin
 end $test$;
 
 reset role;
+
+-- Tenant identity hardening: RLS should hide out-of-scope rows from a normal
+-- authenticated update; separately, the trigger itself must reject a tenant move
+-- when exercised by the privileged test role (to distinguish trigger coverage from RLS).
+set local role postgres;
+do $test$
+declare denied boolean := false;
+begin
+  begin
+    update public.fields
+       set company_id='20000000-0000-0000-0000-000000000020'
+     where id='10000000-0000-0000-0000-000000000014';
+  exception when others then
+    if sqlerrm = 'company_id is immutable; create a new record through an approved transfer workflow' then
+      denied := true;
+    else
+      raise;
+    end if;
+  end;
+  if not denied then
+    raise exception 'FAIL: immutable company_id trigger did not reject tenant move';
+  end if;
+end $test$;
+reset role;
+do $test$
+declare actual_company uuid;
+begin
+  select company_id into actual_company from public.fields
+   where id='10000000-0000-0000-0000-000000000014';
+  if actual_company is distinct from '10000000-0000-0000-0000-000000000010'::uuid then
+    raise exception 'FAIL: attempted tenant move changed the field company_id';
+  end if;
+end $test$;
+
+-- Company administration guard: customer admins cannot directly change a
+-- company's identity (slug). Such changes must use a future trusted procedure.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000050',true);
+-- RLS may reject this UPDATE by filtering the target row (UPDATE 0)
+-- rather than raising an exception. Verify the effective outcome below.
+update public.companies
+   set slug='tampered-alpha'
+ where id='10000000-0000-0000-0000-000000000010';
+reset role;
+do $test$
+declare actual_slug text;
+begin
+  select slug into actual_slug from public.companies
+   where id='10000000-0000-0000-0000-000000000010';
+  if actual_slug is distinct from 'synthetic-alpha' then
+    raise exception 'FAIL: denied company slug update changed the slug';
+  end if;
+end $test$;
+
 rollback;
