@@ -67,21 +67,6 @@ create policy "Company members can read VWC capture runs"
 grant select on public.field_vwc_capture_runs to authenticated;
 revoke insert, update, delete on public.field_vwc_capture_runs from anon, authenticated;
 
-create or replace function public.verify_vwc_cron_token(p_token text)
-returns boolean
-language sql
-security definer
-set search_path = ''
-as $$
-  select exists (
-    select 1 from vault.decrypted_secrets
-    where name = 'vwc_daily_capture_token'
-      and decrypted_secret = p_token
-  );
-$$;
-revoke all on function public.verify_vwc_cron_token(text) from public;
-grant execute on function public.verify_vwc_cron_token(text) to anon, authenticated;
-
 select vault.create_secret(
   encode(gen_random_bytes(32), 'hex'),
   'vwc_daily_capture_token',
