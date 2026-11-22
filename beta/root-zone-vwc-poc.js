@@ -234,19 +234,19 @@ function rootVwcClassifyOperational(predictions){
  const fields=[];
  for(const items of grouped.values()){
   items.sort((a,b)=>a.date.localeCompare(b.date));
-  const fieldNo=items[0].fieldNo,windowId=items[0].windowId;let run=[],event=null,evaluable=0;
+  const fieldNo=items[0].fieldNo,windowId=items[0].windowId;let run=[],event=null,eventClosed=false,evaluable=0;
   for(const p of items){
    const valid=Number.isFinite(p.predictedVwc);if(valid)evaluable++;
    const qualifies=valid&&p.predictedVwc<ROOT_ZONE_VWC_THRESHOLD;
    if(qualifies){
-    if(event){event.lastDate=p.date;event.qualifyingObservationCount++;event.minimumMeanVwc=Math.min(event.minimumMeanVwc,p.predictedVwc);event.vwcSum+=p.predictedVwc;event.meanVwc=event.vwcSum/event.qualifyingObservationCount}
+    if(event){if(!eventClosed){event.lastDate=p.date;event.qualifyingObservationCount++;event.minimumMeanVwc=Math.min(event.minimumMeanVwc,p.predictedVwc);event.vwcSum+=p.predictedVwc;event.meanVwc=event.vwcSum/event.qualifyingObservationCount}}
     else{run.push(p);if(run.length===2){const first=run[0],second=run[1];event={eventKey:[fieldNo,windowId,'VWC_DRYNESS'].join('::'),fieldNo,windowId,from:first.date,triggerDate:second.date,lastDate:second.date,qualifyingObservationCount:2,minimumMeanVwc:Math.min(first.predictedVwc,second.predictedVwc),vwcSum:first.predictedVwc+second.predictedVwc,meanVwc:(first.predictedVwc+second.predictedVwc)/2,modelVersion:first.modelVersion}}}
-   }else if(!event)run=[];
+   }else{run=[];if(event)eventClosed=true}
   }
   fields.push({fieldNo,windowId,observationCount:items.length,evaluableCount:evaluable,event,status:event?'ONE EVENT · TRIGGERED':evaluable?'NO QUALIFYING TWO-OBSERVATION TRIGGER':'NO EVALUABLE VWC OBSERVATIONS'});
  }
  const events=fields.map(x=>x.event).filter(Boolean);
- return {fields,events,threshold:ROOT_ZONE_VWC_THRESHOLD,observationRule:'Field-average 0–30 cm VWC strictly below 0.15 m³/m³ on two consecutive available observations; one event per field and observation window; later qualifying observations update that event'};
+ return {fields,events,threshold:ROOT_ZONE_VWC_THRESHOLD,observationRule:'Field-average 0–30 cm VWC strictly below 0.15 m³/m³ on two consecutive available observations; one event per field and observation window; later consecutive qualifying observations update that event'};
 }
 function rootVwcSdeChartMarkup(items){
  const ordered=items.slice().sort((a,b)=>a.date.localeCompare(b.date));if(!ordered.length)return '';
