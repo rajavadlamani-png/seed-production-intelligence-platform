@@ -11,7 +11,7 @@ function sdeAlignedDateBounds(fieldNo) {
   (satelliteOnlyRuns || []).forEach(run => (satelliteOnlyRunFields(run) || []).filter(f => String(f.fieldNo || '') === String(fieldNo)).forEach(field => {
     (Array.isArray(field.observationSeries) ? field.observationSeries : []).forEach(obs => {
       const date = String(obs.date || obs.interval?.to || obs.interval?.from || '').slice(0, 10);
-      if (/^\\d{4}-\\d{2}-\\d{2}$/.test(date) && obs.vv !== null && obs.vv !== undefined && obs.vh !== null && obs.vh !== undefined) dates.push(date);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date) && obs.vv !== null && obs.vv !== undefined && obs.vh !== null && obs.vh !== undefined) dates.push(date);
     });
   }));
   dates.sort();
