@@ -16,7 +16,7 @@ The Beta classifier applies the following rule to operational, per-field observa
 - Event window: the first qualifying date is the event start. Further consecutive qualifying observations update the same event and its last qualifying date.
 - Grouping: one event per field and observation window in this classifier preview.
 
-“Consecutive” means consecutive available observations in the imported series, not consecutive calendar days. A non-qualifying or unevaluable observation breaks the qualifying run. Once the event run is broken, later qualifying observations do not extend that event.
+“Consecutive” means consecutive available observations in the imported series, not consecutive calendar days. A non-qualifying available observation breaks the qualifying run. Once the event run is broken, later qualifying observations do not extend that event.
 
 ## Prediction CSV
 
