@@ -630,3 +630,12 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .ram-live-mic{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:14px;border:0;border-radius:10px;background:#eef1e9;color:var(--forest);cursor:pointer}
 .ram-live-mic:disabled{opacity:.5;cursor:not-allowed}
 .ram-live-mic>span{font-size:23px}.ram-live-mic b{font-size:11px}.ram-live-mic small{font-size:9px}
+
+/* Multi-company membership selection. The selected company is UI context only;
+   Supabase Row Level Security remains the authorization boundary. */
+.secure-company-chooser{display:grid;gap:10px;margin:16px 0;padding:16px;border:1px solid #dce5dc;border-radius:12px;background:#f8faf6}
+.secure-company-chooser label{color:#304b36;font-size:11px;font-weight:750}
+.secure-company-chooser select{width:100%;min-height:42px;padding:10px 12px;border:1px solid #cbd8cc;border-radius:8px;background:#fff;color:#203f2d;font:inherit;font-size:12px}
+.secure-company-chooser button:disabled{opacity:.5;cursor:not-allowed}
+.secure-company-feedback{margin:0;color:#607066;font-size:10px;line-height:1.5}
+.secure-company-chooser.hidden{display:none!important}
