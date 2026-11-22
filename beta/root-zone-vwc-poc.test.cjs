@@ -1,5 +1,5 @@
 const fs=require('node:fs'),vm=require('node:vm');
-const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;globalThis.__train=rootVwcTrainSatelliteModel;globalThis.__features=rootVwcSatelliteFeatureRows;globalThis.__match=rootVwcMatchGroundToSatellite;';
+const source=fs.readFileSync('beta/root-zone-vwc-poc.js','utf8')+'\nglobalThis.__parse=rootVwcParseCsv;globalThis.__simple=rootVwcBuildSimpleOperationalCsv;globalThis.__ground=rootVwcBuildGround;globalThis.__pred=rootVwcBuildPredictions;globalThis.__metrics=rootVwcMetrics;globalThis.__classify=rootVwcClassifyOperational;globalThis.__train=rootVwcTrainSatelliteModel;globalThis.__features=rootVwcSatelliteFeatureRows;globalThis.__match=rootVwcMatchGroundToSatellite;';
 const c={console,Date,Map,Set,URL,URLSearchParams,Blob,Math,Number,Object,Array,String,Error,RegExp,satelliteOnlyRunFields:r=>r.evidence_payload.fields};vm.runInNewContext(source,c);
 const assert=(x,m)=>{if(!x)throw new Error(m)};
 const h='field_no,date,sample_point_id,depth_top_cm,depth_bottom_cm,vwc_m3_m3,gravimetric_water_content_kg_kg,measurement_method,validation_split,soil_texture,bulk_density_g_cm3,crop,crop_stage,latitude,longitude,probe_id,notes';
@@ -51,3 +51,14 @@ console.log('Sentinel-1/2 ridge training, field-held-out evaluation and sensor-d
 
 const duplicateMatch=c.__match([{fieldNo:'MATCH',date:'2026-07-01',actualVwc:.12,split:'train'},{fieldNo:'MATCH',date:'2026-07-02',actualVwc:.13,split:'train'}],[{fieldNo:'MATCH',date:'2026-07-01',features:{ndvi:.5,ndmi:.2,vv:-10,vh:-17}}],5);
 assert(duplicateMatch.length===1,'one satellite acquisition must not be duplicated as two independent ground/satellite calibration pairs');
+
+const simpleCsv='field_no,date,field_average_vwc_0_30_m3_m3,observation_window_id,model_version\nSDE-01,2026-07-01,0.149,W1,satellite-model-v1\nSDE-01,2026-07-06,0.140,W1,satellite-model-v1\nSDE-02,2026-07-01,0.150,W1,satellite-model-v1\nSDE-02,2026-07-06,0.149,W1,satellite-model-v1';
+const simpleRows=c.__simple(simpleCsv);
+assert(simpleRows.length===4&&simpleRows.every(x=>x.split==='operational'),'simple field VWC CSV must import all rows as operational observations');
+const simpleEvents=c.__classify(simpleRows);
+assert(simpleEvents.events.length===1&&simpleEvents.events[0].fieldNo==='SDE-01'&&simpleEvents.events[0].triggerDate==='2026-07-06','simple import must apply strict Option B field-average threshold');
+const defaultWindow=c.__simple('field_no,date,field_average_vwc_0_30_m3_m3\nSDE-03,2026-07-01,0.12');
+assert(defaultWindow[0].windowId==='DEFAULT'&&defaultWindow[0].modelVersion==='Imported VWC estimate','optional metadata should receive safe defaults');
+let simpleFailed=false;try{c.__simple('field_no,date,field_average_vwc_0_30_m3_m3\nSDE-04,2026-07-01,1.2')}catch(e){simpleFailed=/between 0 and 1/.test(e.message)}assert(simpleFailed,'simple import must reject VWC outside the physical range');
+simpleFailed=false;try{c.__simple('field_no,date,field_average_vwc_0_30_m3_m3\nSDE-04,2026-07-01,0.12\nSDE-04,2026-07-01,0.11')}catch(e){simpleFailed=/duplicate/.test(e.message)}assert(simpleFailed,'simple import must reject duplicate field/date/window rows');
+console.log('Simple SDE field-average VWC CSV import tests passed.');
