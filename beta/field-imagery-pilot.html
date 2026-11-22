@@ -27,7 +27,7 @@
   </style>
 </head>
 <body>
-  <header class="viewer-header"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"><span>SEED PRODUCTION MONITOR · FIELD IMAGERY PILOT</span><a class="back-manager" href="./index.html" aria-label="Back to Manager View">← Back to Manager View</a></header>
+  <header class="viewer-header"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"><span>SEED PRODUCTION MONITOR · FIELD IMAGERY PILOT</span><a class="back-manager" href="./index.html" id="backToManager" aria-label="Back to Manager View">← Back to Manager View</a></header>
   <main>
     <div class="intro">
       <p class="eyebrow">FIELD DIGITAL TWIN · PILOT</p>
@@ -212,6 +212,16 @@
           setStatus('sentinelStatus','Sentinel-2 image received · '+$('mode').value+' · '+fromValue+' to '+toValue+' · '+Math.round(blob.size/1024)+' KB. This is a bounding-box image; the field polygon is not a pixel mask.');
         }catch(err){setStatus('sentinelStatus','Sentinel-2 request failed: '+(err.message||String(err)));}
         finally{button.disabled=false;button.textContent='Request Sentinel-2 image';}
+      });
+      const backLink=$('backToManager');
+      backLink.addEventListener('click',event=>{
+        const referrer=document.referrer;
+        if(!referrer)return;
+        try{
+          const previous=new URL(referrer);
+          const sameManager=previous.origin===location.origin && /\\/beta\\/(?:index\\.html)?$/.test(previous.pathname);
+          if(sameManager && history.length>1){event.preventDefault();history.back();}
+        }catch(_){}
       });
       loadRegisteredFields();
     })();
