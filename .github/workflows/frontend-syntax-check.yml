@@ -28,6 +28,8 @@ jobs:
           node --check beta/vm0051-audit.js
           node --check beta/satellite-only.js
           node --check beta/root-zone-vwc-poc.js
+          node --check beta/sde-model-aligned.js
+          node --check beta/sde-model-aligned.test.cjs
           node --check beta/root-zone-vwc-poc.test.cjs
       - name: Check Beta company selector wiring
         run: |
@@ -59,3 +61,5 @@ jobs:
         run: node beta/satellite-dry-spell.test.cjs
       - name: Test root-zone VWC POC data validation and metrics
         run: node beta/root-zone-vwc-poc.test.cjs
+      - name: Test SDE Sentinel-1 / Open-Meteo model alignment
+        run: node beta/sde-model-aligned.test.cjs
