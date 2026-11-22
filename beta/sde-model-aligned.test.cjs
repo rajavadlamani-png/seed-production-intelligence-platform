@@ -56,5 +56,5 @@ assert.equal(predictions[0].split, 'operational');
 assert.equal(predictions[0].windowId, 'OPEN-METEO-ERA5LAND-7-28CM');
 assert.ok(predictions[0].predictedVwc >= 0 && predictions[0].predictedVwc <= 1);
 
-assert.throws(() => context.sdeAlignedFitModel(pairs.slice(0, 7)), /At least 8 matched/);
+assert.throws(() => context.sdeAlignedFitModel(pairs.slice(0, 7)), /At least 8 matched/);\nassert.throws(() => context.sdeAlignedFitModel(pairs.map(x => ({ ...x, fieldNo: 'ONE-FIELD' }))), /at least 2 mapped fields/);
 console.log('SDE Sentinel-1 / Open-Meteo model-alignment tests passed.');
