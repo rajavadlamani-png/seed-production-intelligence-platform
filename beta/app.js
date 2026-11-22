@@ -2,12 +2,22 @@ const STAGES = ['First Inspection Report', 'Vegetative Report', 'Pre Flowering R
 const KINDWISE_FUNCTION = 'kindwise-diagnose';
 const SUPABASE_URL = 'https://xjtzvhtoeormizrhozoy.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp';
-// Keep authentication scoped to this browser tab session. Unlike localStorage,
-// sessionStorage is cleared when the tab/window session ends.
-try { localStorage.removeItem('sb-xjtzvhtoeormizrhozoy-auth-token'); } catch {}
+// Share the authenticated session across the manager and field-imagery tabs.
+// Migrate an existing tab-scoped session once, without overwriting a newer shared session.
+const SUPABASE_AUTH_STORAGE_KEY = 'sb-xjtzvhtoeormizrhozoy-auth-token';
+try {
+  if (!localStorage.getItem(SUPABASE_AUTH_STORAGE_KEY)) {
+    const tabSession = sessionStorage.getItem(SUPABASE_AUTH_STORAGE_KEY);
+    if (tabSession) localStorage.setItem(SUPABASE_AUTH_STORAGE_KEY, tabSession);
+  }
+  if (!localStorage.getItem('seed-production-active-company-id')) {
+    const tabCompanyId = sessionStorage.getItem('seed-production-active-company-id');
+    if (tabCompanyId) localStorage.setItem('seed-production-active-company-id', tabCompanyId);
+  }
+} catch {}
 const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: window.sessionStorage,
+    storage: window.localStorage,
     persistSession: true,
     autoRefreshToken: true
   }
@@ -59,7 +69,7 @@ function updateCompanyChoicesUI(){const authForm=document.getElementById('compan
 function setCompanyChoiceScreen(){const authSelect=document.getElementById('authCompanySelect');authSelect.replaceChildren(...companyChoices.map(company=>{const option=document.createElement('option');option.value=company.id;option.textContent=company.name;return option}));document.getElementById('betaSignInForm').hidden=true;document.getElementById('passwordRecoveryForm').hidden=true;document.getElementById('companyChoiceForm').hidden=false;document.getElementById('authTitle').textContent='Choose your company workspace';document.querySelector('.auth-gate-card>.muted').textContent='Your account has access to more than one company. Choose which workspace to open.';authSelect.value=companyChoices[0]?.id||'';setCompanyChoiceStatus('')}
 function setSignedInUI(user){applySignedInProfile(user);document.body.classList.add('auth-ready');document.body.classList.remove('auth-required','auth-loading');document.querySelector('.prototype-tag').textContent=`${activeCompanyName} · live records`;document.querySelector('#betaSignOut').title=`Signed in as ${user.email||'beta user'}`;setCompanyBranding(activeCompanyName);updateCompanyChoicesUI()}
 function fieldOfficerDisplayName(){return activeUser?.email?.toLowerCase()==='amarasing.rajput@seedworks.com'&&selectedOfficer==='FA-01'?'Amar Singh':selectedOfficer}
-function setSignedOutUI(){activeProfile=null;role=seedworksFieldApp?'officer':'manager';ramMutedForInspection=false;ramInspectionDrafts?.clear();askChat=[];activeUser=null;activeCompanyId=null;activeCompanyName='';try{sessionStorage.removeItem('seed-production-active-company-id')}catch{};records=[];companyChoices=[];fieldSignedIn=false;fieldMobile='';document.body.classList.remove('auth-ready','auth-loading');document.body.classList.add('auth-required');document.querySelector('.prototype-tag').textContent='Company beta · live records';document.querySelector('#companySwitchWrap').hidden=true;document.querySelector('#betaPassword').value='';showSignIn()}
+function setSignedOutUI(){activeProfile=null;role=seedworksFieldApp?'officer':'manager';ramMutedForInspection=false;ramInspectionDrafts?.clear();askChat=[];activeUser=null;activeCompanyId=null;activeCompanyName='';try{localStorage.removeItem('seed-production-active-company-id');sessionStorage.removeItem('seed-production-active-company-id')}catch{};records=[];companyChoices=[];fieldSignedIn=false;fieldMobile='';document.body.classList.remove('auth-ready','auth-loading');document.body.classList.add('auth-required');document.querySelector('.prototype-tag').textContent='Company beta · live records';document.querySelector('#companySwitchWrap').hidden=true;document.querySelector('#betaPassword').value='';showSignIn()}
 async function loadBetaRecords(){
   const {data,error}=await supabaseClient.from('beta_field_records').select('id,season_key,field_no,record_data').eq('company_id',activeCompanyId).order('updated_at',{ascending:false});
   if(error)throw error;
@@ -135,7 +145,7 @@ async function activateBetaSession(user,requestedCompanyId=null){
   const company=requestedCompanyId?companyChoices.find(item=>item.id===requestedCompanyId):requestedCompanyName?companyChoices.find(item=>item.name.toLowerCase().replace(/[^a-z]/g,'').includes(requestedCompanyName.toLowerCase().replace(/[^a-z]/g,''))):companyChoices[0];
   if(requestedCompanyName&&!company)throw new Error(`This account does not have active access to ${requestedCompanyName} yet. Ask your company administrator to activate the workspace membership.`);
   if(!company)throw new Error('Choose a company where your account has active membership.');
-  activeUser=user;activeCompanyId=company.id;activeCompanyName=company.name;try{sessionStorage.setItem('seed-production-active-company-id',company.id)}catch{};fieldSignedIn=true;fieldMobile=user.email||'';applySignedInProfile(user);
+  activeUser=user;activeCompanyId=company.id;activeCompanyName=company.name;try{localStorage.setItem('seed-production-active-company-id',company.id);sessionStorage.setItem('seed-production-active-company-id',company.id)}catch{};fieldSignedIn=true;fieldMobile=user.email||'';applySignedInProfile(user);
   await loadBetaRecords();if(!seedworksFieldApp&&role==='manager'){try{await loadVm0051SavedRuns()}catch(_){satelliteEvidenceSavedRuns=[]}}if(!seedworksFieldApp&&(role==='manager'||role==='territory')){try{await loadProductionPlan(productionPlan.season)}catch(planErr){planLoadError=planErr.message||'Could not load the saved production plan.'}}setSignedInUI(user);render();
 }
 async function initBetaConnection(){
