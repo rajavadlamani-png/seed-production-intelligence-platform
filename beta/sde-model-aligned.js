@@ -43,6 +43,7 @@ function sdeAlignedArchiveUrl(point, from, to) {
     start_date: from,
     end_date: to,
     daily: 'soil_moisture_7_to_28cm_mean',
+    models: 'era5_land',
     timezone: 'auto'
   });
   return 'https://archive-api.open-meteo.com/v1/archive?' + params.toString();
@@ -60,7 +61,7 @@ async function sdeAlignedFetchReference(field, from, to) {
     const value = Number(values[i]);
     if (values[i] !== null && values[i] !== undefined && Number.isFinite(value) && value >= 0 && value <= 1) reference.set(String(date).slice(0, 10), value);
   });
-  return { fieldNo: String(field.fieldNo), reference, model: data.model || 'Open-Meteo historical reanalysis', grid: { latitude: data.latitude, longitude: data.longitude, elevation: data.elevation }, pointMethod: point.method || 'saved field coordinate' };
+  return { fieldNo: String(field.fieldNo), reference, model: 'Open-Meteo ERA5-Land reanalysis', grid: { latitude: data.latitude, longitude: data.longitude, elevation: data.elevation }, pointMethod: point.method || 'saved field coordinate' };
 }
 function sdeAlignedMatchReference(satelliteRows, reference, toleranceDays = 2) {
   const pairs = [];
