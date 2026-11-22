@@ -156,7 +156,7 @@ async function sdeAlignedGenerate(fieldNo, from, to) {
   }));
   const satellitePredictions = stored.filter(row => row.source === 'sentinel1_model_estimate').map(row => ({
     fieldNo: String(fieldNo), date: String(row.observed_on).slice(0, 10),
-    predictedVwc: Number(row.vwc_m3_m3), windowId: 'SENTINEL1-MODEL-ALIGNED'
+    predictedVwc: Number(row.vwc_m3_m3), windowId: 'SENTINEL1-MODEL-ALIGNED', split: 'operational', modelVersion: row.model_version || 'S1-OPENMETEO-ALIGN-0.2'
   }));
   const classified = satellitePredictions.length ? rootVwcClassifyOperational(satellitePredictions) : null;
   const fieldStatus = classified?.fields?.[0] || { event: null, evaluableCount: 0 };
