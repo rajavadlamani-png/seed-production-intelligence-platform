@@ -131,7 +131,7 @@
           activeSession=session;
           activeCompanyId=sessionStorage.getItem('seed-production-active-company-id');
           if(!activeCompanyId){setStatus('registeredStatus','Your sign-in is valid, but no active company workspace was found. Return to the Beta application, select SageHarvest or SeedWorks, and open this viewer again in the same tab.');setFieldOptions([]);return;}
-          setStatus('registeredStatus','Loading fields from your active company workspace…');
+          setStatus('registeredStatus','Loading measured field boundaries from your active company workspace…');
           const response=await fetch(FIELD_MAP_SERVICE,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+session.access_token,'Accept':'application/json'},body:JSON.stringify({company_id:activeCompanyId})});
           const data=await response.json();
           if(!response.ok||!data.ok)throw new Error(data.error||('HTTP '+response.status));
@@ -142,9 +142,10 @@
           }
           setFieldOptions(registeredFields);
           const withBoundary=registeredFields.filter(field=>fieldBoundaries.has(field.id)).length;
-          setStatus('Loaded '+registeredFields.length+' field(s) from '+(data.company_name||'your active company')+'; '+withBoundary+' have mapped boundaries. Select a field to display it.');
+          setStatus('Loaded '+registeredFields.length+' measured field(s) from '+(data.company_name||'your active company')+'. Source: '+(data.source_records??'')+' application records. All '+withBoundary+' fields have mapped boundaries.');
+          if(registeredFields.length===1){select.value=registeredFields[0].id;selectRegisteredField(select.value);}
         }catch(error){
-          setStatus('Could not load company fields: '+(error.message||String(error)));
+          setStatus('Could not load measured company fields: '+(error.message||String(error)));
           setFieldOptions([]);
         }finally{button.disabled=false;}
       }
