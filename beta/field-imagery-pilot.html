@@ -20,7 +20,8 @@
     .keyrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.btn{border:0;border-radius:9px;padding:11px 15px;font-weight:700;cursor:pointer;background:var(--green);color:#fff}.btn.secondary{background:#edf2ec;color:var(--green);border:1px solid var(--line)}.btn:disabled{opacity:.55;cursor:wait}
     .help{font-size:12px;color:var(--muted);margin:7px 0}.help a{color:var(--green)}.status{padding:10px 12px;background:#f2f5f1;border-radius:9px;font-size:13px;margin-top:12px;overflow-wrap:anywhere}
     #map{height:430px;background:#e7ece6;border-radius:12px;margin-top:12px}.map-placeholder{height:100%;display:grid;place-items:center;text-align:center;padding:20px;color:var(--muted)}
-    .image-frame{min-height:300px;background:#f2f4f1;border:1px dashed #cbd5cc;border-radius:12px;display:grid;place-items:center;overflow:hidden;margin-top:12px}.image-frame img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}.image-frame p{padding:20px;text-align:center;color:var(--muted)}
+    #sessionDiagnostics{border-color:#c9a75a}#sessionDiagnosticStatus{white-space:pre-line}
+        .image-frame{min-height:300px;background:#f2f4f1;border:1px dashed #cbd5cc;border-radius:12px;display:grid;place-items:center;overflow:hidden;margin-top:12px}.image-frame img{display:block;width:100%;height:auto;max-height:520px;object-fit:contain}.image-frame p{padding:20px;text-align:center;color:var(--muted)}
     .toolbar{display:grid;grid-template-columns:1fr 1fr;gap:10px}.notice{border-left:3px solid var(--gold);padding:10px 13px;background:#fbf7ed;border-radius:0 8px 8px 0;font-size:13px;margin:18px 0}
     footer{max-width:1200px;margin:20px auto 40px;padding:0 20px;color:var(--muted);font-size:12px}
     @media(max-width:760px){.grid{grid-template-columns:1fr}.keyrow{grid-template-columns:1fr}#map{height:340px}.toolbar{grid-template-columns:1fr}main{margin:20px auto}}
@@ -29,6 +30,11 @@
 <body>
   <header class="viewer-header"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"><span>SEED PRODUCTION MONITOR · FIELD IMAGERY PILOT</span><a class="back-manager" href="./index.html" target="_self" id="backToManager" aria-label="Back to Manager View">← Back to Manager View</a></header>
   <main>
+    <section class="panel" id="sessionDiagnostics" style="margin-bottom:18px">
+      <h2>Session connection check</h2>
+      <p class="muted">Temporary diagnostic · safe to share with your administrator. No passwords or access tokens are displayed.</p>
+      <div id="sessionDiagnosticStatus" class="status" role="status">Checking browser session storage…</div>
+    </section>
     <div class="intro">
       <p class="eyebrow">FIELD DIGITAL TWIN · PILOT</p>
       <h1>Field imagery viewer</h1>
@@ -104,6 +110,24 @@
       const iso = d => d.toISOString().slice(0,10);
       $('from').value = iso(from); $('to').value = iso(today);
       function setStatus(id, message){$(id).textContent=message;}
+      async function updateSessionDiagnostics(stage='Initial check'){
+        const key=SUPABASE_AUTH_STORAGE_KEY;
+        let stored=false, expiry='Not available', storageError='None';
+        try{const raw=localStorage.getItem(key);if(raw){const parsed=JSON.parse(raw);stored=!!parsed.access_token;if(parsed.expires_at)expiry=new Date(parsed.expires_at*1000).toLocaleString();}}
+        catch(error){storageError=error.message||String(error);}
+        const companyId=(()=>{try{return localStorage.getItem('seed-production-active-company-id')||'Not set';}catch(error){return 'Storage blocked: '+(error.message||String(error));}})();
+        let sessionReadable='Not checked', sessionError='None';
+        try{const result=await supabaseClient?.auth.getSession();sessionReadable=String(!!result?.data?.session);sessionError=result?.error?.message||'None';}
+        catch(error){sessionReadable='Check failed';sessionError=error.message||String(error);}
+        setStatus('sessionDiagnosticStatus',
+          stage+'\nPage: '+location.pathname+
+          '\nShared session stored: '+stored+
+          '\nSupabase session readable: '+sessionReadable+
+          '\nActive company ID stored: '+(companyId!=='Not set'?'Yes':'No')+
+          '\nSession expiry: '+expiry+
+          '\nStorage error: '+storageError+
+          '\nSession error: '+sessionError);
+      }
       function loadGoogleMap(apiKey){
         if(!apiKey){setStatus('mapStatus','Google Maps key is not configured. Check the GOOGLE_MAPS_API_KEY Supabase Edge Function Secret.');return;}
         if(map||mapsLoading)return;
@@ -152,9 +176,11 @@
         const select=$('registeredField'),button=$('refreshFields');
         if(!supabaseClient){setStatus('registeredStatus','Supabase client could not load. Refresh this page.');return;}
         button.disabled=true;select.disabled=true;setStatus('registeredStatus','Checking your existing Beta sign-in…');
+        await updateSessionDiagnostics('Viewer page opened');
         try{
           const {data:{session},error:sessionError}=await supabaseClient.auth.getSession();
           if(sessionError)throw sessionError;
+          await updateSessionDiagnostics('Supabase session check completed');
           if(!session){setStatus('registeredStatus','No active Beta sign-in was found in this browser tab. Open the Beta application, sign in, select your company workspace, then open this viewer in the same tab.');setFieldOptions([]);return;}
           activeSession=session;
           activeCompanyId=localStorage.getItem('seed-production-active-company-id')||sessionStorage.getItem('seed-production-active-company-id');
