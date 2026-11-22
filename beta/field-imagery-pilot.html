@@ -54,11 +54,9 @@
       <section class="panel">
         <h2>2. Google satellite view</h2>
         <p class="muted">Boundary overlay and visual inspection only. Google imagery is not sent to the AI or Sentinel analytics service.</p>
-        <label for="mapsKey">Google Maps JavaScript API key / Maps Demo Key</label>
-        <div class="keyrow"><input id="mapsKey" type="password" autocomplete="off" placeholder="Paste your restricted Maps key here"><button id="loadMap" class="btn" type="button">Load map</button></div>
-        <p class="help">For a no-cost prototype, request a <a href="https://developers.google.com/maps/documentation/javascript/get-api-key" target="_blank" rel="noopener">Google Maps Demo Key</a> if your account is eligible. Do not commit a key to GitHub. For production, restrict it to the app's website and Maps JavaScript API.</p>
-        <div id="map"><div class="map-placeholder">Enter your Demo Key and load the map. Then upload any field KML; changing the KML replaces the boundary and automatically recentres the map.</div></div>
-        <div id="mapStatus" class="status" role="status">Paste your Google Maps Demo Key above and select Load map. The key is used only in this browser session.</div>
+        <p class="help">The restricted Google Maps key is loaded automatically from the authenticated field-map service. It is restricted to this website and the Maps JavaScript API; it is not a private server-only secret because Google Maps JavaScript runs in your browser.</p>
+        <div id="map"><div class="map-placeholder">Loading your company workspace and Google satellite map…</div></div>
+        <div id="mapStatus" class="status" role="status">Waiting for your authenticated workspace configuration…</div>
       </section>
       <section class="panel">
         <h2>3. Sentinel-2 image</h2>
@@ -92,6 +90,22 @@
       const iso = d => d.toISOString().slice(0,10);
       $('from').value = iso(from); $('to').value = iso(today);
       function setStatus(id, message){$(id).textContent=message;}
+      function loadGoogleMap(apiKey){
+        if(!apiKey){setStatus('mapStatus','Google Maps key is not configured. Check the GOOGLE_MAPS_API_KEY Supabase Edge Function Secret.');return;}
+        if(map||mapsLoading)return;
+        mapsLoading=true;setStatus('mapStatus','Loading Google satellite map…');
+        window.gm_authFailure=()=>{mapsLoading=false;setStatus('mapStatus','Google rejected the Maps key. Check Maps JavaScript API enablement, billing, and website/API restrictions.');};
+        window.initSageHarvestMap=()=>{
+          map=new google.maps.Map($('map'),{center:centre,zoom:16,mapTypeId:'satellite',mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
+          mapsLoading=false;setStatus('mapStatus','Google satellite map loaded. Select a registered field or upload a KML to display its boundary.');
+          if(boundary)drawPolygon();
+        };
+        const script=document.createElement('script');
+        script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&callback=initSageHarvestMap&v=weekly';
+        script.async=true;script.defer=true;
+        script.onerror=()=>{mapsLoading=false;setStatus('mapStatus','Google Maps JavaScript API could not be loaded. Check network access, API enablement, billing, and key restrictions.');};
+        document.head.appendChild(script);
+      }
       function bbox(points){
         const lons=points.map(p=>p.lng),lats=points.map(p=>p.lat);
         return [Math.min(...lons),Math.min(...lats),Math.max(...lons),Math.max(...lats)];
@@ -135,6 +149,7 @@
           const response=await fetch(FIELD_MAP_SERVICE,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY,'Authorization':'Bearer '+session.access_token,'Accept':'application/json'},body:JSON.stringify({company_id:activeCompanyId})});
           const data=await response.json();
           if(!response.ok||!data.ok)throw new Error(data.error||('HTTP '+response.status));
+          loadGoogleMap(data.google_maps_api_key);
           registeredFields=data.fields||[];fieldBoundaries.clear();
           for(const feature of (data.boundaries?.features||[])){
             const fieldId=feature.properties?.field_id;
@@ -178,24 +193,6 @@
           if(points.length<3)throw new Error('No valid field polygon with at least three points was found.');
           updateBoundary(points,file.name);
         }catch(err){setStatus('boundaryStatus',err.message||'Could not read the KML file.');}
-      });
-      $('loadMap').addEventListener('click',()=>{
-        const key=$('mapsKey').value.trim();
-        if(!key){setStatus('mapStatus','Enter a Google Maps key first.');return;}
-        if(map){setStatus('mapStatus','Map is already loaded. Upload or select another KML to update the field boundary.');return;}
-        if(mapsLoading)return;
-        mapsLoading=true;setStatus('mapStatus','Loading Google Maps…');
-        window.gm_authFailure=()=>{mapsLoading=false;setStatus('mapStatus','Google rejected the key. Check API enablement, key restrictions, and billing/demo-key eligibility.');};
-        const script=document.createElement('script');
-        script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(key)+'&callback=initSageHarvestMap&v=weekly';
-        script.async=true;script.defer=true;
-        script.onerror=()=>{mapsLoading=false;setStatus('mapStatus','Google Maps JavaScript API could not be loaded. Check network access and the key.');};
-        document.head.appendChild(script);
-        window.initSageHarvestMap=()=>{
-          map=new google.maps.Map($('map'),{center:centre,zoom:16,mapTypeId:'satellite',mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
-          mapsLoading=false;setStatus('mapStatus','Google satellite map loaded. Upload or replace the KML; the boundary and map view will update automatically.');
-          if(boundary)drawPolygon();
-        };
       });
       $('runSentinel').addEventListener('click',async()=>{
         if(!boundary){setStatus('sentinelStatus','Upload a KML boundary first.');return;}
