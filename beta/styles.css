@@ -1021,3 +1021,18 @@ body.seedworks-field-app [data-company-choice="sageharvest"]{display:none!import
 .root-vwc-sde-status p{font-size:11px;line-height:1.5;margin:5px 0;color:var(--muted)}
 .root-vwc-error{font-size:11px;color:#a12c20;background:#fff4f1;border-left:3px solid #c2410c;padding:9px 11px}
 @media(max-width:760px){.root-vwc-controls{grid-template-columns:1fr 1fr}.root-vwc-controls label:first-child{grid-column:1/-1}.root-vwc-controls button{grid-column:1/-1}}
+
+
+/* Daily source-priority VWC graph */
+.root-vwc-chart-scroll{max-width:100%;overflow-x:auto;overflow-y:hidden;padding:8px 2px 4px;border:1px solid var(--line);border-radius:8px;background:var(--panel,#fff)}
+.root-vwc-chart-svg{display:block;max-width:none;overflow:visible}
+.root-vwc-source-legend{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 4px;font-size:10px;color:var(--muted)}
+.root-vwc-source-legend span{display:inline-flex;align-items:center;gap:6px}
+.root-vwc-source-legend i{display:inline-block;width:9px;height:9px;border-radius:50%}
+.root-vwc-source-legend i.open-meteo{background:#166534}
+.root-vwc-source-legend i.sentinel1{background:#c2410c}
+.root-vwc-capture-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.root-vwc-capture-summary span{display:block;min-width:0;border:1px solid var(--line);border-radius:8px;padding:9px;background:var(--panel,#fff)}
+.root-vwc-capture-summary b{display:block;font-size:15px;color:var(--forest);overflow-wrap:anywhere}
+.root-vwc-capture-summary small{display:block;font-size:9px;line-height:1.4;color:var(--muted);margin-top:4px}
+@media(max-width:760px){.root-vwc-capture-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}

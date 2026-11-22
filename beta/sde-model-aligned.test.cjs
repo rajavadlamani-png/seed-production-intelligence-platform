@@ -59,16 +59,20 @@ assert.equal(predictions[0].windowId, 'OPEN-METEO-ERA5LAND-7-28CM');
 assert.ok(predictions[0].predictedVwc >= 0 && predictions[0].predictedVwc <= 1);
 
 const chart = context.sdeAlignedChartMarkup([
-  { fieldNo: 'F-1', date: '2026-08-01', predictedVwc: 0.35 },
-  { fieldNo: 'F-1', date: '2026-08-08', predictedVwc: 0.35 },
-  { fieldNo: 'F-1', date: '2026-08-15', predictedVwc: 0.20 },
-  { fieldNo: 'F-1', date: '2026-08-22', predictedVwc: 0.15 }
+  { fieldNo: 'F-1', date: '2026-08-01', predictedVwc: 0.35, source: 'open_meteo_soil_moisture', sourceLabel: 'Open-Meteo primary', depthCm: '9–27' },
+  { fieldNo: 'F-1', date: '2026-08-08', predictedVwc: 0.35, source: 'sentinel1_model_estimate', sourceLabel: 'Sentinel-1 model fallback', depthCm: '7–28' },
+  { fieldNo: 'F-1', date: '2026-08-15', predictedVwc: 0.20, source: 'open_meteo_soil_moisture', sourceLabel: 'Open-Meteo primary', depthCm: '9–27' },
+  { fieldNo: 'F-1', date: '2026-08-22', predictedVwc: 0.15, source: 'sentinel1_model_estimate', sourceLabel: 'Sentinel-1 model fallback', depthCm: '7–28' }
 ]);
 assert.match(chart, />35%<\/text>/);
 assert.match(chart, />20%<\/text>/);
 assert.match(chart, />15%<\/text>/);
 assert.match(chart, /15% reference threshold/);
 assert.match(chart, /VWC/);
+assert.match(chart, /Open-Meteo primary/);
+assert.match(chart, /Sentinel-1 VV\/VH/);
+assert.match(chart, /root-vwc-chart-scroll/);
+assert.equal((chart.match(/font-weight=\"750\"/g) || []).length, 4, 'every observation must render a visible percentage label');
 
 assert.throws(() => context.sdeAlignedFitModel(pairs.slice(0, 7)), /At least 8 matched/);
 assert.throws(() => context.sdeAlignedFitModel(pairs.map(x => ({ ...x, fieldNo: 'ONE-FIELD' }))), /at least 2 mapped fields/);
