@@ -19,7 +19,7 @@ assert.match(auth, /memberships\.length===1/, 'A single active membership should
 assert.match(auth, /secureCompanyChooser\?\.classList\.remove\('hidden'\)/, 'Multiple memberships must display the company chooser');
 assert.match(auth, /availableCompanyMemberships\.find\(/, 'Selection must resolve only against the returned authorized memberships');
 assert.match(auth, /activeCompanyMembership=membership/, 'The selected membership must establish the current company context');
-assert.match(auth, /if\(event==='SIGNED_OUT'\)[\s\S]*?clearActiveCompanyContext\(\)/, 'Signing out must clear company context');
+assert.match(app, /if\(event==='SIGNED_OUT'\)[\s\S]*?clearActiveCompanyContext\(\)/, 'Signing out must clear company context');
 
 for (const id of ['secureCompanyChooser', 'secureCompanySelect', 'secureCompanyContinue', 'secureCompanyFeedback', 'secureNextStep', 'secureStatusText']) {
   assert.ok(html.includes('id="' + id + '"'), 'Missing company selection UI element: ' + id);
