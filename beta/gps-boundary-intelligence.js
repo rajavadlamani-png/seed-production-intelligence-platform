@@ -80,9 +80,10 @@
     const assigned=Number(record && record.assignedAcres);
     const acreageReference=Number.isFinite(assigned)&&assigned>0?assigned:null;
     const acreageVariance=acreageReference&&calculated>0?(calculated-acreageReference)/acreageReference*100:null;
-    if(acreageVariance!==null&&Math.abs(acreageVariance)>10)flags.push('GPS area differs from assigned acreage by more than 10%');
+    const recordedVariance=Number.isFinite(registered)&&registered>0&&calculated>0?(calculated-registered)/registered*100:null;
+    if(recordedVariance!==null&&Math.abs(recordedVariance)>10)flags.push('Calculated polygon area differs from the recorded measured area by more than 10%');
     return {path:path,calculatedArea:calculated,registeredArea:Number.isFinite(registered)&&registered>0?registered:null,
-      maxAccuracy:maxAccuracy,meanAccuracy:meanAccuracy,acreageReference:acreageReference,acreageVariance:acreageVariance,
+      maxAccuracy:maxAccuracy,meanAccuracy:meanAccuracy,acreageReference:acreageReference,acreageVariance:acreageVariance,recordedVariance:recordedVariance,
       selfIntersect:selfCross,flags:flags,valid:path.length>=3&&!selfCross&&points.length===raw.length};
   }
   function fieldOptions(list, selectedId) {
@@ -113,7 +114,7 @@
   }
   function assessmentMarkup(record,a) {
     const flags=a.flags.length?'<ul class="gps-boundary-flags">'+a.flags.map(function(f){return '<li>'+esc(f)+'</li>';}).join('')+'</ul>':'<p class="gps-boundary-ok">No geometry issues detected by the current checks.</p>';
-    return '<div class="gps-boundary-summary"><div><small>FIELD</small><b>'+esc(record.fieldNo||'—')+'</b></div><div><small>GPS POINTS</small><b>'+a.path.length+'</b></div><div><small>CALCULATED POLYGON AREA</small><b>'+(a.calculatedArea>0?a.calculatedArea.toFixed(2)+' ac':'—')+'</b></div><div><small>RECORDED GPS AREA</small><b>'+(a.registeredArea!==null?a.registeredArea.toFixed(2)+' ac':'—')+'</b></div><div><small>MEAN GPS ACCURACY</small><b>'+(a.meanAccuracy!==null?'±'+a.meanAccuracy.toFixed(1)+' m':'Not recorded')+'</b></div><div><small>ASSIGNED AREA VARIANCE</small><b>'+(a.acreageVariance!==null?(a.acreageVariance>0?'+':'')+a.acreageVariance.toFixed(1)+'%':'Not comparable')+'</b></div></div>'+flags;
+    return '<div class="gps-boundary-summary"><div><small>FIELD</small><b>'+esc(record.fieldNo||'—')+'</b></div><div><small>GPS POINTS</small><b>'+a.path.length+'</b></div><div><small>CALCULATED POLYGON AREA</small><b>'+(a.calculatedArea>0?a.calculatedArea.toFixed(2)+' ac':'—')+'</b></div><div><small>RECORDED GPS AREA</small><b>'+(a.registeredArea!==null?a.registeredArea.toFixed(2)+' ac':'—')+'</b></div><div><small>MEAN GPS ACCURACY</small><b>'+(a.meanAccuracy!==null?'±'+a.meanAccuracy.toFixed(1)+' m':'Not recorded')+'</b></div><div><small>ALLOCATED AREA DIFFERENCE · NOT A GEOMETRY TEST</small><b>'+(a.acreageVariance!==null?(a.acreageVariance>0?'+':'')+a.acreageVariance.toFixed(1)+'%':'Not comparable')+'</b></div></div>'+flags;
   }
   function initMap() {
     if(mapInstance)return mapInstance;
