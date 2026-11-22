@@ -424,13 +424,43 @@ function rootVwcSimpleFieldResultsMarkup(){
  const features=rootVwcSatelliteFeatureRows(),model=rootVwcBuildPeriodSatelliteModel(features);
  return '<div class="root-vwc-model-output"><h3>Satellite-only moisture-condition model</h3>'+rootVwcPeriodSatelliteModelMarkup(model)+'</div><p class="root-vwc-muted">Absolute root-zone VWC (0–30 cm) and the physical drainage-event YES/NO rule are not inferred from this relative satellite index. Those fields remain unassessed rather than assigning unsupported values.</p>';
 }
+function rootVwcBuildSimpleOperationalCsv(text){
+ const rows=rootVwcParseCsv(text),required=['field_no','date','field_average_vwc_0_30_m3_m3'];
+ for(const h of required)if(!(h in (rows[0]||{})))throw new Error('CSV is missing required column: '+h);
+ const seen=new Set();
+ return rows.map(r=>{
+  const n=r.__row,fieldNo=String(r.field_no||'').trim(),date=rootVwcDate(r.date,n),vwc=rootVwcNum(r.field_average_vwc_0_30_m3_m3,'field_average_vwc_0_30_m3_m3',n),windowId=String(r.observation_window_id||'DEFAULT').trim()||'DEFAULT',modelVersion=String(r.model_version||'Imported VWC estimate').trim()||'Imported VWC estimate';
+  if(!fieldNo)throw new Error('Row '+n+': field_no is required.');
+  if(vwc<0||vwc>1)throw new Error('Row '+n+': field-average VWC must be between 0 and 1 m³/m³.');
+  const key=[fieldNo,date,windowId].join('|');if(seen.has(key))throw new Error('Row '+n+': duplicate field/date/window observation.');seen.add(key);
+  return {fieldNo,date,predictedVwc:vwc,modelVersion,split:'operational',windowId};
+ });
+}
+function rootVwcDownloadSimpleTemplate(){
+ rootVwcDownload('field-average-vwc-observations-template.csv',[['field_no','date','field_average_vwc_0_30_m3_m3','observation_window_id','model_version']]);
+}
+function rootVwcSimpleSdeMarkup(){
+ const operational=rootZoneVwcPredictions.filter(p=>p.split==='operational');
+ if(!operational.length)return '<p class="root-vwc-muted">No field observations imported yet.</p>';
+ const result=rootVwcClassifyOperational(rootZoneVwcPredictions);
+ const cards=result.fields.map(f=>{
+  const items=operational.filter(p=>p.fieldNo===f.fieldNo&&p.windowId===f.windowId).sort((a,b)=>a.date.localeCompare(b.date));
+  const event=f.event;
+  return '<article class="root-vwc-sde-chart"><div class="root-vwc-section-head"><h3>'+rootVwcEscape(f.fieldNo)+'</h3><b>'+(event?'SDE dryness trigger identified':'No SDE trigger')+'</b></div><p class="root-vwc-muted">'+items.length+' observations · '+rootVwcEscape(f.windowId)+'</p>'+rootVwcSdeChartMarkup(items)+(event?'<p><b>Trigger date:</b> '+event.triggerDate+' · <b>First qualifying date:</b> '+event.from+'</p>':'')+'</article>';
+ }).join('');
+ const events=result.events.map(e=>'<tr><td>'+rootVwcEscape(e.fieldNo)+'</td><td>'+rootVwcEscape(e.windowId)+'</td><td>'+e.from+'</td><td>'+e.triggerDate+'</td><td>'+e.lastDate+'</td><td>'+e.qualifyingObservationCount+'</td><td>'+e.minimumMeanVwc.toFixed(3)+'</td></tr>').join('');
+ return '<div class="root-vwc-kpis"><article><small>Fields assessed</small><b>'+result.fields.length+'</b></article><article><small>SDE dryness triggers</small><b>'+result.events.length+'</b></article><article><small>VWC threshold</small><b>&lt; 0.15 m³/m³</b></article></div>'+cards+'<h3>Triggered events</h3>'+(events?'<div class="table-wrap"><table class="satellite-only-table"><thead><tr><th>Field</th><th>Window</th><th>First qualifying date</th><th>Trigger date</th><th>Last qualifying date</th><th>Observations</th><th>Minimum VWC</th></tr></thead><tbody>'+events+'</tbody></table></div>':'<p class="root-vwc-muted">No field has met the two-consecutive-observation rule.</p>')+'<div class="root-vwc-actions"></div>';
+}
 function rootZoneVwcPocPage(){
- if(typeof satelliteOnlyEnsureLoaded==='function')satelliteOnlyEnsureLoaded();
- return '<section class="panel root-vwc-panel" id="rootZoneVwcPoc"><div class="panel-head"><div><p class="eyebrow">SATELLITE-ONLY FIELD MOISTURE MODEL</p><h2>Satellite moisture condition</h2><p class="muted">Field-wise relative moisture-condition index · monitoring period 1 June–19 November 2026</p></div><span class="status-chip planned">PROVISIONAL MODEL</span></div>'+rootVwcSimpleFieldResultsMarkup()+'<details class="root-vwc-section"><summary><strong>Update field estimates</strong></summary><p class="root-vwc-muted">To refresh estimates, import measured 0–30 cm soil samples and the matching Sentinel-1/2 spatial cell CSV, then run the estimator.</p><div class="root-vwc-actions"><button type="button" class="outline" id="rootVwcExportFieldBoundaries">Export saved field polygons</button><a class="outline root-vwc-upload" href="tools/sentinel_spatial_extractor.py" download>Download Sentinel extractor</a><a class="outline root-vwc-upload" href="tools/requirements.txt" download>Download requirements</a><button type="button" class="outline" id="rootVwcGroundTemplate">Download soil sample template</button><label class="outline root-vwc-upload" for="rootVwcGroundFile">Import soil measurements</label><input hidden type="file" id="rootVwcGroundFile" accept=".csv,text/csv"><label class="outline root-vwc-upload" for="rootVwcSpatialFile">Import satellite cell data</label><input hidden type="file" id="rootVwcSpatialFile" accept=".csv,text/csv"><button type="button" class="primary" id="rootVwcRunSpatial" '+(rootZoneVwcSpatialRows.length&&rootZoneVwcCompletePoints.length?'':'disabled')+'>Calculate field VWC</button></div><p class="root-vwc-status">'+rootVwcEscape(rootZoneVwcSpatialStatus||'No field estimates have been calculated yet. Estimates require actual satellite cell data matched to measured soil samples. No values are fabricated.')+'</p></details><p class="root-vwc-muted">SDE rule (Option B): field-average 0–30 cm VWC strictly below 0.15 m³/m³ on two consecutive available observations. No field-area percentage or valid-coverage threshold is applied. This identifies a dryness condition, not proof of a physical drainage action.</p></section>';
+ return '<section class="panel root-vwc-panel" id="rootZoneVwcPoc"><div class="panel-head"><div><p class="eyebrow">FIELD MOISTURE MONITORING</p><h2>Single Drainage Event (SDE)</h2><p class="muted">Field-average root-zone moisture · 0–30 cm</p></div></div><div class="sat-evidence-note"><b>Option B rule</b><p>Field-average VWC strictly below 0.15 m³/m³ on two consecutive available observation dates. The second observation is the trigger date.</p></div><div class="root-vwc-actions"><button type="button" class="outline" id="rootVwcSimpleTemplate">Download CSV template</button><label class="primary root-vwc-upload" for="rootVwcSimpleFile">Import field VWC observations</label><input hidden type="file" id="rootVwcSimpleFile" accept=".csv,text/csv">'+(rootZoneVwcPredictions.some(p=>p.split==='operational')?'<button type="button" class="outline" id="rootVwcExportOperational">Export SDE event CSV</button>':'')+'</div><p class="root-vwc-status">'+rootVwcEscape(rootZoneVwcPredictionStatus||'Import one CSV containing field number, observation date and field-average 0–30 cm VWC.')+'</p>'+rootVwcSimpleSdeMarkup()+'<p class="root-vwc-muted">The uploaded VWC values must be produced by a suitable, documented estimation method. This page does not infer absolute root-zone VWC directly from NDVI, NDMI or radar values. A dryness trigger is not proof that a physical drainage operation occurred. Imported data remains in this browser session.</p></section>';
 }
 function rootZoneVwcBindFile(id,handler){const input=document.getElementById(id);if(!input)return;input.addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{await handler(await file.text(),file.name);renderManager()}catch(err){notify(err?.message||'CSV import failed.')}finally{e.target.value=''}})}
 function bindRootZoneVwcPocPage(){
  document.getElementById('rootVwcExportFieldBoundaries')?.addEventListener('click',rootZoneVwcDownloadFieldBoundaryGeoJson);
+ document.getElementById('rootVwcSimpleTemplate')?.addEventListener('click',rootVwcDownloadSimpleTemplate);
+ document.getElementById('rootVwcExportOperational')?.addEventListener('click',rootVwcDownloadOperational);
+ rootZoneVwcBindFile('rootVwcSimpleFile',async(text,name)=>{const p=rootVwcBuildSimpleOperationalCsv(text);rootZoneVwcPredictions=rootZoneVwcPredictions.filter(x=>x.split!=='operational').concat(p);rootZoneVwcPredictionStatus='Imported '+p.length+' field-average VWC observations across '+new Set(p.map(x=>x.fieldNo)).size+' fields. File: '+name;notify('Field VWC observations imported.');});
+
  document.getElementById('rootVwcSpatialTemplate')?.addEventListener('click',rootVwcDownloadSpatialTemplate);
  document.getElementById('rootVwcDownloadSpatial')?.addEventListener('click',rootVwcDownloadSpatialResults);
  document.getElementById('rootVwcRunSpatial')?.addEventListener('click',()=>{try{rootVwcRunSpatialEstimation();renderManager()}catch(error){notify(error?.message||'Spatial VWC estimation failed.')}});
