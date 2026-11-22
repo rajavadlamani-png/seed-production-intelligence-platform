@@ -215,12 +215,13 @@
       });
       const backLink=$('backToManager');
       backLink.addEventListener('click',event=>{
-        const referrer=document.referrer;
-        if(!referrer)return;
         try{
-          const previous=new URL(referrer);
-          const sameManager=previous.origin===location.origin && /\\/beta\\/(?:index\\.html)?$/.test(previous.pathname);
-          if(sameManager && history.length>1){event.preventDefault();history.back();}
+          const previous=new URL(document.referrer);
+          const sameManager=previous.origin===location.origin && previous.pathname.includes('/beta/');
+          if(sameManager && history.length>1){
+            event.preventDefault();
+            history.back();
+          }
         }catch(_){}
       });
       loadRegisteredFields();
