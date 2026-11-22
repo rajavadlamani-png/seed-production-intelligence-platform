@@ -23,7 +23,7 @@ assert(classified.fields.find(x=>x.fieldNo==='F-WET').events===undefined&&classi
 assert(classified.fields.find(x=>x.fieldNo==='F-ONE').event===null,'one qualifying observation must not trigger an event');
 const broken=c.__classify([op('F-GAP','2026-07-01',.14),op('F-GAP','2026-07-06',.13),op('F-GAP','2026-07-12',.16),op('F-GAP','2026-07-18',.12)]);
 assert(broken.events.length===1&&broken.events[0].lastDate==='2026-07-06'&&broken.events[0].qualifyingObservationCount===2,'a non-qualifying observation must close the event run');
-assert(c.__classify([op('F-TRAIN','2026-07-01',.10,'W1').constructor===Object?{...op('F-TRAIN','2026-07-01',.10),split:'test'}:op('F-TRAIN','2026-07-01',.10)]).events.length===0,'training/validation/test rows must not be used for operational classification');
+const nonOperational=op('F-TRAIN','2026-07-01',.10);nonOperational.split='test';assert(c.__classify([nonOperational]).events.length===0,'training/validation/test rows must not be used for operational classification');
 console.log('Option B field-average VWC SDE classification tests passed.');
 
 const modelGround=[],modelFeatures=[];
