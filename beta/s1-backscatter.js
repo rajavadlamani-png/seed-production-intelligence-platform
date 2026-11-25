@@ -183,7 +183,7 @@ function s1BackscatterExportCsv() {
   })));
   if (!rows.length) return;
   const keys = Object.keys(rows[0]);
-  const csv = [keys.join(","), ...rows.map(row => keys.map(k => '"' + String(row[k] ?? "").replace(/"/g,'""') + '"').join(","))].join("\\r\\n");
+  const csv = [keys.join(","), ...rows.map(row => keys.map(k => '"' + String(row[k] ?? "").replace(/"/g,'""') + '"').join(","))].join("\r\n");
   s1BackscatterDownload("sentinel1-backscatter-observations.csv", new Blob([csv], { type: "text/csv;charset=utf-8" }));
 }
 function s1BackscatterExportPng() {
