@@ -29,6 +29,7 @@ jobs:
           node --check beta/satellite-only.js
           node --check beta/root-zone-vwc-poc.js
           node --check beta/sde-model-aligned.js
+          node --check beta/s1-backscatter.js
           node --check beta/sde-model-aligned.test.cjs
           node --check beta/root-zone-vwc-poc.test.cjs
       - name: Check Beta company selector wiring
@@ -44,6 +45,10 @@ jobs:
           if (!html.includes('src="app.js?')) throw new Error('Beta HTML does not load its app script');
           if (!html.includes('src="satellite-only.js?')) throw new Error('Beta HTML does not load the satellite-only module');
           if (!html.includes('src="root-zone-vwc-poc.js?')) throw new Error('Beta HTML does not load the root-zone VWC POC module');
+          if (!html.includes('src="s1-backscatter.js?')) throw new Error('Beta HTML does not load the Sentinel-1 backscatter module');
+          if (!html.includes('href="s1-backscatter.css?')) throw new Error('Beta HTML does not load the Sentinel-1 backscatter styles');
+          const sde = readFileSync('beta/sde-model-aligned.js', 'utf8');
+          if (!sde.includes('s1BackscatterPanelMarkup()') || !sde.includes('bindS1BackscatterPanel()')) throw new Error('Backscatter module is not additively mounted in the existing SDE page');
           if (!html.includes('data-view="satellite-intelligence"')) throw new Error('Missing Satellite Intelligence navigation');
           const satellite = readFileSync('beta/satellite-only.js', 'utf8');
           for (const forbidden of ['inspectionReports', 'vm0051_drainage_events', 'vm0051_drainage_event_evidence', 'vm0051_drainage_event_audit']) {
