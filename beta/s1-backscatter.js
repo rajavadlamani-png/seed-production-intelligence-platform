@@ -3,7 +3,7 @@ let s1BackscatterState = {
   selectedIds: [], from: "", to: "", bufferM: 50, relativeOrbit: "", orbitDirection: "AUTO",
   loading: false, loadingSaved: false, loadRequestId: 0, savedKey: "", error: "", result: null, annotations: [],
   annotationFieldId: "", annotationType: "planting", annotationDate: "", annotationNotes: "",
-  showVV: true, showVH: true, showDifference: true
+  showVV: true, showVH: true, showDifference: true, showValueLabels: true
 };
 
 function s1BackscatterEscape(value) {
@@ -74,7 +74,7 @@ function s1BackscatterChartMarkup() {
   const fieldLines = fields.map((field, fieldIndex) => {
     const color = colors[fieldIndex % colors.length];
     const rows = (field.observations || []).slice().sort((a,b) => a.date.localeCompare(b.date));
-    return metrics.map(metric => {
+    return metrics.map((metric, metricIndex) => {
       const segments = [];
       let current = [];
       rows.forEach(row => {
@@ -94,7 +94,9 @@ function s1BackscatterChartMarkup() {
         const title = row.date + " · " + field.fieldNo + " · orbit " + row.relativeOrbit + " " + row.orbitDirection +
           " · VV " + Number(row.vvDb).toFixed(2) + " dB · VH " + Number(row.vhDb).toFixed(2) +
           " dB · VV−VH " + Number(row.vvMinusVhDb).toFixed(2) + " dB · " + row.pixelCount + " valid pixels";
-        return '<circle cx="' + x(row.date).toFixed(1) + '" cy="' + y(value).toFixed(1) + '" r="4.2" fill="' + color + '" stroke="Canvas" stroke-width="1.4"><title>' + s1BackscatterEscape(title) + '</title></circle>';
+        const pointX = x(row.date).toFixed(1), pointY = y(value).toFixed(1);
+        const valueLabel = s1BackscatterState.showValueLabels ? '<text x="' + pointX + '" y="' + (y(value) - 9 - metricIndex * 11).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="' + color + '" stroke="Canvas" stroke-width="3" paint-order="stroke">' + value.toFixed(2) + '</text>' : "";
+        return '<circle cx="' + pointX + '" cy="' + pointY + '" r="4.2" fill="' + color + '" stroke="Canvas" stroke-width="1.4"><title>' + s1BackscatterEscape(title) + '</title></circle>' + valueLabel;
       }).join("");
       return polylines + markers;
     }).join("");
@@ -117,6 +119,9 @@ function s1BackscatterChartMarkup() {
   const fieldLegend = fields.map((f,i)=>'<span><i style="background:' + colors[i%colors.length] + '"></i>' + s1BackscatterEscape(f.fieldNo) + ' · orbit ' + f.orbit + ' ' + s1BackscatterEscape(f.orbitDirection) + '</span>').join("");
   const metricLegend = metrics.map(m=>'<span><i class="s1-line-swatch" style="' + (m.dash ? 'border-top-style:dashed;' : '') + '"></i>' + m.label + '</span>').join("");
   return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + '</div>';
+}
+function s1BackscatterInterpretationMarkup() {
+  return '<section class="s1-interpretation" aria-label="How to interpret the Sentinel-1 graph"><h3>How to interpret this graph</h3><div class="s1-interpretation-grid"><article><b>VV (dB)</b><p>Radar response in VV polarisation. It can change with surface water, soil-surface conditions, crop structure and field conditions.</p></article><article><b>VH (dB)</b><p>Radar response in VH polarisation. It is influenced by vegetation structure and volume scattering, as well as surface conditions.</p></article><article><b>VV − VH (dB)</b><p>The difference between VV and VH. Use it as a supporting indicator of changes in the relationship between the two polarisation responses.</p></article></div><h4>Reading changes over time</h4><ul><li>A less negative value means higher backscatter; a more negative value means lower backscatter.</li><li>Compare observations from the same relative orbit and pass direction.</li><li>A sudden change is a signal to investigate, not proof of a field operation.</li><li>A change supported by subsequent acquisitions is more meaningful than an isolated fluctuation.</li><li>Interpret the signal alongside crop stage, rainfall, irrigation and field records.</li></ul><div class="s1-drainage-method"><b>How a candidate drainage period is assessed</b><p>Establish the pre-change baseline, identify a change in VV and/or VH, check whether it persists in later acquisitions, and bound the period between the last pre-change observation and the first observation showing the sustained change. Compare that interval with independent rainfall, irrigation and field-operation evidence. The satellite observations define an interval, not an exact drainage date.</p><p><b>Evidence levels:</b> Candidate change → Persistent change → Corroborated drainage event. A satellite-only signal must not be labelled a confirmed drainage event.</p></div></section>';
 }
 function s1BackscatterTableMarkup() {
   const rows = (s1BackscatterState.result?.fields || []).flatMap(field =>
@@ -144,7 +149,8 @@ function s1BackscatterPanelMarkup() {
     (s1BackscatterState.error ? '<p class="s1-error" role="alert">' + s1BackscatterEscape(s1BackscatterState.error) + '</p>' : '') +
     (result ? '<div class="s1-result-summary"><b>' + total + ' acquisition observations saved</b><span>' + s1BackscatterEscape(result.from) + ' to ' + s1BackscatterEscape(result.to) + ' · ' + result.bufferM + ' m buffer</span><span>Processing: ' + s1BackscatterEscape(result.processingVersion) + '</span></div>' : '') +
     '<div class="s1-metric-toggles"><label><input type="checkbox" data-s1-metric="showVV" ' + (s1BackscatterState.showVV?"checked":"") + '> VV (dB)</label><label><input type="checkbox" data-s1-metric="showVH" ' + (s1BackscatterState.showVH?"checked":"") + '> VH (dB)</label><label><input type="checkbox" data-s1-metric="showDifference" ' + (s1BackscatterState.showDifference?"checked":"") + '> VV − VH (dB)</label></div>' +
-    s1BackscatterChartMarkup() + s1BackscatterTableMarkup() + errors +
+    '<div class="s1-value-label-toggle"><label><input type="checkbox" data-s1-value-labels="true" ' + (s1BackscatterState.showValueLabels ? "checked" : "") + '> Show numerical values on graph</label><small>Values are displayed in dB at each actual acquisition point.</small></div>' +
+    s1BackscatterChartMarkup() + s1BackscatterInterpretationMarkup() + s1BackscatterTableMarkup() + errors +
     '<div class="s1-actions"><button type="button" class="outline" id="s1ExportCsv" ' + (total?"":"disabled") + '>Export CSV</button><button type="button" class="outline" id="s1ExportPng" ' + (total?"":"disabled") + '>Export chart PNG</button></div>' +
     '<div class="s1-annotation-panel"><h3>Field activity markers</h3><p class="muted">Add a planting, drainage or harvest date. These are user-entered annotations, not satellite-detected events.</p><div class="s1-annotation-form"><label>Field<select id="s1AnnotationField">' + annotationOptions + '</select></label><label>Event<select id="s1AnnotationType"><option value="planting">Planting</option><option value="drainage">Drainage</option><option value="harvest">Harvest</option></select></label><label>Date<input id="s1AnnotationDate" type="date" value="' + s1BackscatterEscape(s1BackscatterState.annotationDate) + '"></label><label>Notes<input id="s1AnnotationNotes" type="text" maxlength="300" placeholder="Optional context"></label><button type="button" class="outline" id="s1SaveAnnotation" ' + (fields.length?"":"disabled") + '>Save marker</button></div><div class="s1-annotation-list">' + (annotationList || '<small>No user-entered markers in this date range.</small>') + '</div></div>' +
     '<p class="root-vwc-muted">Default date window: last 180 days (approximately one crop season, editable). The centre is taken from a saved GPS point where available; otherwise the coordinate-wise median of valid saved GPS boundary points is used. The initial 50 m radius is a screening default, not a validated field sampling footprint. Orbit and pass are selected per field by the most frequent available combination unless specified. A gap longer than 18 days is shown as a line break; no values are interpolated.</p>' +
@@ -290,6 +296,10 @@ function bindS1BackscatterPanel() {
       return;
     }
     s1BackscatterLoadSaved(true);
+  }));
+  panel.querySelectorAll("[data-s1-value-labels]").forEach(input => input.addEventListener("change", () => {
+    s1BackscatterState.showValueLabels = input.checked;
+    renderManager();
   }));
   panel.querySelectorAll("[data-s1-metric]").forEach(input => input.addEventListener("change", () => {
     s1BackscatterState[input.dataset.s1Metric] = input.checked;
