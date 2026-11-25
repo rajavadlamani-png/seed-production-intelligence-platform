@@ -1,7 +1,7 @@
 // Sentinel-1 backscatter trend screening. Kept separate from the existing VWC/SDE logic.
 let s1BackscatterState = {
   selectedIds: [], from: "", to: "", bufferM: 50, relativeOrbit: "", orbitDirection: "AUTO",
-  loading: false, error: "", result: null, annotations: [],
+  loading: false, loadingSaved: false, savedKey: "", error: "", result: null, annotations: [],
   annotationFieldId: "", annotationType: "planting", annotationDate: "", annotationNotes: "",
   showVV: true, showVH: true, showDifference: true
 };
@@ -19,9 +19,11 @@ function s1BackscatterEnsureDefaults(fields) {
   if (!s1BackscatterState.selectedIds.length && fields.length) s1BackscatterState.selectedIds = [String(fields[0].id)];
   const first = fields.find(f => String(f.id) === s1BackscatterState.selectedIds[0]) || fields[0];
   if (first && (!s1BackscatterState.from || !s1BackscatterState.to)) {
-    const bounds = typeof sdeAlignedDateBounds === "function" ? sdeAlignedDateBounds(first.fieldNo) : {};
-    s1BackscatterState.from = s1BackscatterState.from || bounds.from || "";
-    s1BackscatterState.to = s1BackscatterState.to || bounds.to || "";
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    const start = new Date(today + "T00:00:00Z");
+    start.setUTCDate(start.getUTCDate() - 180);
+    s1BackscatterState.from = s1BackscatterState.from || start.toISOString().slice(0, 10);
+    s1BackscatterState.to = s1BackscatterState.to || today;
   }
   if (!s1BackscatterState.annotationFieldId && first) s1BackscatterState.annotationFieldId = String(first.id);
   if (!s1BackscatterState.annotationDate) s1BackscatterState.annotationDate = s1BackscatterState.from;
@@ -119,7 +121,7 @@ function s1BackscatterPanelMarkup() {
     s1BackscatterChartMarkup() + errors +
     '<div class="s1-actions"><button type="button" class="outline" id="s1ExportCsv" ' + (total?"":"disabled") + '>Export CSV</button><button type="button" class="outline" id="s1ExportPng" ' + (total?"":"disabled") + '>Export chart PNG</button></div>' +
     '<div class="s1-annotation-panel"><h3>Field activity markers</h3><p class="muted">Add a planting, drainage or harvest date. These are user-entered annotations, not satellite-detected events.</p><div class="s1-annotation-form"><label>Field<select id="s1AnnotationField">' + annotationOptions + '</select></label><label>Event<select id="s1AnnotationType"><option value="planting">Planting</option><option value="drainage">Drainage</option><option value="harvest">Harvest</option></select></label><label>Date<input id="s1AnnotationDate" type="date" value="' + s1BackscatterEscape(s1BackscatterState.annotationDate) + '"></label><label>Notes<input id="s1AnnotationNotes" type="text" maxlength="300" placeholder="Optional context"></label><button type="button" class="outline" id="s1SaveAnnotation" ' + (fields.length?"":"disabled") + '>Save marker</button></div><div class="s1-annotation-list">' + (annotationList || '<small>No user-entered markers in this date range.</small>') + '</div></div>' +
-    '<p class="root-vwc-muted">The centre is taken from a saved GPS point where available; otherwise the coordinate-wise median of valid saved GPS boundary points is used. The initial 50 m radius is a screening default, not a validated field sampling footprint. Orbit and pass are selected per field by the most frequent available combination unless specified. A gap longer than 18 days is shown as a line break; no values are interpolated.</p>' +
+    '<p class="root-vwc-muted">Default date window: last 180 days (approximately one crop season, editable). The centre is taken from a saved GPS point where available; otherwise the coordinate-wise median of valid saved GPS boundary points is used. The initial 50 m radius is a screening default, not a validated field sampling footprint. Orbit and pass are selected per field by the most frequent available combination unless specified. A gap longer than 18 days is shown as a line break; no values are interpolated.</p>' +
     '<p class="s1-screening-note">Screening view only. Backscatter trends are not soil moisture and do not confirm a drainage event on their own.</p></section>';
 }
 async function s1BackscatterLoadAnnotations() {
@@ -172,6 +174,71 @@ function s1BackscatterExportPng() {
   image.onerror = () => URL.revokeObjectURL(url);
   image.src = url;
 }
+function s1BackscatterCurrentKey() {
+  return [activeCompanyId || "", [...s1BackscatterState.selectedIds].sort().join(","), s1BackscatterState.from,
+    s1BackscatterState.to, s1BackscatterState.bufferM, s1BackscatterState.relativeOrbit,
+    s1BackscatterState.orbitDirection].join("|");
+}
+async function s1BackscatterLoadSaved(force = false) {
+  const ids = s1BackscatterState.selectedIds || [];
+  if (!supabaseClient || !activeCompanyId || !ids.length || !s1BackscatterState.from || !s1BackscatterState.to) return;
+  const key = s1BackscatterCurrentKey();
+  if (!force && (key === s1BackscatterState.savedKey || s1BackscatterState.loadingSaved)) return;
+  s1BackscatterState.loadingSaved = true;
+  try {
+    let query = supabaseClient.from("s1_backscatter_observations")
+      .select("field_record_id,field_no,acquisition_id,acquired_at,relative_orbit,orbit_direction,vv_db,vh_db,vv_minus_vh_db,pixel_count,buffer_m,center_lat,center_lon,center_method")
+      .eq("company_id", activeCompanyId).in("field_record_id", ids)
+      .gte("acquired_at", s1BackscatterState.from + "T00:00:00.000Z")
+      .lte("acquired_at", s1BackscatterState.to + "T23:59:59.999Z")
+      .eq("buffer_m", Number(s1BackscatterState.bufferM || 50))
+      .order("acquired_at", { ascending: true });
+    if (s1BackscatterState.relativeOrbit) query = query.eq("relative_orbit", Number(s1BackscatterState.relativeOrbit));
+    if (s1BackscatterState.orbitDirection !== "AUTO") query = query.eq("orbit_direction", s1BackscatterState.orbitDirection);
+    const { data, error } = await query;
+    if (error) throw new Error("Could not load saved backscatter observations: " + error.message);
+    const groups = new Map();
+    (data || []).forEach(row => {
+      const key = String(row.field_record_id);
+      const list = groups.get(key) || [];
+      list.push(row); groups.set(key, list);
+    });
+    const fields = [];
+    groups.forEach((rows, fieldId) => {
+      const pairs = new Map();
+      rows.forEach(row => {
+        const key = row.relative_orbit + "|" + row.orbit_direction;
+        const pair = pairs.get(key) || { orbit: row.relative_orbit, direction: row.orbit_direction, rows: [] };
+        pair.rows.push(row); pairs.set(key, pair);
+      });
+      const pair = [...pairs.values()].sort((a,b)=>b.rows.length-a.rows.length || a.orbit-b.orbit)[0];
+      if (!pair) return;
+      fields.push({
+        fieldId, fieldNo: pair.rows[0].field_no, orbit: pair.orbit, orbitDirection: pair.direction,
+        center: { latitude: Number(pair.rows[0].center_lat), longitude: Number(pair.rows[0].center_lon), method: pair.rows[0].center_method },
+        bufferM: Number(pair.rows[0].buffer_m),
+        observations: pair.rows.map(row => ({
+          acquisitionId: row.acquisition_id, date: String(row.acquired_at).slice(0,10), acquiredAt: row.acquired_at,
+          relativeOrbit: Number(row.relative_orbit), orbitDirection: row.orbit_direction,
+          vvDb: Number(row.vv_db), vhDb: Number(row.vh_db), vvMinusVhDb: Number(row.vv_minus_vh_db),
+          pixelCount: Number(row.pixel_count)
+        }))
+      });
+    });
+    s1BackscatterState.result = fields.length ? {
+      ok: true, from: s1BackscatterState.from, to: s1BackscatterState.to,
+      bufferM: Number(s1BackscatterState.bufferM || 50), processingVersion: "Saved observations",
+      fields, errors: []
+    } : null;
+    s1BackscatterState.savedKey = key;
+    await s1BackscatterLoadAnnotations();
+  } catch (error) {
+    s1BackscatterState.error = error?.message || "Could not load saved backscatter data.";
+  } finally {
+    s1BackscatterState.loadingSaved = false;
+    if (typeof renderManager === "function") renderManager();
+  }
+}
 function bindS1BackscatterPanel() {
   const panel = document.getElementById("s1BackscatterPanel");
   if (!panel) return;
@@ -183,8 +250,10 @@ function bindS1BackscatterPanel() {
     } else if (!input.checked) {
       s1BackscatterState.selectedIds = s1BackscatterState.selectedIds.filter(x => x !== id);
     }
+    s1BackscatterState.savedKey = "";
     const count = document.getElementById("s1SelectedCount");
     if (count) count.textContent = s1BackscatterState.selectedIds.length + " of 5 selected";
+    s1BackscatterLoadSaved(true);
   }));
   panel.querySelectorAll("[data-s1-metric]").forEach(input => input.addEventListener("change", () => {
     s1BackscatterState[input.dataset.s1Metric] = input.checked;
@@ -198,7 +267,7 @@ function bindS1BackscatterPanel() {
     const orbitText = document.getElementById("s1Orbit")?.value || "";
     const orbitDirection = document.getElementById("s1Direction")?.value || "AUTO";
     if (!fieldIds.length) { s1BackscatterState.error = "Select at least one field."; renderManager(); return; }
-    s1BackscatterState.from = from; s1BackscatterState.to = to; s1BackscatterState.bufferM = bufferM;
+    s1BackscatterState.from = from; s1BackscatterState.to = to; s1BackscatterState.bufferM = bufferM; s1BackscatterState.savedKey = "";
     s1BackscatterState.relativeOrbit = orbitText; s1BackscatterState.orbitDirection = orbitDirection;
     s1BackscatterState.loading = true; s1BackscatterState.error = ""; s1BackscatterState.result = null;
     renderManager();
@@ -210,6 +279,7 @@ function bindS1BackscatterPanel() {
       if (error) throw new Error(data?.error || error.message || "Backscatter analysis request failed.");
       if (!data?.ok) throw new Error(data?.error || "Backscatter analysis returned no result.");
       s1BackscatterState.result = data;
+      s1BackscatterState.savedKey = s1BackscatterCurrentKey();
       await s1BackscatterLoadAnnotations();
     } catch (error) {
       s1BackscatterState.error = error?.message || "Could not generate the Sentinel-1 backscatter trend.";
@@ -219,11 +289,23 @@ function bindS1BackscatterPanel() {
     }
   });
   document.getElementById("s1ExportCsv")?.addEventListener("click", s1BackscatterExportCsv);
+  s1BackscatterLoadSaved();
   document.getElementById("s1ExportPng")?.addEventListener("click", s1BackscatterExportPng);
   document.getElementById("s1AnnotationField")?.addEventListener("change", e => s1BackscatterState.annotationFieldId = e.target.value);
   document.getElementById("s1AnnotationType")?.addEventListener("change", e => s1BackscatterState.annotationType = e.target.value);
   document.getElementById("s1AnnotationDate")?.addEventListener("change", e => s1BackscatterState.annotationDate = e.target.value);
   document.getElementById("s1AnnotationNotes")?.addEventListener("change", e => s1BackscatterState.annotationNotes = e.target.value);
+  ["s1From","s1To","s1Buffer","s1Orbit","s1Direction"].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", event => {
+      if (id === "s1From") s1BackscatterState.from = event.target.value;
+      if (id === "s1To") s1BackscatterState.to = event.target.value;
+      if (id === "s1Buffer") s1BackscatterState.bufferM = Number(event.target.value || 50);
+      if (id === "s1Orbit") s1BackscatterState.relativeOrbit = event.target.value;
+      if (id === "s1Direction") s1BackscatterState.orbitDirection = event.target.value;
+      s1BackscatterState.savedKey = "";
+      s1BackscatterLoadSaved(true);
+    });
+  });
   document.getElementById("s1SaveAnnotation")?.addEventListener("click", async () => {
     const field = s1BackscatterFields().find(f => String(f.id) === String(s1BackscatterState.annotationFieldId));
     const eventDate = document.getElementById("s1AnnotationDate")?.value || "";
