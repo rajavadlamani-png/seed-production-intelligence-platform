@@ -1,7 +1,7 @@
 // Sentinel-1 backscatter trend screening. Kept separate from the existing VWC/SDE logic.
 let s1BackscatterState = {
   selectedIds: [], from: "", to: "", bufferM: 50, relativeOrbit: "", orbitDirection: "AUTO",
-  loading: false, loadingSaved: false, savedKey: "", error: "", result: null, annotations: [],
+  loading: false, loadingSaved: false, loadRequestId: 0, savedKey: "", error: "", result: null, annotations: [],
   annotationFieldId: "", annotationType: "planting", annotationDate: "", annotationNotes: "",
   showVV: true, showVH: true, showDifference: true
 };
@@ -25,7 +25,7 @@ function s1BackscatterEnsureDefaults(fields) {
     s1BackscatterState.from = s1BackscatterState.from || start.toISOString().slice(0, 10);
     s1BackscatterState.to = s1BackscatterState.to || today;
   }
-  if (!s1BackscatterState.annotationFieldId && first) s1BackscatterState.annotationFieldId = String(first.id);
+  if (!s1BackscatterState.selectedIds.includes(String(s1BackscatterState.annotationFieldId)) && first) s1BackscatterState.annotationFieldId = String(first.id);
   if (!s1BackscatterState.annotationDate) s1BackscatterState.annotationDate = s1BackscatterState.from;
 }
 function s1BackscatterFieldMarkup(fields) {
@@ -108,7 +108,7 @@ function s1BackscatterPanelMarkup() {
   const fields = s1BackscatterFields();
   s1BackscatterEnsureDefaults(fields);
   const selected = fields.filter(f => s1BackscatterState.selectedIds.includes(String(f.id)));
-  const annotationOptions = fields.map(f => '<option value="' + s1BackscatterEscape(f.id) + '" ' + (String(f.id) === s1BackscatterState.annotationFieldId ? "selected" : "") + '>' + s1BackscatterEscape(f.fieldNo) + '</option>').join("");
+  const annotationOptions = selected.map(f => '<option value="' + s1BackscatterEscape(f.id) + '" ' + (String(f.id) === s1BackscatterState.annotationFieldId ? "selected" : "") + '>' + s1BackscatterEscape(f.fieldNo) + '</option>').join("");
   const result = s1BackscatterState.result;
   const total = (result?.fields || []).reduce((n,f)=>n+(f.observations||[]).length,0);
   const errors = (result?.errors || []).map(e=>'<p class="s1-error">' + s1BackscatterEscape(e.fieldNo + ": " + e.error) + '</p>').join("");
@@ -185,6 +185,7 @@ async function s1BackscatterLoadSaved(force = false) {
   const key = s1BackscatterCurrentKey();
   if (!force && (key === s1BackscatterState.savedKey || s1BackscatterState.loadingSaved)) return;
   s1BackscatterState.loadingSaved = true;
+  const requestId = ++s1BackscatterState.loadRequestId;
   try {
     let query = supabaseClient.from("s1_backscatter_observations")
       .select("field_record_id,field_no,acquisition_id,acquired_at,relative_orbit,orbit_direction,vv_db,vh_db,vv_minus_vh_db,pixel_count,buffer_m,center_lat,center_lon,center_method")
@@ -197,6 +198,7 @@ async function s1BackscatterLoadSaved(force = false) {
     if (s1BackscatterState.orbitDirection !== "AUTO") query = query.eq("orbit_direction", s1BackscatterState.orbitDirection);
     const { data, error } = await query;
     if (error) throw new Error("Could not load saved backscatter observations: " + error.message);
+    if (requestId !== s1BackscatterState.loadRequestId) return;
     const groups = new Map();
     (data || []).forEach(row => {
       const key = String(row.field_record_id);
@@ -235,8 +237,10 @@ async function s1BackscatterLoadSaved(force = false) {
   } catch (error) {
     s1BackscatterState.error = error?.message || "Could not load saved backscatter data.";
   } finally {
-    s1BackscatterState.loadingSaved = false;
-    if (typeof renderManager === "function") renderManager();
+    if (requestId === s1BackscatterState.loadRequestId) {
+      s1BackscatterState.loadingSaved = false;
+      if (typeof renderManager === "function") renderManager();
+    }
   }
 }
 function bindS1BackscatterPanel() {
@@ -269,6 +273,8 @@ function bindS1BackscatterPanel() {
     if (!fieldIds.length) { s1BackscatterState.error = "Select at least one field."; renderManager(); return; }
     s1BackscatterState.from = from; s1BackscatterState.to = to; s1BackscatterState.bufferM = bufferM; s1BackscatterState.savedKey = "";
     s1BackscatterState.relativeOrbit = orbitText; s1BackscatterState.orbitDirection = orbitDirection;
+    s1BackscatterState.loadRequestId++;
+    s1BackscatterState.loadingSaved = false;
     s1BackscatterState.loading = true; s1BackscatterState.error = ""; s1BackscatterState.result = null;
     renderManager();
     try {
