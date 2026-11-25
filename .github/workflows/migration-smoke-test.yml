@@ -149,6 +149,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119025244_vm0051_field_officer_confirmation.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119025646_vm0051_review_methodology_reference_gate.sql
           psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261119030656_vm0051_correction_linkage.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261125090000_sentinel1_backscatter_trend.sql
 
       - name: Run VM0051 audit schema and privilege smoke test
         run: psql -v ON_ERROR_STOP=1 -f supabase/tests/vm0051_drainage_audit_smoke.sql
@@ -170,6 +171,7 @@ jobs:
               'parent_seed_distributions','grower_upload_batches','grower_upload_rows',
               'beta_field_records','beta_production_plans','vm0051_drainage_evidence_runs',
               'vm0051_drainage_events','vm0051_drainage_event_evidence','vm0051_drainage_event_audit',
+              's1_backscatter_observations','s1_backscatter_annotations',
               'field_assignments','field_boundaries','form_definitions','form_versions',
               'form_sections','field_definitions','field_options','form_role_rules',
               'workflow_definitions','form_submissions','documents','audit_events'
