@@ -62,3 +62,12 @@
 .s1-drainage-method{margin-top:12px;padding:12px;border-left:3px solid #b45309;border-radius:5px;background:var(--surface,#fff)}
 .s1-drainage-method>b{font-size:13px}
 @media(max-width:760px){.s1-interpretation-grid{grid-template-columns:1fr}}
+
+/* Field-specific rice reference-band interpretation */
+.s1-field-interpretation{margin:12px 0;padding:12px;border:1px solid var(--line,#d9e0e7);border-radius:9px;background:var(--surface,#fff)}
+.s1-field-interpretation h4{margin:0 0 8px;font-size:14px}
+.s1-field-interpretation>p{margin:6px 0}
+.s1-reference-caveat{font-size:11px;line-height:1.5;color:var(--muted,#64748b)}
+.s1-band-counts{margin-top:9px;font-size:12px}
+.s1-band-counts ul{margin:5px 0;padding-left:19px}
+.s1-interpretation .s1-record-scroll table{min-width:760px}
