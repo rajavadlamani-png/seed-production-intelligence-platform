@@ -1,7 +1,7 @@
 // Sentinel-1 backscatter trend screening. Kept separate from the existing VWC/SDE logic.
 let s1BackscatterState = {
   selectedIds: [], from: "", to: "", bufferM: 50, relativeOrbit: "", orbitDirection: "AUTO",
-  loading: false, loadingSaved: false, loadRequestId: 0, savedKey: "", error: "", result: null, annotations: [],
+  loading: false, loadingSaved: false, loadRequestId: 0, savedKey: "", error: "", result: null, annotations: [], selectionTouched: false,
   annotationFieldId: "", annotationType: "planting", annotationDate: "", annotationNotes: "",
   showVV: true, showVH: true, showDifference: true, showValueLabels: true
 };
@@ -29,9 +29,9 @@ function s1BackscatterFields() {
 }
 function s1BackscatterEnsureDefaults(fields) {
   const ids = fields.map(f => String(f.id));
-  s1BackscatterState.selectedIds = s1BackscatterState.selectedIds.filter(id => ids.includes(id)).slice(0, 5);
-  if (!s1BackscatterState.selectedIds.length && fields.length) s1BackscatterState.selectedIds = [String(fields[0].id)];
-  const first = fields.find(f => String(f.id) === s1BackscatterState.selectedIds[0]) || fields[0];
+  s1BackscatterState.selectedIds = s1BackscatterState.selectedIds.filter(id => ids.includes(id)).slice(0, 1);
+  if (!s1BackscatterState.selectedIds.length && fields.length && !s1BackscatterState.selectionTouched) s1BackscatterState.selectedIds = [String(fields[0].id)];
+  const first = fields.find(f => String(f.id) === s1BackscatterState.selectedIds[0]);
   if (first && (!s1BackscatterState.from || !s1BackscatterState.to)) {
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
     const start = new Date(today + "T00:00:00Z");
@@ -39,7 +39,8 @@ function s1BackscatterEnsureDefaults(fields) {
     s1BackscatterState.from = s1BackscatterState.from || start.toISOString().slice(0, 10);
     s1BackscatterState.to = s1BackscatterState.to || today;
   }
-  if (!s1BackscatterState.selectedIds.includes(String(s1BackscatterState.annotationFieldId)) && first) s1BackscatterState.annotationFieldId = String(first.id);
+  if (first) s1BackscatterState.annotationFieldId = String(first.id);
+  else s1BackscatterState.annotationFieldId = "";
   if (!s1BackscatterState.annotationDate) s1BackscatterState.annotationDate = s1BackscatterState.from;
 }
 function s1BackscatterFieldMarkup(fields) {
@@ -228,14 +229,14 @@ function s1BackscatterPanelMarkup() {
   const errors = (result?.errors || []).map(e=>'<p class="s1-error">' + s1BackscatterEscape(e.fieldNo + ": " + e.error) + '</p>').join("");
   const annotationList = (s1BackscatterState.annotations || []).map(a=>'<div class="s1-annotation-row"><b>' + s1BackscatterEscape(a.event_type) + '</b><span>' + s1BackscatterEscape(a.field_no) + ' · ' + s1BackscatterEscape(a.event_date) + '</span><small>' + s1BackscatterEscape(a.notes || "") + '</small></div>').join("");
   return '<section class="panel s1-backscatter-panel" id="s1BackscatterPanel"><div class="panel-head"><div><p class="eyebrow">RADAR EVIDENCE · INDEPENDENT OF VWC</p><h2>Sentinel-1 Backscatter Trend Analysis</h2><p class="muted">Explore VV, VH and VV−VH at actual Sentinel-1 acquisition dates. This is a separate radar-signal view, not a soil-moisture estimate.</p></div></div>' +
-    (fields.length ? '<div class="s1-controls-grid"><div class="s1-field-picker"><b>Select fields · maximum five</b><div class="s1-field-list">' + s1BackscatterFieldMarkup(fields) + '</div><small id="s1SelectedCount">' + s1BackscatterState.selectedIds.length + ' of 5 selected</small></div><div class="s1-control-column"><label>Start date<input id="s1From" type="date" value="' + s1BackscatterEscape(s1BackscatterState.from) + '"></label><label>End date<input id="s1To" type="date" value="' + s1BackscatterEscape(s1BackscatterState.to) + '"></label><label>Buffer radius around GPS reference point (metres)<input id="s1Buffer" type="number" min="10" max="500" step="10" value="' + s1BackscatterState.bufferM + '"></label><label>Relative orbit number · blank = most frequent<input id="s1Orbit" type="number" min="1" max="175" placeholder="Automatic" value="' + s1BackscatterEscape(s1BackscatterState.relativeOrbit) + '"></label><label>Pass direction<select id="s1Direction"><option value="AUTO" ' + (s1BackscatterState.orbitDirection==="AUTO"?"selected":"") + '>Automatic · most frequent</option><option value="ASCENDING" ' + (s1BackscatterState.orbitDirection==="ASCENDING"?"selected":"") + '>Ascending</option><option value="DESCENDING" ' + (s1BackscatterState.orbitDirection==="DESCENDING"?"selected":"") + '>Descending</option></select></label><button type="button" class="primary" id="s1Run" ' + (s1BackscatterState.loading?"disabled":"") + '>' + (s1BackscatterState.loading?"Processing acquisitions…":"Generate backscatter trend →") + '</button></div></div>' : '<p class="s1-empty">No Paddy fields with a usable saved GPS point or at least three valid saved GPS points are available in this workspace.</p>') +
+    (fields.length ? '<div class="s1-controls-grid"><div class="s1-field-picker"><b>Select one field at a time</b><div class="s1-field-list">' + s1BackscatterFieldMarkup(fields) + '</div><small id="s1SelectedCount">' + s1BackscatterState.selectedIds.length + ' of 5 selected</small></div><div class="s1-control-column"><label>Start date<input id="s1From" type="date" value="' + s1BackscatterEscape(s1BackscatterState.from) + '"></label><label>End date<input id="s1To" type="date" value="' + s1BackscatterEscape(s1BackscatterState.to) + '"></label><label>Buffer radius around GPS reference point (metres)<input id="s1Buffer" type="number" min="10" max="500" step="10" value="' + s1BackscatterState.bufferM + '"></label><label>Relative orbit number · blank = most frequent<input id="s1Orbit" type="number" min="1" max="175" placeholder="Automatic" value="' + s1BackscatterEscape(s1BackscatterState.relativeOrbit) + '"></label><label>Pass direction<select id="s1Direction"><option value="AUTO" ' + (s1BackscatterState.orbitDirection==="AUTO"?"selected":"") + '>Automatic · most frequent</option><option value="ASCENDING" ' + (s1BackscatterState.orbitDirection==="ASCENDING"?"selected":"") + '>Ascending</option><option value="DESCENDING" ' + (s1BackscatterState.orbitDirection==="DESCENDING"?"selected":"") + '>Descending</option></select></label><button type="button" class="primary" id="s1Run" ' + (s1BackscatterState.loading?"disabled":"") + '>' + (s1BackscatterState.loading?"Processing acquisitions…":"Generate backscatter trend →") + '</button></div></div>' : '<p class="s1-empty">No Paddy fields with a usable saved GPS point or at least three valid saved GPS points are available in this workspace.</p>') +
     (s1BackscatterState.error ? '<p class="s1-error" role="alert">' + s1BackscatterEscape(s1BackscatterState.error) + '</p>' : '') +
     (result ? '<div class="s1-result-summary"><b>' + total + ' acquisition observations saved</b><span>' + s1BackscatterEscape(result.from) + ' to ' + s1BackscatterEscape(result.to) + ' · ' + result.bufferM + ' m buffer</span><span>Processing: ' + s1BackscatterEscape(result.processingVersion) + '</span></div>' : '') +
     '<div class="s1-metric-toggles"><label><input type="checkbox" data-s1-metric="showVV" ' + (s1BackscatterState.showVV?"checked":"") + '> VV (dB)</label><label><input type="checkbox" data-s1-metric="showVH" ' + (s1BackscatterState.showVH?"checked":"") + '> VH (dB)</label><label><input type="checkbox" data-s1-metric="showDifference" ' + (s1BackscatterState.showDifference?"checked":"") + '> VV − VH (dB)</label></div>' +
     '<div class="s1-value-label-toggle"><label><input type="checkbox" data-s1-value-labels="true" ' + (s1BackscatterState.showValueLabels ? "checked" : "") + '> Show numerical values on graph</label><small>Values are displayed in dB at each actual acquisition point.</small></div>' +
     s1BackscatterChartMarkup() + s1BackscatterInterpretationMarkup() + s1BackscatterTableMarkup() + errors +
     '<div class="s1-actions"><button type="button" class="outline" id="s1ExportCsv" ' + (total?"":"disabled") + '>Export CSV</button><button type="button" class="outline" id="s1ExportPng" ' + (total?"":"disabled") + '>Export chart PNG</button></div>' +
-    '<div class="s1-annotation-panel"><h3>Field activity markers</h3><p class="muted">Add a planting, drainage or harvest date. These are user-entered annotations, not satellite-detected events.</p><div class="s1-annotation-form"><label>Field<select id="s1AnnotationField">' + annotationOptions + '</select></label><label>Event<select id="s1AnnotationType"><option value="planting">Planting</option><option value="drainage">Drainage</option><option value="harvest">Harvest</option></select></label><label>Date<input id="s1AnnotationDate" type="date" value="' + s1BackscatterEscape(s1BackscatterState.annotationDate) + '"></label><label>Notes<input id="s1AnnotationNotes" type="text" maxlength="300" placeholder="Optional context"></label><button type="button" class="outline" id="s1SaveAnnotation" ' + (fields.length?"":"disabled") + '>Save marker</button></div><div class="s1-annotation-list">' + (annotationList || '<small>No user-entered markers in this date range.</small>') + '</div></div>' +
+    '<div class="s1-annotation-panel"><h3>Field activity markers</h3><p class="muted">Add a planting, drainage or harvest date. These are user-entered annotations, not satellite-detected events.</p><div class="s1-annotation-form"><label>Field<select id="s1AnnotationField">' + annotationOptions + '</select></label><label>Event<select id="s1AnnotationType"><option value="planting">Planting</option><option value="drainage">Drainage</option><option value="harvest">Harvest</option></select></label><label>Date<input id="s1AnnotationDate" type="date" value="' + s1BackscatterEscape(s1BackscatterState.annotationDate) + '"></label><label>Notes<input id="s1AnnotationNotes" type="text" maxlength="300" placeholder="Optional context"></label><button type="button" class="outline" id="s1SaveAnnotation" ' + (selected.length?"":"disabled") + '>Save marker</button></div><div class="s1-annotation-list">' + (annotationList || '<small>No user-entered markers in this date range.</small>') + '</div></div>' +
     '<p class="root-vwc-muted">Default date window: last 180 days (approximately one crop season, editable). The centre is taken from a saved GPS point where available; otherwise the coordinate-wise median of valid saved GPS boundary points is used. The initial 50 m radius is a screening default, not a validated field sampling footprint. Orbit and pass are selected per field by the most frequent available combination unless specified. A gap longer than 18 days is shown as a line break; no values are interpolated.</p>' +
     '<p class="s1-screening-note">Screening view only. Backscatter trends are not soil moisture and do not confirm a drainage event on their own.</p></section>';
 }
@@ -363,22 +364,20 @@ function bindS1BackscatterPanel() {
   if (!panel) return;
   panel.querySelectorAll("[data-s1-field]").forEach(input => input.addEventListener("change", () => {
     const id = String(input.dataset.s1Field);
-    if (input.checked && !s1BackscatterState.selectedIds.includes(id)) {
-      if (s1BackscatterState.selectedIds.length >= 5) { input.checked = false; if (typeof notify === "function") notify("Select no more than five fields."); return; }
-      s1BackscatterState.selectedIds.push(id);
-    } else if (!input.checked) {
+    if (input.checked) {
+      s1BackscatterState.selectedIds = [id];
+    } else {
       s1BackscatterState.selectedIds = s1BackscatterState.selectedIds.filter(x => x !== id);
     }
+    s1BackscatterState.selectionTouched = true;
     s1BackscatterState.savedKey = "";
+    s1BackscatterState.result = null;
+    s1BackscatterState.annotations = [];
+    s1BackscatterState.annotationFieldId = s1BackscatterState.selectedIds[0] || "";
     const count = document.getElementById("s1SelectedCount");
-    if (count) count.textContent = s1BackscatterState.selectedIds.length + " of 5 selected";
-    if (!s1BackscatterState.selectedIds.length) {
-      s1BackscatterState.result = null;
-      s1BackscatterState.annotations = [];
-      if (typeof renderManager === "function") renderManager();
-      return;
-    }
-    s1BackscatterLoadSaved(true);
+    if (count) count.textContent = s1BackscatterState.selectedIds.length + " of 1 selected";
+    if (typeof renderManager === "function") renderManager();
+    if (s1BackscatterState.selectedIds.length) s1BackscatterLoadSaved(true);
   }));
   panel.querySelectorAll("[data-s1-value-labels]").forEach(input => input.addEventListener("change", () => {
     s1BackscatterState.showValueLabels = input.checked;
