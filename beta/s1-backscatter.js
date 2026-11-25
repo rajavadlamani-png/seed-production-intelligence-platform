@@ -48,6 +48,43 @@ function s1BackscatterFieldMarkup(fields) {
     return '<label class="s1-field-choice"><input type="checkbox" data-s1-field="' + s1BackscatterEscape(id) + '" ' + (checked ? "checked" : "") + '><span><b>' + s1BackscatterEscape(field.fieldNo) + '</b><small>' + s1BackscatterEscape(field.village || field.district || "Paddy field") + '</small></span></label>';
   }).join("");
 }
+function s1BackscatterReferenceBands() {
+  return [
+    { key: "flooded", label: "Open / potentially flooded", vv: [-18, -15], vh: [-24, -21], color: "#2563eb" },
+    { key: "dry", label: "Dry-like bare-soil signature", vv: [-16, -13], vh: [-22, -19], color: "#d97706" },
+    { key: "wet", label: "Wet / potentially saturated soil", vv: [-12, -8], vh: [-18, -15], color: "#0f766e" },
+    { key: "vegetated", label: "Vegetation-influenced rice signature", vv: [-10, -6], vh: [-16, -12], color: "#7c3aed" }
+  ];
+}
+function s1BackscatterClassify(row) {
+  const vv = Number(row.vvDb), vh = Number(row.vhDb);
+  if (!Number.isFinite(vv) || !Number.isFinite(vh)) return [];
+  return s1BackscatterReferenceBands().filter(b => vv >= b.vv[0] && vv <= b.vv[1] && vh >= b.vh[0] && vh <= b.vh[1]);
+}
+function s1BackscatterObservationClass(row) {
+  const matches = s1BackscatterClassify(row);
+  return matches.length === 1 ? matches[0] : null;
+}
+function s1BackscatterDryIntervals(observations) {
+  const rows = observations.slice().sort((a,b) => a.date.localeCompare(b.date));
+  const intervals = [];
+  let run = [];
+  const flush = () => {
+    if (run.length >= 2) intervals.push(run.slice());
+    run = [];
+  };
+  rows.forEach(row => {
+    const isDry = s1BackscatterClassify(row).some(b => b.key === "dry");
+    if (!isDry) { flush(); return; }
+    if (run.length) {
+      const gap = (Date.parse(row.date + "T00:00:00Z") - Date.parse(run[run.length-1].date + "T00:00:00Z")) / 86400000;
+      if (gap > 18) flush();
+    }
+    run.push(row);
+  });
+  flush();
+  return intervals;
+}
 function s1BackscatterChartMarkup() {
   const result = s1BackscatterState.result;
   const fields = result?.fields || [];
@@ -95,8 +132,10 @@ function s1BackscatterChartMarkup() {
           " · VV " + Number(row.vvDb).toFixed(2) + " dB · VH " + Number(row.vhDb).toFixed(2) +
           " dB · VV−VH " + Number(row.vvMinusVhDb).toFixed(2) + " dB · " + row.pixelCount + " valid pixels";
         const pointX = x(row.date).toFixed(1), pointY = y(value).toFixed(1);
+        const status = s1BackscatterObservationClass(row);
+        const markerColor = status?.color || "#64748b";
         const valueLabel = s1BackscatterState.showValueLabels ? '<text x="' + pointX + '" y="' + (y(value) - 9 - metricIndex * 11).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="' + color + '" stroke="Canvas" stroke-width="3" paint-order="stroke">' + value.toFixed(2) + '</text>' : "";
-        return '<circle cx="' + pointX + '" cy="' + pointY + '" r="4.2" fill="' + color + '" stroke="Canvas" stroke-width="1.4"><title>' + s1BackscatterEscape(title) + '</title></circle>' + valueLabel;
+        return '<circle cx="' + pointX + '" cy="' + pointY + '" r="4.5" fill="' + markerColor + '" stroke="Canvas" stroke-width="1.4"><title>' + s1BackscatterEscape(title + " · " + (status?.label || "No direct paired reference-band match")) + '</title></circle>' + valueLabel;
       }).join("");
       return polylines + markers;
     }).join("");
@@ -118,46 +157,54 @@ function s1BackscatterChartMarkup() {
   }).join("");
   const fieldLegend = fields.map((f,i)=>'<span><i style="background:' + colors[i%colors.length] + '"></i>' + s1BackscatterEscape(f.fieldNo) + ' · orbit ' + f.orbit + ' ' + s1BackscatterEscape(f.orbitDirection) + '</span>').join("");
   const metricLegend = metrics.map(m=>'<span><i class="s1-line-swatch" style="' + (m.dash ? 'border-top-style:dashed;' : '') + '"></i>' + m.label + '</span>').join("");
-  return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + '</div>';
+  const statusLegend = s1BackscatterReferenceBands().map(b=>'<span><i style="background:' + b.color + '"></i>' + s1BackscatterEscape(b.label) + '</span>').join("") + '<span><i style="background:#64748b"></i>No direct match</span>';
+  return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + statusLegend + '</div>';
 }
 function s1BackscatterInterpretationMarkup() {
-  const referenceBands = [
-    { key: "flooded", label: "Open / potentially flooded", vv: [-18, -15], vh: [-24, -21], mechanism: "Specular reflection from smooth standing water can reduce the radar return." },
-    { key: "dry", label: "Dry bare soil", vv: [-16, -13], vh: [-22, -19], mechanism: "A relatively low soil dielectric response can contribute to lower backscatter; very smooth wet surfaces can look similar." },
-    { key: "wet", label: "Wet / potentially saturated soil", vv: [-12, -8], vh: [-18, -15], mechanism: "Higher dielectric response and surface roughness can increase the radar return." },
-    { key: "vegetated", label: "Vegetated / mid-season rice", vv: [-10, -6], vh: [-16, -12], mechanism: "Canopy volume scattering and stem-water double-bounce can influence VV and VH." }
-  ];
+  const bands = s1BackscatterReferenceBands();
   const fields = (s1BackscatterState.result?.fields || []).filter(field => (field.observations || []).length);
-  if (!fields.length) {
-    return '<section class="s1-interpretation" aria-label="How to interpret the Sentinel-1 graph"><h3>How to interpret this graph</h3><p>Run the analysis to see field-specific comparisons with the indicative rice-field reference bands.</p></section>';
-  }
-  const classify = row => {
-    const vv = Number(row.vvDb), vh = Number(row.vhDb);
-    if (!Number.isFinite(vv) || !Number.isFinite(vh)) return [];
-    return referenceBands.filter(b => vv >= b.vv[0] && vv <= b.vv[1] && vh >= b.vh[0] && vh <= b.vh[1]);
-  };
+  if (!fields.length) return '<section class="s1-interpretation"><h3>Selected-field interpretation</h3><p>Run the analysis to view the colour-coded field timeline and candidate periods.</p></section>';
   const fmt = value => Number(value).toFixed(2);
-  const fieldSummaries = fields.map(field => {
-    const observations = (field.observations || []).slice().sort((a,b) => a.date.localeCompare(b.date));
-    const latest = observations[observations.length - 1];
-    const matches = classify(latest);
-    const latestLabel = matches.length === 1 ? matches[0].label :
-      matches.length > 1 ? "Overlapping reference signatures: " + matches.map(m => m.label).join(" / ") :
-      "Mixed / outside the listed reference bands";
-    const counts = referenceBands.map(b => ({...b, count: observations.filter(o => classify(o).some(m => m.key === b.key)).length}));
-    const rows = observations.map(row => {
-      const matched = classify(row);
-      const label = matched.length === 1 ? matched[0].label :
-        matched.length > 1 ? "Overlapping: " + matched.map(m => m.label).join(" / ") :
-        "No direct band match";
-      return '<tr><td>' + s1BackscatterEscape(row.date) + '</td><td>' + fmt(row.vvDb) + '</td><td>' + fmt(row.vhDb) + '</td><td>' + s1BackscatterEscape(label) + '</td></tr>';
+  const summaries = fields.map(field => {
+    const observations = (field.observations || []).slice().sort((a,b)=>a.date.localeCompare(b.date));
+    const dryRuns = s1BackscatterDryIntervals(observations);
+    const latest = observations[observations.length-1];
+    const latestClass = s1BackscatterObservationClass(latest);
+    const dryCards = dryRuns.length ? dryRuns.map((run,index) => {
+      const first = run[0], last = run[run.length-1];
+      const firstIndex = observations.findIndex(o=>o.date===first.date);
+      const prior = firstIndex > 0 ? observations[firstIndex-1] : null;
+      const priorClass = prior ? s1BackscatterObservationClass(prior) : null;
+      const gap = prior ? (Date.parse(first.date+"T00:00:00Z")-Date.parse(prior.date+"T00:00:00Z"))/86400000 : null;
+      const transition = prior && priorClass?.key === "flooded" && gap <= 18;
+      const bracket = prior ? 'Possible transition window: ' + prior.date + ' to ' + first.date + '.' : 'The start is only bounded by the first available dry-like acquisition.';
+      const persistence = run.length + ' consecutive acquisitions, from ' + first.date + ' to ' + last.date + '.';
+      const continuation = last.date === latest.date ? ' The pattern is present at the latest available acquisition.' : ' A later acquisition changed category; review the timeline for the end of this interval.';
+      return '<div class="s1-period-card"><b>Candidate dry-like period ' + (index+1) + '</b><p>' + s1BackscatterEscape(persistence + continuation) + '</p><p>' + s1BackscatterEscape(bracket) + '</p>' +
+        (transition ? '<p><b>Possible drainage-related transition:</b> the previous acquisition matched the open-water-like reference band and the following dry-like signature persisted. This is not confirmation of drainage.</p>' : '<p>No immediately preceding open-water-like observation was found to bracket a possible drainage transition.</p>') +
+        '</div>';
+    }).join("") : '<p class="s1-reference-caveat">No persistent dry-like interval was identified. A single matching acquisition is treated as an isolated observation, not a period.</p>';
+    const statusTimeline = observations.map((row,index) => {
+      const status = s1BackscatterObservationClass(row);
+      const color = status?.color || "#64748b";
+      const label = status?.label || "No direct paired reference-band match";
+      const previous = index ? Date.parse(observations[index-1].date+"T00:00:00Z") : null;
+      const current = Date.parse(row.date+"T00:00:00Z");
+      const next = index < observations.length-1 ? Date.parse(observations[index+1].date+"T00:00:00Z") : null;
+      const left = previous === null ? 0 : Math.max(0, Math.min(50, (current-previous)/86400000/2));
+      const right = next === null ? 0 : Math.max(0, Math.min(50, (next-current)/86400000/2));
+      return '<div class="s1-timeline-point"><i style="background:' + color + '"></i><span>' + s1BackscatterEscape(row.date) + '</span><small>VV ' + fmt(row.vvDb) + ' · VH ' + fmt(row.vhDb) + ' dB · ' + s1BackscatterEscape(label) + '</small></div>';
     }).join("");
-    return '<article class="s1-field-interpretation"><h4>' + s1BackscatterEscape(field.fieldNo) + '</h4><p><b>Latest acquisition:</b> ' + s1BackscatterEscape(latest.date) + ' · VV ' + fmt(latest.vvDb) + ' dB · VH ' + fmt(latest.vhDb) + ' dB</p><p><b>Latest reference comparison:</b> ' + s1BackscatterEscape(latestLabel) + '.</p><p class="s1-reference-caveat">Across ' + observations.length + ' actual acquisitions, reference-band matches are shown below. A match means the two values fall within the same indicative ranges; it is not a confirmed field condition.</p><div class="s1-record-scroll"><table><thead><tr><th>Acquisition date</th><th>VV (dB)</th><th>VH (dB)</th><th>Reference comparison</th></tr></thead><tbody>' + rows + '</tbody></table></div><div class="s1-band-counts"><b>Reference-band matches across acquisitions</b><ul>' + counts.map(c => '<li>' + s1BackscatterEscape(c.label) + ': ' + c.count + ' of ' + observations.length + ' observations</li>').join("") + '</ul></div></article>';
+    const rows = observations.map(row => {
+      const matches = s1BackscatterClassify(row);
+      const label = matches.length === 1 ? matches[0].label : matches.length > 1 ? 'Overlapping: ' + matches.map(m=>m.label).join(' / ') : 'No direct paired reference-band match';
+      const color = matches.length === 1 ? matches[0].color : "#64748b";
+      return '<tr><td>' + s1BackscatterEscape(row.date) + '</td><td>' + fmt(row.vvDb) + '</td><td>' + fmt(row.vhDb) + '</td><td><span class="s1-status-label"><i style="background:' + color + '"></i>' + s1BackscatterEscape(label) + '</span></td></tr>';
+    }).join("");
+    return '<article class="s1-field-interpretation"><h4>' + s1BackscatterEscape(field.fieldNo) + '</h4><p><b>Latest acquisition:</b> ' + s1BackscatterEscape(latest.date) + ' · VV ' + fmt(latest.vvDb) + ' dB · VH ' + fmt(latest.vhDb) + ' dB · ' + s1BackscatterEscape(latestClass?.label || "No direct paired reference-band match") + '</p><h5>Field condition timeline (actual acquisition dates)</h5><div class="s1-status-timeline">' + statusTimeline + '</div><h5>Candidate dry-like / drainage-related periods</h5>' + dryCards + '<details class="s1-record-details"><summary>View field reference comparisons · ' + observations.length + ' observations</summary><div class="s1-record-scroll"><table><thead><tr><th>Date</th><th>VV (dB)</th><th>VH (dB)</th><th>Reference comparison</th></tr></thead><tbody>' + rows + '</tbody></table></div></details></article>';
   }).join("");
-  const referenceRows = referenceBands.map(b =>
-    '<tr><td>' + s1BackscatterEscape(b.label) + '</td><td>' + b.vv[0] + ' to ' + b.vv[1] + '</td><td>' + b.vh[0] + ' to ' + b.vh[1] + '</td><td>' + s1BackscatterEscape(b.mechanism) + '</td></tr>'
-  ).join("");
-  return '<section class="s1-interpretation" aria-label="Field-specific Sentinel-1 interpretation"><h3>Selected-field interpretation</h3><p>Each acquisition is compared with the indicative rice-field VV/VH reference bands below. The comparison uses both VV and VH together and does not convert radar backscatter into a soil-moisture measurement.</p>' + fieldSummaries + '<h4>Indicative rice-field reference bands</h4><div class="s1-record-scroll"><table><thead><tr><th>Reference condition</th><th>VV (dB)</th><th>VH (dB)</th><th>Typical radar behaviour</th></tr></thead><tbody>' + referenceRows + '</tbody></table></div><p class="s1-reference-caveat"><b>Important:</b> These are indicative screening ranges, not universal thresholds. The ranges can overlap, and actual values depend on processing convention, orbit/incidence geometry, soil roughness, water conditions and crop growth stage. The current platform uses terrain-corrected Gamma0; compatibility of these reference ranges with this exact product must be validated before operational moisture classification.</p><h4>How to read the graph</h4><div class="s1-interpretation-grid"><article><b>VV (dB)</b><p>Radar response in VV polarisation; affected by surface water, soil-surface conditions and crop structure.</p></article><article><b>VH (dB)</b><p>Radar response in VH polarisation; influenced by vegetation structure and volume scattering as well as surface conditions.</p></article><article><b>VV − VH (dB)</b><p>Difference between the two polarisations. Use as supporting trend information, not a direct moisture indicator.</p></article></div><h4>Reading changes over time</h4><ul><li>A less negative value means higher backscatter; a more negative value means lower backscatter.</li><li>Compare observations from the same relative orbit and pass direction.</li><li>Look for changes that persist across successive actual acquisitions, not isolated fluctuations.</li><li>Interpret signals alongside crop stage, rainfall, irrigation and field records.</li></ul><div class="s1-drainage-method"><b>Evidence limitation</b><p>A radar reference-band match is a screening clue only. It cannot independently confirm flooding, dry soil, saturation, irrigation or drainage. Satellite-only signals must not be labelled as confirmed field events.</p></div></section>';
+  const referenceRows = bands.map(b=>'<tr><td><span class="s1-status-label"><i style="background:'+b.color+'"></i>'+s1BackscatterEscape(b.label)+'</span></td><td>'+b.vv[0]+' to '+b.vv[1]+'</td><td>'+b.vh[0]+' to '+b.vh[1]+'</td></tr>').join("");
+  return '<section class="s1-interpretation" aria-label="Field-specific Sentinel-1 interpretation"><h3>Selected-field interpretation</h3><p>Acquisition points are colour-coded when both VV and VH fall within the same indicative rice-field reference band. Grey means no direct paired match. A persistent dry-like period requires at least two consecutive matching acquisitions no more than 18 days apart.</p>' + summaries + '<h4>Colour reference bands</h4><div class="s1-record-scroll"><table><thead><tr><th>Reference condition</th><th>VV (dB)</th><th>VH (dB)</th></tr></thead><tbody>' + referenceRows + '</tbody></table></div><p class="s1-reference-caveat"><b>Scientific limitation:</b> These are indicative screening ranges, not locally calibrated thresholds. The current processing is terrain-corrected Gamma0; compatibility of these reference ranges with this exact product must be validated. A dry-like signature is not proof of low soil moisture, and a radar transition is not proof that drainage was completed.</p></section>';
 }
 function s1BackscatterTableMarkup() {
   const rows = (s1BackscatterState.result?.fields || []).flatMap(field =>
