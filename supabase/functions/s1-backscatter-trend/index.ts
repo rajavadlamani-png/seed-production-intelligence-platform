@@ -118,7 +118,7 @@ async function catalogItems(geometry: any, from: string, to: string) {
   const params = new URLSearchParams({
     "$filter": filter,
     "$expand": "Attributes",
-    "$select": "Id,Name,ContentDate",
+    "$select": "Id,Name,ContentDate,Attributes",
     "$orderby": "ContentDate/Start asc",
     "$top": "1000"
   });
@@ -131,6 +131,15 @@ async function catalogItems(geometry: any, from: string, to: string) {
     url = typeof body["@odata.nextLink"] === "string" ? body["@odata.nextLink"] : null;
     pages++;
   }
+  console.info("S1_CATALOGUE_DIAGNOSTIC", JSON.stringify({
+    productCount: products.length,
+    sampleProductName: products[0]?.Name ?? null,
+    sampleAttributeNames: Array.isArray(products[0]?.Attributes)
+      ? products[0].Attributes.map((attribute: any) => attribute?.Name).filter(Boolean).slice(0, 20)
+      : [],
+    sampleRelativeOrbit: products[0] ? attributeValue(products[0], "relativeOrbitNumber") : null,
+    sampleOrbitDirection: products[0] ? attributeValue(products[0], "orbitDirection") : null
+  }));
   return products.map((item: any) => {
     const orbit = itemOrbit(item);
     const acquiredAt = String(item?.ContentDate?.Start || "");
@@ -406,7 +415,9 @@ Deno.serve(async (req: Request) => {
     try {
       results.push(await processField(admin, field, from, to, bufferM, requestedOrbit, requestedDirection));
     } catch (error) {
-      errors.push({ fieldNo: field.field_no, error: String((error as Error)?.message || error).slice(0, 500) });
+      const message = String((error as Error)?.message || error).slice(0, 500);
+      console.error("S1_BACKSCATTER_FIELD_ERROR", JSON.stringify({ fieldNo: field.field_no, message }));
+      errors.push({ fieldNo: field.field_no, error: message });
     }
   }
   if (!results.length) return json({ error: "Backscatter analysis could not be completed for the selected fields.", details: errors }, 502);
