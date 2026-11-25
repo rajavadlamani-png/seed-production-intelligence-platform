@@ -283,6 +283,12 @@ function bindS1BackscatterPanel() {
     s1BackscatterState.savedKey = "";
     const count = document.getElementById("s1SelectedCount");
     if (count) count.textContent = s1BackscatterState.selectedIds.length + " of 5 selected";
+    if (!s1BackscatterState.selectedIds.length) {
+      s1BackscatterState.result = null;
+      s1BackscatterState.annotations = [];
+      if (typeof renderManager === "function") renderManager();
+      return;
+    }
     s1BackscatterLoadSaved(true);
   }));
   panel.querySelectorAll("[data-s1-metric]").forEach(input => input.addEventListener("change", () => {
