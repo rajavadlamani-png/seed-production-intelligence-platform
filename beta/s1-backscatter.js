@@ -118,6 +118,18 @@ function s1BackscatterChartMarkup() {
   const metricLegend = metrics.map(m=>'<span><i class="s1-line-swatch" style="' + (m.dash ? 'border-top-style:dashed;' : '') + '"></i>' + m.label + '</span>').join("");
   return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + '</div>';
 }
+function s1BackscatterTableMarkup() {
+  const rows = (s1BackscatterState.result?.fields || []).flatMap(field =>
+    (field.observations || []).map(row => ({ fieldNo: field.fieldNo, ...row }))
+  ).sort((a,b)=>a.date.localeCompare(b.date) || a.fieldNo.localeCompare(b.fieldNo));
+  if (!rows.length) return "";
+  const body = rows.map(row => '<tr><td>' + s1BackscatterEscape(row.fieldNo) + '</td><td>' +
+    s1BackscatterEscape(row.date) + '</td><td>' + s1BackscatterEscape(row.relativeOrbit) + '</td><td>' +
+    s1BackscatterEscape(row.orbitDirection) + '</td><td>' + Number(row.vvDb).toFixed(2) + '</td><td>' +
+    Number(row.vhDb).toFixed(2) + '</td><td>' + Number(row.vvMinusVhDb).toFixed(2) + '</td><td>' +
+    s1BackscatterEscape(row.pixelCount) + '</td></tr>').join("");
+  return '<details class="s1-record-details"><summary>View acquisition records · ' + rows.length + ' rows</summary><div class="s1-record-scroll"><table><thead><tr><th>Field</th><th>Acquisition date</th><th>Relative orbit</th><th>Pass</th><th>VV dB</th><th>VH dB</th><th>VV−VH dB</th><th>Valid pixels</th></tr></thead><tbody>' + body + '</tbody></table></div></details>';
+}
 function s1BackscatterPanelMarkup() {
   const fields = s1BackscatterFields();
   s1BackscatterEnsureDefaults(fields);
@@ -132,7 +144,7 @@ function s1BackscatterPanelMarkup() {
     (s1BackscatterState.error ? '<p class="s1-error" role="alert">' + s1BackscatterEscape(s1BackscatterState.error) + '</p>' : '') +
     (result ? '<div class="s1-result-summary"><b>' + total + ' acquisition observations saved</b><span>' + s1BackscatterEscape(result.from) + ' to ' + s1BackscatterEscape(result.to) + ' · ' + result.bufferM + ' m buffer</span><span>Processing: ' + s1BackscatterEscape(result.processingVersion) + '</span></div>' : '') +
     '<div class="s1-metric-toggles"><label><input type="checkbox" data-s1-metric="showVV" ' + (s1BackscatterState.showVV?"checked":"") + '> VV (dB)</label><label><input type="checkbox" data-s1-metric="showVH" ' + (s1BackscatterState.showVH?"checked":"") + '> VH (dB)</label><label><input type="checkbox" data-s1-metric="showDifference" ' + (s1BackscatterState.showDifference?"checked":"") + '> VV − VH (dB)</label></div>' +
-    s1BackscatterChartMarkup() + errors +
+    s1BackscatterChartMarkup() + s1BackscatterTableMarkup() + errors +
     '<div class="s1-actions"><button type="button" class="outline" id="s1ExportCsv" ' + (total?"":"disabled") + '>Export CSV</button><button type="button" class="outline" id="s1ExportPng" ' + (total?"":"disabled") + '>Export chart PNG</button></div>' +
     '<div class="s1-annotation-panel"><h3>Field activity markers</h3><p class="muted">Add a planting, drainage or harvest date. These are user-entered annotations, not satellite-detected events.</p><div class="s1-annotation-form"><label>Field<select id="s1AnnotationField">' + annotationOptions + '</select></label><label>Event<select id="s1AnnotationType"><option value="planting">Planting</option><option value="drainage">Drainage</option><option value="harvest">Harvest</option></select></label><label>Date<input id="s1AnnotationDate" type="date" value="' + s1BackscatterEscape(s1BackscatterState.annotationDate) + '"></label><label>Notes<input id="s1AnnotationNotes" type="text" maxlength="300" placeholder="Optional context"></label><button type="button" class="outline" id="s1SaveAnnotation" ' + (fields.length?"":"disabled") + '>Save marker</button></div><div class="s1-annotation-list">' + (annotationList || '<small>No user-entered markers in this date range.</small>') + '</div></div>' +
     '<p class="root-vwc-muted">Default date window: last 180 days (approximately one crop season, editable). The centre is taken from a saved GPS point where available; otherwise the coordinate-wise median of valid saved GPS boundary points is used. The initial 50 m radius is a screening default, not a validated field sampling footprint. Orbit and pass are selected per field by the most frequent available combination unless specified. A gap longer than 18 days is shown as a line break; no values are interpolated.</p>' +
