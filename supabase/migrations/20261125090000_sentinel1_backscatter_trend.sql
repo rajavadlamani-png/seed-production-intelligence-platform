@@ -82,30 +82,5 @@ create policy s1_backscatter_annotations_member_insert
     )
   );
 
-drop policy if exists s1_backscatter_annotations_member_update on public.s1_backscatter_annotations;
-create policy s1_backscatter_annotations_member_update
-  on public.s1_backscatter_annotations for update to authenticated
-  using (
-    created_by = auth.uid()
-    and exists (
-      select 1 from public.company_memberships m
-      where m.company_id = s1_backscatter_annotations.company_id
-        and m.user_id = auth.uid() and m.status = 'active'
-    )
-  )
-  with check (created_by = auth.uid());
-
-drop policy if exists s1_backscatter_annotations_member_delete on public.s1_backscatter_annotations;
-create policy s1_backscatter_annotations_member_delete
-  on public.s1_backscatter_annotations for delete to authenticated
-  using (
-    created_by = auth.uid()
-    and exists (
-      select 1 from public.company_memberships m
-      where m.company_id = s1_backscatter_annotations.company_id
-        and m.user_id = auth.uid() and m.status = 'active'
-    )
-  );
-
 grant select on public.s1_backscatter_observations to authenticated;
-grant select, insert, update, delete on public.s1_backscatter_annotations to authenticated;
+grant select, insert on public.s1_backscatter_annotations to authenticated;
