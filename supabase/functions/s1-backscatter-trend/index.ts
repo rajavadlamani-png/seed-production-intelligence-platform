@@ -118,7 +118,7 @@ async function catalogItems(geometry: any, from: string, to: string) {
   const params = new URLSearchParams({
     "$filter": filter,
     "$expand": "Attributes",
-    "$select": "Id,Name,ContentDate,Attributes",
+    "$select": "Id,Name,ContentDate",
     "$orderby": "ContentDate/Start asc",
     "$top": "1000"
   });
