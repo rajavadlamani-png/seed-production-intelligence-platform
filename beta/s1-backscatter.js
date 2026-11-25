@@ -135,8 +135,11 @@ function s1BackscatterChartMarkup() {
         const pointX = x(row.date).toFixed(1), pointY = y(value).toFixed(1);
         const status = s1BackscatterObservationClass(row);
         const markerColor = status?.color || "#64748b";
+        const dryHighlight = status?.key === "dry"
+          ? '<circle cx="' + pointX + '" cy="' + pointY + '" r="10" fill="none" stroke="#dc2626" stroke-width="2.8" opacity=".98"><title>Candidate dry-like signal · highlighted for attention, not confirmed field dryness</title></circle>'
+          : "";
         const valueLabel = s1BackscatterState.showValueLabels ? '<text x="' + pointX + '" y="' + (y(value) - 9 - metricIndex * 11).toFixed(1) + '" text-anchor="middle" font-size="10" font-weight="700" fill="' + color + '" stroke="Canvas" stroke-width="3" paint-order="stroke">' + value.toFixed(2) + '</text>' : "";
-        return '<circle cx="' + pointX + '" cy="' + pointY + '" r="4.5" fill="' + markerColor + '" stroke="Canvas" stroke-width="1.4"><title>' + s1BackscatterEscape(title + " · " + (status?.label || "No direct paired reference-band match")) + '</title></circle>' + valueLabel;
+        return dryHighlight + '<circle cx="' + pointX + '" cy="' + pointY + '" r="4.5" fill="' + markerColor + '" stroke="Canvas" stroke-width="1.4"><title>' + s1BackscatterEscape(title + " · " + (status?.label || "No direct paired reference-band match")) + '</title></circle>' + valueLabel;
       }).join("");
       return polylines + markers;
     }).join("");
@@ -158,7 +161,7 @@ function s1BackscatterChartMarkup() {
   }).join("");
   const fieldLegend = fields.map((f,i)=>'<span><i style="background:' + colors[i%colors.length] + '"></i>' + s1BackscatterEscape(f.fieldNo) + ' · orbit ' + f.orbit + ' ' + s1BackscatterEscape(f.orbitDirection) + '</span>').join("");
   const metricLegend = metrics.map(m=>'<span><i class="s1-line-swatch" style="' + (m.dash ? 'border-top-style:dashed;' : '') + '"></i>' + m.label + '</span>').join("");
-  const statusLegend = s1BackscatterReferenceBands().map(b=>'<span><i style="background:' + b.color + '"></i>' + s1BackscatterEscape(b.label) + '</span>').join("") + '<span><i style="background:#64748b"></i>No direct match</span>';
+  const statusLegend = s1BackscatterReferenceBands().map(b=>'<span><i style="background:' + b.color + '"></i>' + s1BackscatterEscape(b.label) + '</span>').join("") + '<span><i style="background:#64748b"></i>No direct match</span><span class="s1-dry-ring-legend"><i></i>Red circle = candidate dry-like acquisition</span>';
   return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + statusLegend + '</div>';
 }
 function s1BackscatterInterpretationMarkup() {
