@@ -320,7 +320,20 @@ function bindS1BackscatterPanel() {
       s1BackscatterState.savedKey = s1BackscatterCurrentKey();
       await s1BackscatterLoadAnnotations();
     } catch (error) {
-      s1BackscatterState.error = error?.message || "Could not generate the Sentinel-1 backscatter trend.";
+      let message = error?.message || "Could not generate the Sentinel-1 backscatter trend.";
+      // Supabase FunctionsHttpError keeps the HTTP Response in error.context.
+      // Read a clone so the SDK's original response remains untouched.
+      if (error?.context && typeof error.context.clone === "function") {
+        try {
+          const responseBody = await error.context.clone().json();
+          const detail = Array.isArray(responseBody?.details)
+            ? responseBody.details.map(item => [item.fieldNo, item.error].filter(Boolean).join(": ")).join("; ")
+            : "";
+          if (detail) message += " — " + detail;
+          else if (responseBody?.error) message += " — " + responseBody.error;
+        } catch (_) { /* Keep the original error if the response is not JSON. */ }
+      }
+      s1BackscatterState.error = message;
     } finally {
       s1BackscatterState.loading = false;
       renderManager();
