@@ -90,7 +90,7 @@ function s1BackscatterChartMarkup() {
   const result = s1BackscatterState.result;
   const fields = result?.fields || [];
   const observations = fields.flatMap(f => (f.observations || []).map(o => ({ ...o, fieldNo: f.fieldNo })));
-  if (!observations.length) return '<div class="s1-empty">No acquisition-level observations are loaded. Select one to five mapped Paddy fields and run the analysis.</div>';
+  if (!observations.length) return '<div class="s1-empty">No acquisition-level observations are loaded. Select one mapped Paddy field and run the analysis.</div>';
   const metrics = [
     { key: "vvDb", label: "VV (dB)", enabled: s1BackscatterState.showVV, dash: "" },
     { key: "vhDb", label: "VH (dB)", enabled: s1BackscatterState.showVH, dash: "7 4" },
