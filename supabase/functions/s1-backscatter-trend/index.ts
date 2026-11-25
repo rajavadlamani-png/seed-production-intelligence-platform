@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SECRET_KEY") ?? "";
 const CONNECTOR_URL = "https://anvora-eo-connector.raja-vadlamani.workers.dev/api/sentinel1";
-const STAC_SEARCH_URL = "https://stac.dataspace.copernicus.eu/v1/search";
+const ODATA_PRODUCTS_URL = "https://catalogue.dataspace.copernicus.eu/odata/v1/Products";
 const PROCESSING_VERSION = "S1-GRD-GAMMA0-TERRAIN-MEDIAN-DB-1.0";
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -90,44 +90,61 @@ async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = 45000)
     clearTimeout(timer);
   }
 }
+function attributeValue(item: any, name: string) {
+  const attributes = Array.isArray(item?.Attributes) ? item.Attributes : [];
+  const attribute = attributes.find((a: any) => String(a?.Name || "").toLowerCase() === name.toLowerCase());
+  if (!attribute) return null;
+  return attribute.Value ??
+    attribute["OData.CSC.IntegerAttribute"]?.Value ??
+    attribute["OData.CSC.StringAttribute"]?.Value ??
+    attribute["OData.CSC.DoubleAttribute"]?.Value ??
+    attribute["OData.CSC.DateTimeOffsetAttribute"]?.Value ?? null;
+}
 function itemOrbit(item: any) {
-  const p = item?.properties || {};
-  const orbit = Number(p["sat:relative_orbit"] ?? p["sat:relative_orbit_number"] ?? p.relativeOrbitNumber);
-  const rawDirection = String(p["sat:orbit_state"] ?? p.orbitDirection ?? p.orbit_direction ?? "").toUpperCase();
+  const orbit = Number(attributeValue(item, "relativeOrbitNumber"));
+  const rawDirection = String(attributeValue(item, "orbitDirection") ?? "").toUpperCase();
   const direction = rawDirection.includes("ASC") ? "ASCENDING" :
     rawDirection.includes("DESC") ? "DESCENDING" : "";
-  const mode = String(p["sar:instrument_mode"] ?? p.instrumentMode ?? "IW").toUpperCase();
-  const pol = p["sar:polarizations"] ?? p["s1:polarization"] ?? p.polarisationChannels;
-  const polText = Array.isArray(pol) ? pol.join(" ").toUpperCase() : String(pol ?? "").toUpperCase();
-  if (mode !== "IW" || !Number.isInteger(orbit) || orbit < 1 || orbit > 175 || !direction) return null;
-  if (polText && !(polText.includes("VV") && polText.includes("VH")) && !polText.includes("DV")) return null;
+  if (!Number.isInteger(orbit) || orbit < 1 || orbit > 175 || !direction) return null;
   return { orbit, direction };
 }
 async function catalogItems(geometry: any, from: string, to: string) {
-  const body = await fetchJson(STAC_SEARCH_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Accept": "application/geo+json, application/json" },
-    body: JSON.stringify({
-      collections: ["sentinel-1-grd"],
-      intersects: geometry,
-      datetime: from + "T00:00:00Z/" + to + "T23:59:59Z",
-      limit: 200
-    })
+  const ring = geometry.coordinates[0] as [number, number][];
+  const wkt = "POLYGON((" + ring.map(point => point[0] + " " + point[1]).join(",") + "))";
+  const filter = "Collection/Name eq 'SENTINEL-1' and contains(Name,'IW_GRDH') and contains(Name,'DV')" +
+    " and OData.CSC.Intersects(area=geography'SRID=4326;" + wkt + "')" +
+    " and ContentDate/Start ge " + from + "T00:00:00.000Z" +
+    " and ContentDate/Start le " + to + "T23:59:59.999Z";
+  const params = new URLSearchParams({
+    "$filter": filter,
+    "$expand": "Attributes",
+    "$select": "Id,Name,ContentDate,Attributes",
+    "$orderby": "ContentDate/Start asc",
+    "$top": "1000"
   });
-  const features = Array.isArray(body.features) ? body.features : [];
-  return features.map((item: any) => {
+  let url: string | null = ODATA_PRODUCTS_URL + "?" + params.toString();
+  const products: any[] = [];
+  let pages = 0;
+  while (url && pages < 5) {
+    const body = await fetchJson(url, { headers: { "Accept": "application/json" } });
+    if (Array.isArray(body.value)) products.push(...body.value);
+    url = typeof body["@odata.nextLink"] === "string" ? body["@odata.nextLink"] : null;
+    pages++;
+  }
+  return products.map((item: any) => {
     const orbit = itemOrbit(item);
-    const acquiredAt = String(item?.properties?.datetime || item?.properties?.start_datetime || "");
+    const acquiredAt = String(item?.ContentDate?.Start || "");
     const date = acquiredAt.slice(0, 10);
     if (!orbit || !validDate(date) || date < from || date > to) return null;
     return {
-      id: String(item.id || ""),
+      id: String(item.Id || ""),
+      name: String(item.Name || ""),
       acquiredAt,
       date,
       relativeOrbit: orbit.orbit,
       orbitDirection: orbit.direction,
-      platform: String(item?.properties?.platform || ""),
-      collection: String(item?.collection || "sentinel-1-grd")
+      platform: String(item.Name || "").split("_")[0],
+      collection: "SENTINEL-1"
     };
   }).filter((x: any) => x && x.id);
 }
@@ -136,17 +153,16 @@ function chooseOrbit(items: any[], requestedOrbit: number | null, requestedDirec
     (requestedOrbit === null || item.relativeOrbit === requestedOrbit) &&
     (!requestedDirection || item.orbitDirection === requestedDirection)
   );
-  if (!filtered.length) throw new Error("No Sentinel-1 IW VV/VH acquisitions match this field, date range and orbit filter.");
-  const counts = new Map<string, { orbit: number; direction: string; count: number }>();
+  if (!filtered.length) throw new Error("No Sentinel-1 IW dual-polarisation acquisitions match this field, date range and orbit filter.");
+  const counts = new Map<string, { orbit: number; direction: string; dates: Set<string> }>();
   filtered.forEach(item => {
     const key = item.relativeOrbit + "|" + item.orbitDirection;
-    const old = counts.get(key) || { orbit: item.relativeOrbit, direction: item.orbitDirection, count: 0 };
-    old.count++;
+    const old = counts.get(key) || { orbit: item.relativeOrbit, direction: item.orbitDirection, dates: new Set<string>() };
+    old.dates.add(item.date);
     counts.set(key, old);
   });
-  const options = [...counts.values()].sort((a, b) =>
-    b.count - a.count || a.orbit - b.orbit || a.direction.localeCompare(b.direction)
-  );
+  const options = [...counts.values()].map(x => ({ orbit: x.orbit, direction: x.direction, count: x.dates.size }))
+    .sort((a, b) => b.count - a.count || a.orbit - b.orbit || a.direction.localeCompare(b.direction));
   const selected = options[0];
   const selectedItems = filtered.filter(item =>
     item.relativeOrbit === selected.orbit && item.orbitDirection === selected.direction
@@ -165,6 +181,7 @@ function chooseOrbit(items: any[], requestedOrbit: number | null, requestedDirec
       acquiredAt: group.map(x => x.acquiredAt).sort()[0],
       acquisitionId: group.map(x => x.id).sort().join("|"),
       itemIds: group.map(x => x.id).sort(),
+      productNames: group.map(x => x.name).sort(),
       platform: [...new Set(group.map(x => x.platform).filter(Boolean))].join(",")
     })).sort((a, b) => a.date.localeCompare(b.date))
   };
