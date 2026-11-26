@@ -362,6 +362,143 @@ async function persistObservation(admin: any, job: any, processing: any) {
   if (error) throw new Error("Could not save the NISAR field observation: " + error.message);
 }
 
+
+function validDate(value: unknown) {
+  return typeof value === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) &&
+    !Number.isNaN(Date.parse(value + "T00:00:00Z"));
+}
+
+function polygonToWkt(geometry: any) {
+  if (geometry?.type !== "Polygon" || !Array.isArray(geometry.coordinates?.[0])) {
+    throw new Error("ASF discovery requires the saved Polygon boundary.");
+  }
+  const ring = geometry.coordinates[0] as [number, number][];
+  return "POLYGON((" + ring.map(point => point[0] + " " + point[1]).join(",") + "))";
+}
+
+async function discoverAsfProducts(geometry: any, from: string, to: string) {
+  const params = new URLSearchParams({
+    dataset: "NISAR",
+    processingLevel: "GCOV",
+    intersectsWith: polygonToWkt(geometry),
+    start: from + "T00:00:00Z",
+    end: to + "T23:59:59Z",
+    output: "geojson",
+    maxResults: "200"
+  });
+  const response = await fetchJson(
+    "https://api.daac.asf.alaska.edu/services/search/param?" + params.toString(),
+    { headers: { Accept: "application/geo+json, application/json" } },
+    60000
+  );
+  const features = Array.isArray(response?.features) ? response.features : [];
+  const candidates = features.map((feature: any) => {
+    const properties = feature?.properties ?? {};
+    const productName = String(
+      properties.fileName ?? properties.granuleName ?? properties.sceneName ?? properties.name ?? ""
+    ).replace(/^.*\\//, "");
+    if (!productName) return null;
+    let parsed: any;
+    try { parsed = parseProductName(productName); } catch { return null; }
+    const productId = String(feature?.id ?? properties.fileID ?? properties.sceneName ?? productName);
+    const parts = productName.replace(/\\.h5$/i, "").split("_");
+    const groupKey = [parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10], parts[11], parts[12]].join("|");
+    return {
+      productId,
+      productName,
+      processingType: parsed.processingType,
+      acquiredAt: parsed.acquiredAt,
+      polarizationMode: parsed.polarizationMode,
+      nominalPixelSpacingM: parsed.nominalPixelSpacingM,
+      orbitDirection: parts[6] === "A" ? "ASCENDING" : parts[6] === "D" ? "DESCENDING" : "UNKNOWN",
+      relativeTrack: parts[5],
+      frame: parts[7],
+      coverage: parts[15] ?? null,
+      accuracy: parts[14] ?? null,
+      footprint: feature?.geometry ?? null,
+      groupKey
+    };
+  }).filter(Boolean);
+
+  const groups = new Map<string, any[]>();
+  for (const candidate of candidates) {
+    const group = groups.get(candidate.groupKey) ?? [];
+    group.push(candidate);
+    groups.set(candidate.groupKey, group);
+  }
+
+  const grouped = [...groups.entries()].map(([key, products]) => {
+    const pr = products.filter(product => product.processingType === "PR");
+    const ur = products.filter(product => product.processingType === "UR");
+    const od = products.filter(product => product.processingType === "OD");
+    let primary: any = null;
+    let selectionStatus = "no_supported_product";
+    if (pr.length === 1) {
+      primary = pr[0];
+      selectionStatus = "ready_pr";
+    } else if (pr.length > 1) {
+      const fullCoverage = pr.filter(product => product.coverage === "F");
+      if (fullCoverage.length === 1) {
+        primary = fullCoverage[0];
+        selectionStatus = "ready_pr_full_coverage";
+      } else {
+        selectionStatus = "ambiguous_pr_variants";
+      }
+    } else if (ur.length === 1) {
+      primary = ur[0];
+      selectionStatus = "ready_ur_fallback";
+    } else if (ur.length > 1) {
+      selectionStatus = "ambiguous_ur_variants";
+    } else if (od.length === 1) {
+      primary = od[0];
+      selectionStatus = "ready_od";
+    }
+    return {
+      groupKey: key,
+      selectionStatus,
+      primary,
+      alternatives: products.filter(product => !primary || product.productId !== primary.productId),
+      productCount: products.length
+    };
+  }).sort((a, b) => String(a.primary?.acquiredAt ?? a.alternatives[0]?.acquiredAt ?? "")
+    .localeCompare(String(b.primary?.acquiredAt ?? b.alternatives[0]?.acquiredAt ?? "")));
+
+  return {
+    catalogueProductCount: candidates.length,
+    acquisitionGroupCount: grouped.length,
+    readyGroupCount: grouped.filter(group => group.primary).length,
+    ambiguousGroupCount: grouped.filter(group => group.selectionStatus.startsWith("ambiguous")).length,
+    groups: grouped
+  };
+}
+
+async function discoverAction(admin: any, user: any, body: any) {
+  const fieldId = String(body.fieldId ?? "");
+  const from = body.from;
+  const to = body.to;
+  if (!fieldId || !validDate(from) || !validDate(to) || from > to) {
+    throw new Error("fieldId and valid from/to dates are required for ASF discovery.");
+  }
+  if ((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000 > 365) {
+    throw new Error("The ASF discovery date range cannot exceed 365 days.");
+  }
+  const field = await authorizedField(admin, user.id, fieldId);
+  if (!/paddy|rice/i.test(String(field.record_data?.crop ?? ""))) {
+    throw new Error("The initial NISAR pilot is limited to Paddy/Rice fields.");
+  }
+  const polygon = getExactFieldPolygon(field.record_data);
+  const result = await discoverAsfProducts(polygon.geometry, from, to);
+  return {
+    ok: true,
+    field: { id: field.id, fieldNo: field.field_no, crop: field.record_data?.crop ?? null },
+    boundaryPointCount: polygon.originalPointCount,
+    dateRange: { from, to },
+    source: "ASF DAAC NISAR GCOV catalogue",
+    ...result,
+    nextAction: "Submit one selected primary product using action=submit. Ambiguous PR variants require footprint review before submission."
+  };
+}
+
 async function submitAction(admin: any, user: any, body: any) {
   const fieldId = String(body.fieldId ?? "");
   const productId = String(body.productId ?? "");
@@ -535,6 +672,7 @@ Deno.serve(async (req: Request) => {
     if (!body || typeof body !== "object") return json({ error: "Request body must be valid JSON." }, 400);
     const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
     const action = String(body.action ?? "");
+    if (action === "discover") return json(await discoverAction(admin, user, body));
     if (action === "capabilities") {
       const collection = String(body.collectionShortName ?? COLLECTION_SHORT_NAME);
       if (collection !== COLLECTION_SHORT_NAME) return json({ error: "Use the configured NISAR GCOV collection." }, 400);
@@ -552,7 +690,7 @@ Deno.serve(async (req: Request) => {
     }
     if (action === "submit") return json(await submitAction(admin, user, body), 202);
     if (action === "poll") return json(await pollAction(admin, user, body));
-    return json({ error: "action must be capabilities, submit or poll." }, 400);
+    return json({ error: "action must be capabilities, discover, submit or poll." }, 400);
   } catch (error) {
     if (error instanceof Response) return error;
     return json({ error: safeError(error) }, 400);
