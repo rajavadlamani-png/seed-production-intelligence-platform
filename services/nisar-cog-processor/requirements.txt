@@ -1,0 +1,5 @@
+fastapi==0.128.2
+uvicorn[standard]==0.40.0
+numpy==2.3.5
+rasterio==1.5.0
+pydantic==2.12.5
