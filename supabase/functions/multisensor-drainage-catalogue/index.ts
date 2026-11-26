@@ -104,11 +104,18 @@ async function bhoonidhiToken() {
   return String(response.access_token);
 }
 async function searchBhoonidhi(collections:string[],geometry:any,from:string,to:string,token:string) {
-  const body = await fetchJson("https://bhoonidhi-api.nrsc.gov.in/data/search",{
-    method:"POST",
-    headers:{"Content-Type":"application/json",Accept:"application/geo+json, application/json",Authorization:"Bearer "+token},
-    body:JSON.stringify({collections,datetime:from+"T00:00:00Z/"+to+"T23:59:59Z",intersects:geometry,limit:500})
-  });
+  let body:any;
+  try {
+    body = await fetchJson("https://bhoonidhi-api.nrsc.gov.in/data/search",{
+      method:"POST",
+      headers:{"Content-Type":"application/json",Accept:"application/geo+json, application/json",Authorization:"Bearer "+token},
+      body:JSON.stringify({collections,datetime:from+"T00:00:00Z/"+to+"T23:59:59Z",intersects:geometry,limit:500})
+    });
+  } catch(e) {
+    // Treat the provider's explicit no-results response as an empty search result, not an outage.
+    if (/HTTP 404:.*NO RESULTS FOUND/i.test(String((e as Error)?.message||e))) return [];
+    throw e;
+  }
   return (Array.isArray(body?.features)?body.features:[]).map((f:any)=>({
     id:String(f?.id||""),
     collection:String(f?.collection||f?.properties?.collection||""),
@@ -168,20 +175,33 @@ Deno.serve(async(req:Request)=>{
       sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"not_searched",count:null,products:[],note:"Catalogue search skipped because Bhoonidhi authentication failed."});
     }
     if(token) {
-      const [nisarResult,eosResult]=await Promise.allSettled([
+      const [nisarResult,eosPolygonResult,eosPointResult,eosBroadResult]=await Promise.allSettled([
         searchBhoonidhi(["NISAR_SSAR_GSLC","NISAR_SSAR_GCOV","NISAR_SSAR_RSLC"],aoi.geometry,from,to,token),
-        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,from,to,token)
+        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,from,to,token),
+        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],{type:"Point",coordinates:[aoi.center.lon,aoi.center.lat]},from,to,token),
+        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,"2024-01-01",to,token)
       ]);
       if(nisarResult.status==="fulfilled") {
         sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"searched",count:nisarResult.value.length,products:nisarResult.value,access:"Bhoonidhi account/API access required."});
       } else {
         sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"provider_error",count:null,products:[],error:String(nisarResult.reason?.message||nisarResult.reason)});
       }
-      if(eosResult.status==="fulfilled") {
-        sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"searched",count:eosResult.value.length,products:eosResult.value,access:"Bhoonidhi account/API access required."});
-      } else {
-        sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"provider_error",count:null,products:[],error:String(eosResult.reason?.message||eosResult.reason)});
-      }
+      const eosTests=[
+        {label:"Saved boundary · requested dates",result:eosPolygonResult},
+        {label:"AOI centre point · requested dates",result:eosPointResult},
+        {label:"Saved boundary · 1 Jan 2024 to end date",result:eosBroadResult}
+      ];
+      const eosErrors=eosTests.filter(t=>t.result.status==="rejected").map(t=>t.label+": "+String(t.result.reason?.message||t.result.reason));
+      const eosProducts=eosTests.flatMap(t=>t.result.status==="fulfilled"?t.result.value:[]);
+      const uniqueEos=[...new Map(eosProducts.map((p:any)=>[p.id,p])).values()];
+      const eosDiagnostics=eosTests.map(t=>t.label+": "+(t.result.status==="fulfilled"?t.result.value.length+" products":"search error")).join(" | ");
+      sourceResults.push({
+        source:"EOS-04 (ISRO Bhoonidhi)",
+        status:eosErrors.length===eosTests.length?"provider_error":uniqueEos.length?"searched":eosErrors.length?"partial_results":"searched",
+        count:uniqueEos.length,products:uniqueEos,access:"Bhoonidhi account/API access required.",
+        note:eosDiagnostics+(eosErrors.length?" | Errors: "+eosErrors.join("; "):" | Explicit no-results responses count as completed searches."),
+        diagnostics:eosTests.map(t=>({test:t.label,status:t.result.status==="fulfilled"?"searched":"provider_error",count:t.result.status==="fulfilled"?t.result.value.length:null,error:t.result.status==="rejected"?String(t.result.reason?.message||t.result.reason):null}))
+      });
     }
   }
   const total=sourceResults.reduce((n,s)=>n+(Number(s.count)||0),0);
