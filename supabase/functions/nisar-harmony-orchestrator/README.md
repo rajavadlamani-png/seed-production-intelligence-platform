@@ -17,7 +17,7 @@ All requests are POST and require a valid Supabase user JWT.
 }
 ```
 
-The function verifies company membership, uses every saved boundary point to form the ASF polygon search, and groups products by acquisition identity. It prefers a unique PR product, uses a unique UR product only as a fallback, and flags ambiguous duplicate PR variants rather than choosing one without a footprint tie-break. The date range is limited to 365 days per request.
+The function verifies company membership, uses a compact bounding box for ASF catalogue search, then checks the returned product footprint against every saved field-boundary point. It groups products by acquisition identity, prefers a unique footprint-confirmed PR product, uses a unique footprint-confirmed UR product only as a fallback, and flags ambiguous or incomplete-footprint variants rather than choosing one without evidence. The date range is limited to 365 days per request.
 
 ### 2. Inspect live collection capabilities
 
