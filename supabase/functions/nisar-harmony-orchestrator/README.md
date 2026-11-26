@@ -45,14 +45,14 @@ Apply `supabase/migrations/20261126080000_nisar_processing_jobs.sql` before call
 - `NISAR_GCOV_COLLECTION_SHORT_NAME`: optional; defaults to `NISAR_L2_GCOV_PROVISIONAL_V1`.
 - `NISAR_PROCESSOR_URL`: HTTPS base URL of the deployed private COG processor.
 - `NISAR_PROCESSOR_TOKEN`: must match the processor's private service token.
-- `NISAR_COG_ALLOWED_HOSTS`: optional comma-separated exact host allowlist for Harmony output assets. Defaults to `harmony.earthdata.nasa.gov`.
+- `NISAR_COG_ALLOWED_HOSTS`: optional comma-separated exact host allowlist for Harmony output assets. Defaults to `harmony.earthdata.nasa.gov`. Configure the same hostname list in the worker's `COG_ALLOWED_HOSTS` setting.
 - `HARMONY_ROOT`: optional; defaults to `https://harmony.earthdata.nasa.gov`.
 
 Supabase's built-in `SUPABASE_URL`, `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_SECRET_KEY` are used by the function runtime.
 
 ## Processing contract and limitations
 
-- The initial implementation supports NISAR L-band GCOV Frequency A diagonal covariance layers for SH, SV, DH, DV and QP polarization modes. Compact-pol modes are deliberately rejected until their variable mapping is validated.
+- The initial implementation supports NISAR L-band GCOV Frequency A diagonal covariance layers for SH, SV, DH, DV and QP polarization modes. Compact-pol modes are deliberately rejected until their variable mapping is validated. It derives Frequency A nominal spacing from the product bandwidth code and rejects 80 m Frequency A cases for the small-field pilot.
 - Harmony is asked to export GeoTIFF/COG layers and spatially subset to the field bounding box. The worker then clips to the exact field polygon. The bounding box is only an extraction optimization, not the field-statistics AOI.
 - Product filename parsing is used to determine acquisition timestamp and polarization mode. Confirm the product's full granule filename and collection membership before submitting.
 - The current function uses a single field/product job. Batch deduplication and scheduled discovery are a later layer.
