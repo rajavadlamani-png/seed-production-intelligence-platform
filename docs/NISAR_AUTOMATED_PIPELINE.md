@@ -129,7 +129,7 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 ## Implementation sequence
 
 1. Apply the NISAR job/observation migration and verify tenant-scoped access.
-2. Implement batch ASF discovery and product deduplication.
+2. Extend the current single-field ASF discovery into batch discovery and cross-field product deduplication.
 3. Configure Earthdata and processor secrets in Supabase Edge Functions.
 4. Deploy the Harmony coordinator and private COG processor.
 5. Verify Harmony capabilities and submit the WH-SYN-016 sample product.
@@ -143,7 +143,7 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 - The pilot field WH-SYN-016 has 731 saved boundary points, and the stored ring is already closed. The coordinator preserves all points and uses the bounding box only for Harmony extraction; the worker clips statistics to the saved polygon.
 - The beta field registry is not the same table as the production `fields` registry. The migration therefore introduces a separate `nisar_field_observations` table rather than attempting to write pilot records into the incompatible `satellite_observations` foreign key.
 - No database schema has been applied, no Supabase function has been deployed, no Earthdata secret has been configured, and no real Harmony COG has been processed.
-- The orchestration source has not yet been type-checked or exercised against live Harmony. It is not production-ready until the migration, secret configuration, deployment, live COG test, mask interpretation, and end-to-end pilot validation are complete.
+- ASF polygon discovery, PR/UR grouping and Harmony submission/polling source are committed, but the orchestration source has not yet been type-checked or exercised against live Harmony. It is not production-ready until the migration, secret configuration, deployment, live COG test, mask interpretation, and end-to-end pilot validation are complete.
 
 ## Explicit non-goals for the first release
 
