@@ -521,6 +521,7 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
     acquisitionGroupCount: grouped.length,
     readyGroupCount: grouped.filter(group => group.primary).length,
     ambiguousGroupCount: grouped.filter(group => group.selectionStatus.startsWith("ambiguous")).length,
+    footprintReviewGroupCount: grouped.filter(group => group.selectionStatus.endsWith("footprint_review_required")).length,
     groups: grouped
   };
 }
@@ -548,7 +549,7 @@ async function discoverAction(admin: any, user: any, body: any) {
     dateRange: { from, to },
     source: "ASF DAAC NISAR GCOV catalogue",
     ...result,
-    nextAction: "Submit one selected primary product using action=submit. Ambiguous PR variants require footprint review before submission."
+    nextAction: "Submit one selected primary product using action=submit. Groups without a primary need footprint/variant review first."
   };
 }
 
