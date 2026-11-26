@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Multi-sensor Drainage Evidence Pilot</title>
+<style>
+:root{color-scheme:light;--ink:#18312b;--muted:#64756f;--line:#dce6e1;--paper:#f5f8f6;--green:#176b50;--gold:#b38a42}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 Inter,system-ui,Arial,sans-serif}.wrap{max-width:1100px;margin:0 auto;padding:28px 18px 60px}.eyebrow{font-size:11px;letter-spacing:.14em;font-weight:800;color:var(--green)}h1{font-size:clamp(26px,4vw,38px);line-height:1.15;margin:8px 0}h2{font-size:19px;margin:0 0 12px}.muted{color:var(--muted)}.panel{background:white;border:1px solid var(--line);border-radius:16px;padding:20px;margin:18px 0;box-shadow:0 4px 16px #163b2b0a}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}label{display:block;font-size:13px;font-weight:700;color:var(--muted)}input{display:block;width:100%;margin-top:6px;padding:11px;border:1px solid var(--line);border-radius:9px;font:inherit;color:var(--ink)}button{border:0;border-radius:9px;padding:12px 18px;background:var(--green);color:white;font-weight:800;cursor:pointer;margin-top:14px}button:disabled{opacity:.55;cursor:wait}.pill{display:inline-block;border-radius:99px;padding:4px 9px;font-size:11px;font-weight:800;background:#edf5f0;color:var(--green)}.status{padding:12px;border-radius:10px;background:#f1f5f3;margin-top:14px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.source{border:1px solid var(--line);border-radius:12px;padding:14px}.source h3{font-size:15px;margin:0 0 8px}.count{font-size:27px;font-weight:800}.product{border-top:1px solid var(--line);padding:10px 0;font-size:13px}.product b{display:block;overflow-wrap:anywhere}.warn{color:#91651e}.error{color:#a33131}table{border-collapse:collapse;width:100%;font-size:13px}td,th{text-align:left;padding:9px;border-bottom:1px solid var(--line)}.scroll{overflow:auto}.foot{font-size:12px;color:var(--muted);margin-top:20px}a{color:var(--green)}
+</style>
+</head>
+<body><main class="wrap">
+<p class="eyebrow">SEED PRODUCTION INTELLIGENCE · RESEARCH PILOT</p>
+<h1>Multi-sensor drainage evidence</h1>
+<p class="muted">Catalogue discovery for the existing platform test field. This pilot checks whether independent radar missions have acquisitions over the saved field geometry. It does not detect or confirm drainage.</p>
+<section class="panel">
+<h2>Test configuration</h2>
+<div class="grid">
+<label>Field record ID<input id="fieldId" value="3953c26d-dc93-41bb-ae80-7aa5da738799" readonly></label>
+<label>Start date<input id="from" type="date" value="2025-11-29"></label>
+<label>End date<input id="to" type="date" value="2026-11-26"></label>
+</div>
+<p class="muted">The field name is used only as a platform reference. Search geometry is derived from its saved boundary GPS points; the stored coordinates are not corrected or replaced.</p>
+<button id="run">Search satellite catalogues</button>
+<div id="status" class="status">Sign in to the Seed Production Monitor in this browser, then run the catalogue search.</div>
+</section>
+<section class="panel" id="results" hidden>
+<h2>Catalogue availability</h2><div class="cards" id="sources"></div>
+<div class="scroll" style="margin-top:18px"><table><thead><tr><th>Satellite / collection</th><th>Acquisition date</th><th>Product ID</th><th>Polarisation</th><th>Data maturity / status</th></tr></thead><tbody id="rows"></tbody></table></div>
+</section>
+<section class="panel">
+<h2>What this pilot will establish</h2>
+<ul><li>Catalogue coverage over the saved test field.</li><li>Actual acquisition dates and gaps for each satellite.</li><li>Whether products are suitable for later field-level processing.</li><li>Which sources still need account/API credentials.</li></ul>
+<p class="warn"><b>Scientific limitation:</b> acquisition availability is not drainage evidence. We must separately process sensor-specific calibrated backscatter and compare observations around a documented event window.</p>
+</section>
+<p class="foot">NISAR L-band catalogue: NASA Alaska Satellite Facility. NISAR S-band and EOS-04 catalogues: ISRO Bhoonidhi. Original imagery is not downloaded by this discovery step.</p>
+</main>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
+<script>
+const SUPABASE_URL="https://xjtzvhtoeormizrhozoy.supabase.co";
+const SUPABASE_KEY="sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp";
+const client=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storage:window.localStorage,persistSession:true,autoRefreshToken:true}});
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+$("run").addEventListener("click",async()=>{
+ const from=$("from").value,to=$("to").value,fieldId=$("fieldId").value;
+ if(!from||!to||from>to){$("status").textContent="Choose a valid date range.";return}
+ $("run").disabled=true;$("status").textContent="Searching satellite catalogues. This may take a minute.";
+ try{
+  const {data:{session}}=await client.auth.getSession();
+  if(!session?.access_token)throw new Error("No signed-in session found. Open the Seed Production Monitor, sign in, then return to this page.");
+  const {data,error}=await client.functions.invoke("multisensor-drainage-catalogue",{body:{fieldId,from,to}});
+  if(error)throw new Error(data?.error||error.message||"Catalogue search failed.");
+  if(!data?.ok)throw new Error(data?.error||"Catalogue search did not complete.");
+  $("results").hidden=false;
+  $("status").innerHTML="<b>Search complete.</b> Field: "+esc(data.field.fieldNo)+" · AOI centre: "+esc(data.testAreaOfInterest.center.latitude)+", "+esc(data.testAreaOfInterest.center.longitude)+" · boundary points: "+esc(data.testAreaOfInterest.boundaryPointCount)+". "+esc(data.interpretation);
+  $("sources").innerHTML=data.sourceResults.map(s=>'<article class="source"><h3>'+esc(s.source)+'</h3><div class="count">'+(s.count===null?"—":esc(s.count))+'</div><span class="pill">'+esc(s.status.replaceAll("_"," "))+'</span><p class="muted">'+esc(s.note||s.error||s.access||"")+'</p></article>').join("");
+  const rows=data.sourceResults.flatMap(s=>(s.products||[]).map(p=>({source:s.source,...p})));
+  $("rows").innerHTML=rows.length?rows.map(p=>'<tr><td>'+esc(p.source||p.collection)+'</td><td>'+esc(p.acquisitionDate||"Not supplied")+'</td><td><b>'+esc(p.id)+'</b></td><td>'+esc(p.polarization||"—")+'</td><td>'+esc(p.dataMaturity||p.online||"—")+'</td></tr>').join(""):'<tr><td colspan="5">No catalogue products returned by the sources currently accessible.</td></tr>';
+ }catch(e){$("status").textContent=e.message||"Catalogue search failed."}
+ finally{$("run").disabled=false}
+});
+</script></body></html>
