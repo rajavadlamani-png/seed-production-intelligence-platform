@@ -1,0 +1,50 @@
+name: NISAR pipeline checks
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/nisar-harmony-orchestrator/**"
+      - "services/nisar-cog-processor/**"
+      - "supabase/migrations/*nisar*"
+      - ".github/workflows/nisar-pipeline-checks.yml"
+  push:
+    branches:
+      - "feature/automated-nisar-field-pipeline"
+    paths:
+      - "supabase/functions/nisar-harmony-orchestrator/**"
+      - "services/nisar-cog-processor/**"
+      - "supabase/migrations/*nisar*"
+      - ".github/workflows/nisar-pipeline-checks.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  edge-function:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check NISAR orchestrator
+        run: deno check supabase/functions/nisar-harmony-orchestrator/index.ts
+
+  geospatial-worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/nisar-cog-processor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/nisar-cog-processor/requirements-dev.txt
+      - name: Install worker dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Compile worker
+        run: python -m py_compile main.py
+      - name: Run synthetic GeoTIFF tests
+        run: python -m pytest -q
