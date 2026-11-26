@@ -76,7 +76,7 @@ The optional mask layer is returned as raw class counts. This service deliberate
 - Input geometry is the original field Polygon or MultiPolygon in WGS84 (EPSG:4326).
 - Pixel inclusion uses pixel centres (`all_touched=False`) for reproducible polygon statistics.
 - No-data and non-finite pixels are excluded.
-- Gamma0 power remains available in its source linear units; dB is calculated as `10 * log10(power)` for positive values.
+- For gamma0 power layers, non-finite and non-positive samples are excluded from the valid-pixel statistics. The count of excluded non-positive samples is reported separately. Gamma0 power remains available in its source linear units; dB is calculated as `10 * log10(power)` for the positive-sample median.
 - `insufficient_valid_pixels` is returned when the smallest valid-pixel count among requested backscatter layers is below the configured threshold.
 - The worker returns metrics only. The authenticated orchestrator is responsible for persisting them with company/field/product provenance in Supabase.
 
