@@ -91,6 +91,7 @@ function parseProductName(productName: string) {
   return {
     processingType: parts[2],
     mode: parts[8],
+    nominalPixelSpacingM: ({ "40": 10, "20": 20, "77": 20, "05": 80 } as Record<string, number>)[parts[8].slice(0, 2)] ?? null,
     polarizationMode: parts[9],
     acquiredAt: parts[11].slice(0, 4) + "-" + parts[11].slice(4, 6) + "-" + parts[11].slice(6, 8) +
       "T" + parts[11].slice(9, 11) + ":" + parts[11].slice(11, 13) + ":" + parts[11].slice(13, 15) + "Z",
@@ -246,7 +247,17 @@ async function getStacAssets(jobId: string) {
   } else if (root?.type === "Feature" || root?.assets) {
     items.push(root);
   } else {
-    throw new Error("Harmony job completed but its STAC catalogue contained no output items.");
+    // Harmony documents the item endpoint as /stac/{job-id}/{item-index}.
+    // Use the first item only when the root catalog omitted direct item links.
+    try {
+      const firstItem = await fetchJson(HARMONY_ROOT + "/stac/" + encodeURIComponent(jobId) + "/0", {
+        headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/geo+json, application/json" }
+      });
+      if (firstItem?.assets) items.push(firstItem);
+    } catch {
+      // The error below is intentionally generic; do not leak signed URLs or tokens.
+    }
+    if (!items.length) throw new Error("Harmony job completed but its STAC catalogue contained no output items.");
   }
 
   const assets: { key: string; title: string; href: string }[] = [];
@@ -290,7 +301,7 @@ async function runProcessor(job: any, assets: { key: string; title: string; href
       url: findAsset(assets, name),
       frequency: "A",
       polarization: layerMap[leaf] ?? leaf,
-      nominal_pixel_spacing_m: null,
+      nominal_pixel_spacing_m: Number(job.product_metadata?.nominal_pixel_spacing_m ?? 0) || null,
       value_type: "gamma0_power"
     };
   });
@@ -367,6 +378,8 @@ async function submitAction(admin: any, user: any, body: any) {
   if (!/paddy|rice/i.test(String(field.record_data?.crop ?? ""))) throw new Error("The initial NISAR pilot is limited to Paddy/Rice fields.");
   const polygon = getExactFieldPolygon(field.record_data);
   const parsed = parseProductName(productName);
+  if (parsed.nominalPixelSpacingM === null) throw new Error("Could not determine the Frequency A pixel spacing from the product name.");
+  if (parsed.nominalPixelSpacingM > 20) throw new Error("This product's Frequency A spacing is too coarse for the initial small-field NISAR pilot.");
   const collection = String(body.collectionShortName ?? COLLECTION_SHORT_NAME);
   if (collection !== COLLECTION_SHORT_NAME) throw new Error("Use the configured NISAR GCOV collection short name.");
   const { data: existing, error: lookupError } = await admin.from("nisar_processing_jobs")
@@ -401,6 +414,7 @@ async function submitAction(admin: any, user: any, body: any) {
     product_metadata: {
       processing_type: parsed.processingType,
       polarization_mode: parsed.polarizationMode,
+      nominal_pixel_spacing_m: parsed.nominalPixelSpacingM,
       original_boundary_point_count: polygon.originalPointCount,
       capabilities_version: capabilities.capabilitiesVersion ?? null,
       available_variable_count: variableNames(capabilities).length
