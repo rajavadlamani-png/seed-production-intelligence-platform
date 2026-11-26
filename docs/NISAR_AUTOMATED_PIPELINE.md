@@ -1,0 +1,144 @@
+# Automated NISAR field-monitoring pipeline
+
+## Purpose
+
+Add NISAR L-band GCOV as a second SAR source alongside the existing Sentinel-1 workflow. Field officers and managers must not download HDF5 products, run scripts, or repeat setup for individual fields.
+
+The intended user experience is: register/maintain a field polygon once; the platform discovers new satellite acquisitions, requests only the required NISAR layers and area, calculates field-level statistics, and stores a provenance-rich time series.
+
+## What is already present
+
+- `beta_field_records` stores the company, field number, and field metadata in `record_data`.
+- `s1-backscatter-trend` discovers Sentinel-1 IW acquisitions and calls the existing ANVORA EO connector for statistics. Its current geometry is a circular buffer around a field reference point, not the exact field polygon.
+- `multisensor-drainage-catalogue` discovers ASF NISAR L-band and Bhoonidhi products for one field. It is catalogue discovery only; it does not submit NISAR processing jobs or calculate field statistics.
+- `s1_backscatter_observations` stores Sentinel-1 summaries. `satellite_observations` is a more generic table but currently has no NISAR-specific processing contract.
+
+Do not silently treat the current Sentinel-1 circular-buffer observations as polygon-level field measurements.
+
+## Recommended design
+
+### 1. Field registry remains the source of truth
+
+- Use the saved field polygon from `beta_field_records.record_data`.
+- Do not alter or re-draw the registered polygon as part of satellite processing.
+- Validate geometry and retain the original polygon. A simplified geometry may be used for provider search only; all final statistics must use the original polygon.
+- Process fields in batches by company and geographic region.
+
+### 2. Discovery and deduplication
+
+- Use the ASF DAAC NISAR search API to discover GCOV products intersecting field areas.
+- Prefer Production (PR) products over Urgent Response (UR) when both represent the same acquisition. Keep UR as a fallback/alternative, not a duplicate time-series observation.
+- Deduplicate by stable product/acquisition identity.
+- Group fields intersecting the same product so the product is requested once per processing batch, not once per field.
+- Keep catalogue discovery status separate from processing status.
+
+### 3. Use NASA Harmony for data extraction
+
+Do not download full HDF5 products to a user's computer or to a general application server.
+
+Use NASA Harmony's NISAR GCOV customization service to:
+- extract only selected two-dimensional GCOV variables;
+- spatially subset the requested area;
+- return Cloud Optimized GeoTIFF (COG) outputs;
+- track the asynchronous Harmony job until outputs are ready.
+
+The variable inventory must be obtained from the live collection capabilities/product metadata. Do not hard-code the assumption that every polarization or frequency exists in every product.
+
+For each product, request only the applicable real-valued diagonal covariance layers, plus quality/context layers where available:
+- the available co-/cross-polarized diagonal backscatter terms (for example HHHH, HVHV, VVVV, VHVH, RHRH or RVRV);
+- `mask`;
+- `numberOfLooks`;
+- `rtcGammaToSigmaFactor`.
+
+The actual layer names are selected from the product's available variables and acquisition polarization. Complex off-diagonal covariance terms are not part of the first field-monitoring release.
+
+### 4. Central geospatial processor
+
+Harmony is the extraction/subsetting service, not the field-statistics engine. A dedicated server-side geospatial processor must read the resulting COGs and calculate statistics against each original field polygon.
+
+The processor should:
+- use the COG georeferencing and CRS as supplied;
+- intersect valid pixels with the exact field polygon;
+- apply the product mask and exclude invalid/no-data pixels;
+- retain valid pixel count, total candidate pixels, valid-pixel fraction and quality-layer summaries;
+- calculate robust field summaries (at minimum median and interquartile range) for each available backscatter layer;
+- retain acquisition timestamp, product ID, frequency, polarization, nominal pixel spacing, processing maturity/version and Harmony job reference;
+- report an explicit no-valid-pixels / insufficient-resolution outcome rather than inventing a value.
+
+Do not run raster/HDF5 processing inside a short-lived Supabase Edge Function. Supabase should authenticate, coordinate jobs, store status and persist results. A separate geospatial worker should do raster computation.
+
+### 5. Resolution and field-scale rules
+
+- Prefer Frequency A products at 10 m or 20 m nominal spacing for field-level analysis.
+- Frequency B at 80 m is too coarse to be the primary signal for small production plots; it may be retained as contextual coverage only.
+- Pixel counts estimated from field area are planning estimates only. Use actual valid pixels after polygon intersection.
+- For small fields, enforce a configurable minimum valid-pixel threshold and return a quality status when the threshold is not met. The threshold must be validated against real sample products before production use.
+
+### 6. Shared observations, sensor-specific metrics
+
+Store NISAR and Sentinel-1 in a common observation framework where possible, but retain sensor-specific source metadata and processing versions.
+
+Do not directly compare or merge Sentinel-1 VV/VH Gamma0 summaries with NISAR GCOV covariance terms as if they were interchangeable. Any cross-sensor normalization or fusion requires a separately validated method.
+
+For WH-SYN-016, keep the existing Sentinel-1 circular-buffer series as a historical contextual baseline. New NISAR statistics must use the saved field polygon. If a fair sensor comparison is required, reprocess Sentinel-1 over that same polygon.
+
+### 7. Scheduling and operations
+
+- Run a scheduled catalogue refresh for all eligible active fields, grouped by company/geography.
+- Add only new products to the processing queue; do not reprocess completed products unless the processing version or source product changes.
+- Use bounded concurrency, retries with backoff, idempotency keys and explicit failed/retryable/permanent states.
+- Poll Harmony jobs asynchronously. Persist the job ID and resume after function restarts.
+- Store derived COG assets only when required for audit/reprocessing; apply retention and access controls. Store metrics and provenance in Postgres.
+- Provide a batch status view: fields checked, new acquisitions, products deduplicated, jobs submitted/completed, fields with valid observations, and failures.
+
+## Proposed processing states
+
+`discovered → queued → harmony_submitted → harmony_ready → statistics_running → completed`
+
+Failure states:
+- `catalogue_failed`
+- `harmony_failed`
+- `processing_failed`
+- `insufficient_valid_pixels`
+
+Each state transition must retain timestamps and a diagnostic message. Retrying must not create duplicate observations.
+
+## Security and credentials
+
+- Earthdata Login authentication is required for NISAR data access and Harmony transformations.
+- Store Earthdata credentials or an approved token in server-side secret management only. Never place them in browser code, GitHub, logs, SQL fixtures or user-visible output.
+- Prefer a short-lived server-side Earthdata session/token where supported; refresh it centrally.
+- The public GitHub Pages demo must not expose real field data, credentials or private processing outputs.
+- Enforce active company membership before a user can initiate or inspect company field jobs.
+
+## WH-SYN-016 pilot acceptance criteria
+
+1. The existing saved boundary remains unchanged.
+2. ASF discovery returns candidate NISAR GCOV products for the saved boundary.
+3. The system chooses a PR product where an equivalent UR product exists, while preserving the alternative in metadata.
+4. Harmony capability discovery confirms the selected GCOV collection and available variables.
+5. A Harmony job extracts a spatial subset as COG without a user downloading the full HDF5 product.
+6. The processor calculates polygon-interior statistics using the original 731-point field boundary.
+7. The result records actual valid-pixel count, mask/quality metadata, resolution, polarization, acquisition date and processing provenance.
+8. The result is stored once and can be retrieved through the field's satellite-observation history.
+9. A batch run over multiple fields deduplicates shared source products.
+10. No existing Sentinel-1 records or field geometry are modified.
+
+## Implementation sequence
+
+1. Add the NISAR job/product/observation data model and tenant-safe access policies.
+2. Implement batch ASF discovery and product deduplication.
+3. Implement Harmony capability lookup, submission and asynchronous job polling.
+4. Implement the geospatial worker for COG-to-polygon statistics.
+5. Connect the worker and Supabase job state machine.
+6. Validate the WH-SYN-016 pilot against a known product and inspect the output quality.
+7. Enable scheduled batch processing only after the pilot passes.
+8. Add the NISAR series to the satellite report with clear sensor/source labels.
+
+## Explicit non-goals for the first release
+
+- No manual HDF5 download by field officers or managers.
+- No use of 80 m Frequency B as the primary small-field signal.
+- No automated drainage, irrigation or soil-moisture conclusion from backscatter alone.
+- No merging of NISAR and Sentinel-1 metrics without validation.
+- No automatic deployment or production scheduling until Earthdata credentials, the processing worker and pilot validation are complete.
