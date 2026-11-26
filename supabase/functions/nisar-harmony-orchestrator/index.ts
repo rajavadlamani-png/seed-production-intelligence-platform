@@ -334,21 +334,17 @@ async function runProcessor(job: any, assets: { key: string; title: string; href
 }
 
 async function persistObservation(admin: any, job: any, processing: any) {
-  const { data: existing, error: lookupError } = await admin.from("satellite_observations")
-    .select("id")
-    .eq("company_id", job.company_id)
-    .eq("field_id", job.field_record_id)
-    .eq("provider", "NASA NISAR Harmony")
-    .eq("source_reference", job.product_id)
-    .maybeSingle();
-  if (lookupError) throw new Error("Could not check for an existing NISAR observation: " + lookupError.message);
-
   const payload = {
     company_id: job.company_id,
-    field_id: job.field_record_id,
+    field_record_id: job.field_record_id,
+    field_no: job.field_no,
     observed_at: job.acquired_at,
     provider: "NASA NISAR Harmony",
     product_or_sensor: "NISAR L-band GCOV",
+    source_product_id: job.product_id,
+    collection_short_name: job.collection_short_name,
+    processing_version: PROCESSING_VERSION,
+    quality_status: processing.result.quality_status,
     indicators: {
       sensor: "NISAR L-band",
       product: "GCOV",
@@ -358,15 +354,12 @@ async function persistObservation(admin: any, job: any, processing: any) {
       field_polygon_method: "Exact saved beta_field_records.record_data.boundaryPoints",
       ...processing.result
     },
-    source_reference: job.product_id
+    source_metadata: job.product_metadata
   };
-  if (existing?.id) {
-    const { error } = await admin.from("satellite_observations").update(payload).eq("id", existing.id);
-    if (error) throw new Error("Could not update the NISAR observation: " + error.message);
-  } else {
-    const { error } = await admin.from("satellite_observations").insert(payload);
-    if (error) throw new Error("Could not save the NISAR observation: " + error.message);
-  }
+  const { error } = await admin.from("nisar_field_observations").upsert(payload, {
+    onConflict: "field_record_id,source_product_id,processing_version"
+  });
+  if (error) throw new Error("Could not save the NISAR field observation: " + error.message);
 }
 
 async function submitAction(admin: any, user: any, body: any) {
