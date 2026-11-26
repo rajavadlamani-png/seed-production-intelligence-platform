@@ -6,7 +6,20 @@ This Supabase Edge Function is the authenticated coordinator between the field r
 
 All requests are POST and require a valid Supabase user JWT.
 
-### 1. Inspect live collection capabilities
+### 1. Discover NISAR GCOV products for a saved field
+
+```json
+{
+  "action": "discover",
+  "fieldId": "<field UUID>",
+  "from": "2026-10-01",
+  "to": "2026-11-26"
+}
+```
+
+The function verifies company membership, uses every saved boundary point to form the ASF polygon search, and groups products by acquisition identity. It prefers a unique PR product, uses a unique UR product only as a fallback, and flags ambiguous duplicate PR variants rather than choosing one without a footprint tie-break. The date range is limited to 365 days per request.
+
+### 2. Inspect live collection capabilities
 
 ```json
 { "action": "capabilities" }
@@ -14,7 +27,7 @@ All requests are POST and require a valid Supabase user JWT.
 
 The function queries Harmony's live `/capabilities?shortName=...` endpoint and returns the collection concept ID, output formats and available variables. The configured collection short name defaults to `NISAR_L2_GCOV_PROVISIONAL_V1` and can be overridden by a server-side secret.
 
-### 2. Submit one field/product extraction
+### 3. Submit one field/product extraction
 
 ```json
 {
@@ -27,7 +40,7 @@ The function queries Harmony's live `/capabilities?shortName=...` endpoint and r
 
 The function verifies the signed-in user's active company membership, reads the saved field boundary, preserves every saved boundary point, derives a bounding box for Harmony subsetting, chooses Frequency A variables supported by the live collection capabilities and the product's polarization mode, submits an asynchronous Harmony job, and persists the Harmony job ID.
 
-### 3. Poll and complete the job
+### 4. Poll and complete the job
 
 ```json
 { "action": "poll", "jobId": "<nisar_processing_jobs UUID>" }
@@ -55,7 +68,7 @@ Supabase's built-in `SUPABASE_URL`, `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_
 - The initial implementation supports NISAR L-band GCOV Frequency A diagonal covariance layers for SH, SV, DH, DV and QP polarization modes. Compact-pol modes are deliberately rejected until their variable mapping is validated. It derives Frequency A nominal spacing from the product bandwidth code and rejects 80 m Frequency A cases for the small-field pilot.
 - Harmony is asked to export GeoTIFF/COG layers and spatially subset to the field bounding box. The worker then clips to the exact field polygon. The bounding box is only an extraction optimization, not the field-statistics AOI.
 - Product filename parsing is used to determine acquisition timestamp and polarization mode. Confirm the product's full granule filename and collection membership before submitting.
-- The current function uses a single field/product job. Batch deduplication and scheduled discovery are a later layer.
+- ASF discovery is now available for one field and one date range per request. The coordinator groups PR/UR variants, but does not yet automatically submit every ready group. The initial processing action remains one selected field/product at a time; batch deduplication and scheduled discovery are a later layer.
 - The pilot registry `beta_field_records` and production `fields` registry are distinct. NISAR pilot observations therefore go to `nisar_field_observations`, not `satellite_observations`.
 - The COG processor's mask classes are recorded but not interpreted or applied as bit masks yet. That needs validation against the NISAR product specification and real COG output.
 - The worker's configured COG host allowlist must include the actual hostnames returned by Harmony STAC. Do not allow arbitrary hosts.
