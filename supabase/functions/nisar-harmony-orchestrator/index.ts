@@ -394,9 +394,11 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
   const features = Array.isArray(response?.features) ? response.features : [];
   const candidates = features.map((feature: any) => {
     const properties = feature?.properties ?? {};
-    const productName = String(
-      properties.fileName ?? properties.granuleName ?? properties.sceneName ?? properties.name ?? ""
-    ).replace(/^.*\\//, "");
+    const rawName = String(
+      properties.fileName ?? properties.granuleName ?? properties.sceneName ?? properties.name ??
+      (String(feature?.id ?? "").startsWith("NISAR_L2_") ? feature.id : "")
+    );
+    const productName = rawName.replace(/^.*\\//, "");
     if (!productName) return null;
     let parsed: any;
     try { parsed = parseProductName(productName); } catch { return null; }
@@ -418,7 +420,7 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
       footprint: feature?.geometry ?? null,
       groupKey
     };
-  }).filter(Boolean);
+  }).filter((candidate: any): candidate is Record<string, any> => candidate !== null);
 
   const groups = new Map<string, any[]>();
   for (const candidate of candidates) {
