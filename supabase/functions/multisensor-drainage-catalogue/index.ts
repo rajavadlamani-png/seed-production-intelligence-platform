@@ -53,7 +53,7 @@ async function fetchJson(url:string, init:RequestInit={}, timeoutMs=60000) {
     const text = await response.text();
     let body:any={};
     try { body=text?JSON.parse(text):{}; } catch { body={message:text.slice(0,300)}; }
-    if (!response.ok) throw new Error("HTTP "+response.status+": "+String(body.message||body.description||body.error||"Provider request failed").slice(0,250));
+    if (!response.ok) throw new Error("HTTP "+response.status+": "+String(body.message||body.description||body.error||body.Description||body.ErrorCode||"Provider request failed").slice(0,250));
     return body;
   } catch(e) {
     if ((e as Error)?.name==="AbortError") throw new Error("Satellite catalogue request timed out.");
@@ -158,18 +158,30 @@ Deno.serve(async(req:Request)=>{
     sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"credentials_required",count:null,products:[],note:"Configure BHOONIDHI_USER_ID and BHOONIDHI_PASSWORD as Supabase Edge Function secrets to search this catalogue."});
     sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"credentials_required",count:null,products:[],note:"Configure BHOONIDHI_USER_ID and BHOONIDHI_PASSWORD as Supabase Edge Function secrets to search this catalogue."});
   } else {
+    let token="";
     try {
-      const token=await bhoonidhiToken();
-      const [nisar,eos]=await Promise.all([
-        searchBhoonidhi(["NISAR_SSAR-Beta_GSLC","NISAR_SSAR-Beta_GCOV","NISAR_SSAR-Beta_RSLC"],aoi.geometry,from,to,token),
-        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,from,to,token)
-      ]);
-      sourceResults.push({source:"NISAR S-band beta collections (ISRO Bhoonidhi)",status:"searched",count:nisar.length,products:nisar,access:"Bhoonidhi account/API access required; collection identifiers follow the published API catalogue."});
-      sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"searched",count:eos.length,products:eos,access:"Bhoonidhi account/API access required."});
+      token=await bhoonidhiToken();
     } catch(e) {
       const message=String((e as Error)?.message||e);
-      sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"provider_error",count:0,products:[],error:message});
-      sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"provider_error",count:0,products:[],error:message});
+      sourceResults.push({source:"Bhoonidhi authentication",status:"authentication_error",count:null,products:[],error:message});
+      sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"not_searched",count:null,products:[],note:"Catalogue search skipped because Bhoonidhi authentication failed."});
+      sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"not_searched",count:null,products:[],note:"Catalogue search skipped because Bhoonidhi authentication failed."});
+    }
+    if(token) {
+      const [nisarResult,eosResult]=await Promise.allSettled([
+        searchBhoonidhi(["NISAR_SSAR_GSLC","NISAR_SSAR_GCOV","NISAR_SSAR_RSLC"],aoi.geometry,from,to,token),
+        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,from,to,token)
+      ]);
+      if(nisarResult.status==="fulfilled") {
+        sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"searched",count:nisarResult.value.length,products:nisarResult.value,access:"Bhoonidhi account/API access required."});
+      } else {
+        sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"provider_error",count:null,products:[],error:String(nisarResult.reason?.message||nisarResult.reason)});
+      }
+      if(eosResult.status==="fulfilled") {
+        sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"searched",count:eosResult.value.length,products:eosResult.value,access:"Bhoonidhi account/API access required."});
+      } else {
+        sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"provider_error",count:null,products:[],error:String(eosResult.reason?.message||eosResult.reason)});
+      }
     }
   }
   const total=sourceResults.reduce((n,s)=>n+(Number(s.count)||0),0);
