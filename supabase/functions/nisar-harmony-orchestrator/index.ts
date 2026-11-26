@@ -53,10 +53,6 @@ async function fetchJson(url: string, init: RequestInit = {}, timeoutMs = 45000)
 
 function requireConfiguration() {
   if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) throw new Error("Supabase server configuration is incomplete.");
-  if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
-  if (!PROCESSOR_URL || !PROCESSOR_TOKEN) throw new Error("The private NISAR COG processor URL/token is not configured.");
-  const processor = new URL(PROCESSOR_URL);
-  if (processor.protocol !== "https:") throw new Error("NISAR_PROCESSOR_URL must use HTTPS.");
 }
 
 function getExactFieldPolygon(record: Record<string, any>) {
@@ -171,6 +167,7 @@ async function authorizedField(admin: any, userId: string, fieldId: string) {
 }
 
 async function getCapabilities(collectionShortName: string) {
+  if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   const url = new URL(HARMONY_ROOT + "/capabilities");
   url.searchParams.set("shortName", collectionShortName);
   url.searchParams.set("version", "2");
@@ -180,6 +177,7 @@ async function getCapabilities(collectionShortName: string) {
 }
 
 async function submitHarmonyJob(productName: string, variables: string[], bbox: number[], label: string) {
+  if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   const url = new URL(
     HARMONY_ROOT + "/" + encodeURIComponent(COLLECTION_SHORT_NAME) +
     "/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset"
@@ -279,6 +277,9 @@ function findAsset(assets: { key: string; title: string; href: string }[], varia
 }
 
 async function runProcessor(job: any, assets: { key: string; title: string; href: string }[]) {
+  if (!PROCESSOR_URL || !PROCESSOR_TOKEN) throw new Error("The private NISAR COG processor URL/token is not configured.");
+  const processor = new URL(PROCESSOR_URL);
+  if (processor.protocol !== "https:") throw new Error("NISAR_PROCESSOR_URL must use HTTPS.");
   const variables = job.selected_variables as string[];
   const backscatterVariables = variables.filter((name: string) => !/\/(mask|numberOfLooks|rtcGammaToSigmaFactor)$/.test(name));
   const layerMap: Record<string, string> = { HHHH: "HH", HVHV: "HV", VVVV: "VV", VHVH: "VH", RHRH: "RH", RVRV: "RV" };
@@ -405,6 +406,12 @@ async function submitAction(admin: any, user: any, body: any) {
       available_variable_count: variableNames(capabilities).length
     },
     submitted_by: user.id,
+    harmony_job_id: null,
+    harmony_request_url: null,
+    harmony_metadata: {},
+    processing_result: null,
+    completed_at: null,
+    error_message: null,
     attempts: Number(existing?.attempts ?? 0) + 1,
     updated_at: new Date().toISOString()
   };
@@ -447,7 +454,9 @@ async function pollAction(admin: any, user: any, body: any) {
   if (!jobId) throw new Error("jobId is required.");
   const { data: job, error } = await admin.from("nisar_processing_jobs").select("*").eq("id", jobId).maybeSingle();
   if (error || !job) throw new Error("NISAR processing job was not found.");
-  await authorizedField(admin, user.id, job.field_record_id);
+  const field = await authorizedField(admin, user.id, job.field_record_id);
+  if (field.company_id !== job.company_id) throw new Error("NISAR job company does not match the registered field.");
+  if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   if (["completed", "insufficient_valid_pixels"].includes(job.status)) return { ok: true, job, alreadyComplete: true };
   if (!job.harmony_job_id) throw new Error("The NISAR job has no saved Harmony job ID.");
 
