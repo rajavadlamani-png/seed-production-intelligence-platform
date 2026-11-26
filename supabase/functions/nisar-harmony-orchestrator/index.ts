@@ -113,9 +113,10 @@ function findVariable(available: string[], frequency: string, shortName: string)
 
 function selectGcoveVariables(capabilities: any, polarizationMode: string) {
   if (capabilities?.variableSubset !== true) throw new Error("Harmony does not report variable-subsetting support for the configured GCOV collection.");
+  if (capabilities?.bboxSubset !== true) throw new Error("Harmony does not report bounding-box subsetting support; refusing a full-granule extraction.");
   const formats = Array.isArray(capabilities?.outputFormats) ? capabilities.outputFormats.map(String) : [];
-  if (formats.length && !formats.some(value => value.toLowerCase().includes("tiff"))) {
-    throw new Error("Harmony capabilities do not advertise GeoTIFF output for this collection.");
+  if (!formats.some(value => value.toLowerCase().includes("tiff"))) {
+    throw new Error("Harmony capabilities do not explicitly advertise GeoTIFF output for this collection.");
   }
   const available = variableNames(capabilities);
   if (!available.length) throw new Error("Harmony returned no variable inventory for the configured GCOV collection.");
@@ -368,6 +369,39 @@ function validDate(value: unknown) {
     !Number.isNaN(Date.parse(value + "T00:00:00Z"));
 }
 
+function pointInRing(point: [number, number], ring: [number, number][]) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0], yi = ring[i][1];
+    const xj = ring[j][0], yj = ring[j][1];
+    const cross = (point[0] - xi) * (yj - yi) - (point[1] - yi) * (xj - xi);
+    const onSegment = Math.abs(cross) < 1e-10 &&
+      point[0] >= Math.min(xi, xj) - 1e-10 && point[0] <= Math.max(xi, xj) + 1e-10 &&
+      point[1] >= Math.min(yi, yj) - 1e-10 && point[1] <= Math.max(yi, yj) + 1e-10;
+    if (onSegment) return true;
+    const intersects = ((yi > point[1]) !== (yj > point[1])) &&
+      (point[0] < (xj - xi) * (point[1] - yi) / ((yj - yi) || 1e-20) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInProductFootprint(geometry: any, point: [number, number]) {
+  if (!geometry) return false;
+  const polygons = geometry.type === "Polygon" ? [geometry.coordinates] :
+    geometry.type === "MultiPolygon" ? geometry.coordinates : [];
+  return polygons.some((polygon: any[]) => {
+    if (!Array.isArray(polygon) || !polygon.length || !pointInRing(point, polygon[0])) return false;
+    return !polygon.slice(1).some((hole: [number, number][]) => pointInRing(point, hole));
+  });
+}
+
+function footprintContainsField(productGeometry: any, fieldGeometry: any) {
+  const ring = fieldGeometry?.coordinates?.[0];
+  if (!Array.isArray(ring) || ring.length < 4 || !productGeometry) return false;
+  return ring.every((point: [number, number]) => pointInProductFootprint(productGeometry, point));
+}
+
 function polygonToWkt(geometry: any) {
   if (geometry?.type !== "Polygon" || !Array.isArray(geometry.coordinates?.[0])) {
     throw new Error("ASF discovery requires the saved Polygon boundary.");
@@ -418,6 +452,7 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
       coverage: parts[15] ?? null,
       accuracy: parts[14] ?? null,
       footprint: feature?.geometry ?? null,
+      footprintContainsField: footprintContainsField(feature?.geometry, geometry),
       groupKey
     };
   }).filter((candidate: any): candidate is Record<string, any> => candidate !== null);
@@ -436,10 +471,14 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
     let primary: any = null;
     let selectionStatus = "no_supported_product";
     if (pr.length === 1) {
-      primary = pr[0];
-      selectionStatus = "ready_pr";
+      if (pr[0].footprintContainsField) {
+        primary = pr[0];
+        selectionStatus = "ready_pr";
+      } else {
+        selectionStatus = "pr_footprint_review_required";
+      }
     } else if (pr.length > 1) {
-      const fullCoverage = pr.filter(product => product.coverage === "F");
+      const fullCoverage = pr.filter(product => product.coverage === "F" && product.footprintContainsField);
       if (fullCoverage.length === 1) {
         primary = fullCoverage[0];
         selectionStatus = "ready_pr_full_coverage";
@@ -447,11 +486,15 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
         selectionStatus = "ambiguous_pr_variants";
       }
     } else if (ur.length === 1) {
-      primary = ur[0];
-      selectionStatus = "ready_ur_fallback";
+      if (ur[0].footprintContainsField) {
+        primary = ur[0];
+        selectionStatus = "ready_ur_fallback";
+      } else {
+        selectionStatus = "ur_footprint_review_required";
+      }
     } else if (ur.length > 1) {
       selectionStatus = "ambiguous_ur_variants";
-    } else if (od.length === 1) {
+    } else if (od.length === 1 && od[0].footprintContainsField) {
       primary = od[0];
       selectionStatus = "ready_od";
     }
