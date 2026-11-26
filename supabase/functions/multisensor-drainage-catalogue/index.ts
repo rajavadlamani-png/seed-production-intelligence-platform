@@ -16,7 +16,7 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
 function validDate(value: unknown) {
-  return typeof value === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) &&
+  return typeof value === "string" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value) &&
     !Number.isNaN(Date.parse(value + "T00:00:00Z"));
 }
 function median(values: number[]) {
