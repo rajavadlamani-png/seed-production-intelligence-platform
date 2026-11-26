@@ -12,6 +12,7 @@ def test_gamma0_power_summary_includes_db_conversion():
     assert summary["valid_pixel_count"] == 3
     assert summary["median"] == 10.0
     assert summary["median_db"] == 10.0
+    assert summary["positive_pixel_count"] == 3
 
 
 def test_empty_summary_is_explicit():
@@ -65,3 +66,13 @@ def test_cog_url_allowlist_rejects_untrusted_hosts(monkeypatch):
         assert "allowlist" in str(exc)
     else:
         raise AssertionError("Untrusted host should be rejected")
+
+
+def test_cog_url_rejects_nonstandard_https_port(monkeypatch):
+    monkeypatch.setenv("COG_ALLOWED_HOSTS", "harmony.earthdata.nasa.gov")
+    try:
+        validate_cog_url("https://harmony.earthdata.nasa.gov:8443/data.tif")
+    except ValueError as exc:
+        assert "standard HTTPS port" in str(exc)
+    else:
+        raise AssertionError("Nonstandard HTTPS port should be rejected")
