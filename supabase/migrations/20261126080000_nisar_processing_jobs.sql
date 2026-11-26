@@ -82,7 +82,7 @@ create index if not exists nisar_field_observations_company_field_time_idx
 
 alter table public.nisar_field_observations enable row level security;
 revoke all on public.nisar_field_observations from public, anon;
-revoke insert, update, delete on public.nisar_field_observations from authenticated;
+revoke all on public.nisar_field_observations from authenticated;
 grant select on public.nisar_field_observations to authenticated;
 grant all on public.nisar_field_observations to service_role;
 
