@@ -53,3 +53,53 @@ comment on column public.nisar_processing_jobs.polygon_snapshot is
   'Exact saved field polygon snapshot used for this processing run; does not update the source field record.';
 comment on column public.nisar_processing_jobs.processing_result is
   'Derived field-polygon metrics and quality metadata. Temporary Harmony URLs are not persisted here.';
+
+
+-- beta_field_records is the pilot registry. It is not the same entity as
+-- public.fields, which is the FK target of public.satellite_observations.
+-- Keep NISAR pilot observations attached to the exact beta field record.
+create table if not exists public.nisar_field_observations (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete restrict,
+  field_record_id uuid not null references public.beta_field_records(id) on delete cascade,
+  field_no text not null,
+  observed_at timestamptz not null,
+  provider text not null default 'NASA NISAR Harmony',
+  product_or_sensor text not null default 'NISAR L-band GCOV',
+  source_product_id text not null,
+  collection_short_name text not null,
+  processing_version text not null,
+  quality_status text not null,
+  indicators jsonb not null,
+  source_metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  constraint nisar_field_observations_field_product_version_key
+    unique (field_record_id, source_product_id, processing_version)
+);
+
+create index if not exists nisar_field_observations_company_field_time_idx
+  on public.nisar_field_observations (company_id, field_record_id, observed_at desc);
+
+alter table public.nisar_field_observations enable row level security;
+revoke all on public.nisar_field_observations from public, anon;
+revoke insert, update, delete on public.nisar_field_observations from authenticated;
+grant select on public.nisar_field_observations to authenticated;
+grant all on public.nisar_field_observations to service_role;
+
+drop policy if exists nisar_field_observations_company_select on public.nisar_field_observations;
+create policy nisar_field_observations_company_select
+  on public.nisar_field_observations
+  for select
+  to authenticated
+  using (
+    exists (
+      select 1
+      from public.company_memberships m
+      where m.company_id = nisar_field_observations.company_id
+        and m.user_id = (select auth.uid())
+        and m.status = 'active'
+    )
+  );
+
+comment on table public.nisar_field_observations is
+  'NISAR GCOV field-level observations linked to beta_field_records; separate from production satellite_observations which references public.fields.';
