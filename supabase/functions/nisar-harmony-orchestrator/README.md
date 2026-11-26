@@ -50,7 +50,7 @@ When Harmony reports completion, the function reads the output STAC assets, vali
 
 ## Required database migration
 
-Apply `supabase/migrations/20261126080000_nisar_processing_jobs.sql` before calling `submit` or `poll`. The job table is service-managed: RLS is enabled and direct access is revoked from `anon` and `authenticated`. The migration also creates `nisar_field_observations`, with tenant-scoped SELECT policy for authenticated company members and service-role-only writes.
+The two migrations `20261126064407_nisar_processing_jobs.sql` and `20261126064448_restrict_nisar_observation_grants.sql` have been applied to the connected Supabase project. The job table is service-managed: RLS is enabled and direct access is revoked from `anon` and `authenticated`. The migration also creates `nisar_field_observations`, with tenant-scoped SELECT policy for authenticated company members and service-role-only writes.
 
 ## Required Edge Function secrets
 
