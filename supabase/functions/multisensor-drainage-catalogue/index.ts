@@ -198,8 +198,7 @@ Deno.serve(async(req:Request)=>{
       const eosTests:any[]=[];
       const eosQueries=[
         {label:"Saved boundary · requested dates",geometry:aoi.geometry,from,to},
-        {label:"AOI centre point · requested dates",geometry:{type:"Point",coordinates:[aoi.center.lon,aoi.center.lat]},from,to},
-        {label:"Saved boundary · 1 Jan 2024 to end date",geometry:aoi.geometry,from:"2024-01-01",to}
+        {label:"AOI centre point · requested dates",geometry:{type:"Point",coordinates:[aoi.center.lon,aoi.center.lat]},from,to}
       ];
       for(let i=0;i<eosQueries.length;i++) {
         if(i>0) await wait(4000);
@@ -209,15 +208,48 @@ Deno.serve(async(req:Request)=>{
           eosTests.push({label:q.label,result:{status:"fulfilled",value:products}});
         } catch(e) { eosTests.push({label:q.label,result:{status:"rejected",reason:e}}); }
       }
+      // Bhoonidhi rejects long date intervals with HTTP 406. Search the historical
+      // period in calendar-year chunks (each no longer than 12 months), sequentially.
+      const broadStart=new Date("2024-01-01T00:00:00Z");
+      const broadEnd=new Date(to+"T00:00:00Z");
+      const chunks:any[]=[];
+      for(let year=broadStart.getUTCFullYear();year<=broadEnd.getUTCFullYear();year++) {
+        const chunkStart=year===broadStart.getUTCFullYear()?broadStart:new Date(Date.UTC(year,0,1));
+        const chunkEnd=new Date(Date.UTC(year,11,31));
+        const cappedEnd=chunkEnd>broadEnd?broadEnd:chunkEnd;
+        if(chunkStart<=broadEnd) chunks.push({
+          label:"Saved boundary · "+chunkStart.toISOString().slice(0,10)+" to "+cappedEnd.toISOString().slice(0,10),
+          from:chunkStart.toISOString().slice(0,10),to:cappedEnd.toISOString().slice(0,10)
+        });
+      }
+      const historicalProducts:any[]=[];
+      const historicalErrors:string[]=[];
+      for(let i=0;i<chunks.length;i++) {
+        await wait(4000);
+        try {
+          const products=await searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,chunks[i].from,chunks[i].to,token);
+          historicalProducts.push(...products);
+          eosTests.push({label:chunks[i].label,result:{status:"fulfilled",value:products}});
+        } catch(e) {
+          const message=String((e as Error)?.message||e);
+          historicalErrors.push(chunks[i].label+": "+message);
+          eosTests.push({label:chunks[i].label,result:{status:"rejected",reason:e}});
+        }
+      }
+      const uniqueHistorical=[...new Map(historicalProducts.map((p:any)=>[p.id,p])).values()];
+      eosTests.push({label:"Saved boundary · historical period combined (2024-01-01 to "+to+")",result:{status:"fulfilled",value:uniqueHistorical}});
       const eosErrors=eosTests.filter(t=>t.result.status==="rejected").map(t=>t.label+": "+String(t.result.reason?.message||t.result.reason));
-      const eosProducts=eosTests.flatMap(t=>t.result.status==="fulfilled"?t.result.value:[]);
+      const historicalLabel="Saved boundary · historical period combined (2024-01-01 to "+to+")";
+      const nonAggregate=eosTests.filter(t=>t.label!==historicalLabel);
+      const eosProducts=nonAggregate.flatMap(t=>t.result.status==="fulfilled"?t.result.value:[]);
       const uniqueEos=[...new Map(eosProducts.map((p:any)=>[p.id,p])).values()];
+      const historicalCombined=eosTests.find(t=>t.label===historicalLabel)?.result.value||[];
       const eosDiagnostics=eosTests.map(t=>t.label+": "+(t.result.status==="fulfilled"?t.result.value.length+" products":"search error")).join(" | ");
       sourceResults.push({
         source:"EOS-04 (ISRO Bhoonidhi)",
-        status:eosErrors.length===eosTests.length?"provider_error":uniqueEos.length?"searched":eosErrors.length?"partial_results":"searched",
-        count:uniqueEos.length,products:uniqueEos,access:"Bhoonidhi account/API access required.",
-        note:eosDiagnostics+(eosErrors.length?" | Errors: "+eosErrors.join("; "):" | Explicit no-results responses count as completed searches."),
+        status:eosErrors.length===eosTests.length?"provider_error":uniqueEos.length||historicalCombined.length?"searched":eosErrors.length?"partial_results":"searched",
+        count:historicalCombined.length,products:historicalCombined,access:"Bhoonidhi account/API access required.",
+        note:eosDiagnostics+(eosErrors.length?" | Errors: "+eosErrors.join("; "):" | Historical search split into calendar-year windows to comply with Bhoonidhi date-range limits."),
         diagnostics:eosTests.map(t=>({test:t.label,status:t.result.status==="fulfilled"?"searched":"provider_error",count:t.result.status==="fulfilled"?t.result.value.length:null,error:t.result.status==="rejected"?String(t.result.reason?.message||t.result.reason):null}))
       });
     }
