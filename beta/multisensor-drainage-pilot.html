@@ -34,7 +34,7 @@
 </section>
 <p class="foot">NISAR L-band catalogue: NASA Alaska Satellite Facility. NISAR S-band and EOS-04 catalogues: ISRO Bhoonidhi. Original imagery is not downloaded by this discovery step.</p>
 </main>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.95.0"></script>
 <script>
 const SUPABASE_URL="https://xjtzvhtoeormizrhozoy.supabase.co";
 const SUPABASE_KEY="sb_publishable_nyH0s0O1OH2mIZz8N1xvbQ_eII73UGp";
@@ -46,6 +46,7 @@ $("run").addEventListener("click",async()=>{
  if(!from||!to||from>to){$("status").textContent="Choose a valid date range.";return}
  $("run").disabled=true;$("status").textContent="Searching satellite catalogues. This may take a minute.";
  try{
+  if(!client)throw new Error("The Supabase sign-in library did not load. Refresh this page and try again.");
   const {data:{session}}=await client.auth.getSession();
   if(!session?.access_token)throw new Error("No signed-in session found. Open the Seed Production Monitor, sign in, then return to this page.");
   const {data,error}=await client.functions.invoke("multisensor-drainage-catalogue",{body:{fieldId,from,to}});
