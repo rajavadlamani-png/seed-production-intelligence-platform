@@ -161,10 +161,10 @@ Deno.serve(async(req:Request)=>{
     try {
       const token=await bhoonidhiToken();
       const [nisar,eos]=await Promise.all([
-        searchBhoonidhi(["NISAR_SSAR_GSLC","NISAR_SSAR_GCOV","NISAR_SSAR_RSLC"],aoi.geometry,from,to,token),
+        searchBhoonidhi(["NISAR_SSAR-Beta_GSLC","NISAR_SSAR-Beta_GCOV","NISAR_SSAR-Beta_RSLC"],aoi.geometry,from,to,token),
         searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,from,to,token)
       ]);
-      sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"searched",count:nisar.length,products:nisar,access:"Bhoonidhi account/API access required."});
+      sourceResults.push({source:"NISAR S-band beta collections (ISRO Bhoonidhi)",status:"searched",count:nisar.length,products:nisar,access:"Bhoonidhi account/API access required; collection identifiers follow the published API catalogue."});
       sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"searched",count:eos.length,products:eos,access:"Bhoonidhi account/API access required."});
     } catch(e) {
       const message=String((e as Error)?.message||e);
