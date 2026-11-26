@@ -60,21 +60,70 @@ async function fetchJson(url:string, init:RequestInit={}, timeoutMs=60000) {
     throw e;
   } finally { clearTimeout(timer); }
 }
+function firstValue(source:any,keys:string[]) {
+  for (const key of keys) {
+    const value=source?.[key];
+    if (value!==undefined&&value!==null&&value!=="") return value;
+  }
+  return null;
+}
+function metadataFrom(properties:any,assets:any={},links:any[]=[]) {
+  const p=properties||{};
+  const metadata:any={
+    acquisitionTimestamp:firstValue(p,["startTime","datetime","start_datetime","acquisitionDate","stopTime"]),
+    platform:firstValue(p,["platform","platformName","mission"]),
+    instrument:firstValue(p,["instrument","instrumentName","sensor"]),
+    frequencyBand:firstValue(p,["sar:frequency_band","frequencyBand","frequency_band","frequency"]),
+    orbitState:firstValue(p,["sat:orbit_state","orbitState","flightDirection","orbitDirection"]),
+    relativeOrbit:firstValue(p,["sat:relative_orbit","relativeOrbit","relativeOrbitNumber","pathNumber"]),
+    polarization:firstValue(p,["sar:polarizations","polarization","polarizationCombination","Polarization"]),
+    processingLevel:firstValue(p,["processing:level","processingLevel","processing_level","productType","product"]),
+    dataMaturity:firstValue(p,["dataMaturity","processingConfiguration","maturity","status"]),
+    productType:firstValue(p,["productType","product_type","processingLevel","processing:level"])
+  };
+  for (const key of Object.keys(metadata)) {
+    const value=metadata[key];
+    if (value===null) delete metadata[key];
+    else if (Array.isArray(value)) metadata[key]=value.join(", ");
+    else if (typeof value==="object") metadata[key]=JSON.stringify(value);
+    else metadata[key]=String(value);
+  }
+  const accessLinks:any[]=[];
+  for (const [name,asset] of Object.entries(assets||{})) {
+    const href=(asset as any)?.href;
+    if (typeof href==="string"&&/^https?:\/\//i.test(href)) accessLinks.push({label:String(name),url:href});
+  }
+  for (const link of Array.isArray(links)?links:[]) {
+    if (typeof link?.href==="string"&&/^https?:\/\//i.test(link.href)) {
+      accessLinks.push({label:String(link.rel||"link"),url:link.href});
+    }
+  }
+  return {metadata,accessLinks:[...new Map(accessLinks.map(x=>[x.url,x])).values()]};
+}
 function asfFeatures(body:any) {
   const features = Array.isArray(body?.features)?body.features:[];
   return features.map((f:any)=>{
     const p=f?.properties||{};
+    const detail=metadataFrom(p,{},[]);
+    const timestamp=detail.metadata.acquisitionTimestamp||null;
     return {
       id:String(f?.id||p?.sceneName||p?.granuleName||""),
-      acquisitionDate:String(p?.startTime||p?.stopTime||p?.fileName||"").slice(0,10),
+      acquisitionDate:String(timestamp||p?.fileName||"").slice(0,10),
+      acquisitionTimestamp:timestamp,
       product:String(p?.processingLevel||p?.productType||"NISAR product"),
       platform:String(p?.platform||"NISAR"),
-      polarization:p?.polarization||p?.polarizationCombination||null,
-      flightDirection:p?.flightDirection||null,
-      dataMaturity:p?.dataMaturity||p?.processingConfiguration||null,
+      polarization:detail.metadata.polarization||null,
+      flightDirection:detail.metadata.orbitState||null,
+      relativeOrbit:detail.metadata.relativeOrbit||null,
+      instrument:detail.metadata.instrument||null,
+      frequencyBand:detail.metadata.frequencyBand||null,
+      processingLevel:detail.metadata.processingLevel||null,
+      dataMaturity:detail.metadata.dataMaturity||null,
+      metadata:detail.metadata,
       geometry:f?.geometry||null,
       browse:String(p?.browse||""),
-      url:String(p?.url||"")
+      url:String(p?.url||""),
+      accessLinks:detail.accessLinks
     };
   }).filter((x:any)=>x.id);
 }
@@ -126,16 +175,28 @@ async function searchBhoonidhi(collections:string[],geometry:any,from:string,to:
       throw e;
     }
   }
-  return (Array.isArray(body?.features)?body.features:[]).map((f:any)=>({
-    id:String(f?.id||""),
-    collection:String(f?.collection||f?.properties?.collection||""),
-    acquisitionDate:String(f?.properties?.datetime||f?.properties?.start_datetime||"").slice(0,10),
-    polarization:f?.properties?.Polarization||f?.properties?.polarization||null,
-    online:f?.properties?.Online||f?.properties?.online||null,
-    geometry:f?.geometry||null,
-    assets:f?.assets||{},
-    links:f?.links||[]
-  })).filter((x:any)=>x.id);
+  return (Array.isArray(body?.features)?body.features:[]).map((f:any)=>{
+    const p=f?.properties||{};
+    const detail=metadataFrom(p,f?.assets||{},f?.links||[]);
+    const timestamp=detail.metadata.acquisitionTimestamp||null;
+    return {
+      id:String(f?.id||""),
+      collection:String(f?.collection||p?.collection||""),
+      acquisitionDate:String(timestamp||"").slice(0,10),
+      acquisitionTimestamp:timestamp,
+      platform:detail.metadata.platform||null,
+      instrument:detail.metadata.instrument||null,
+      frequencyBand:detail.metadata.frequencyBand||null,
+      orbitState:detail.metadata.orbitState||null,
+      relativeOrbit:detail.metadata.relativeOrbit||null,
+      polarization:detail.metadata.polarization||null,
+      processingLevel:detail.metadata.processingLevel||null,
+      dataMaturity:detail.metadata.dataMaturity||p?.Online||p?.online||null,
+      metadata:detail.metadata,
+      geometry:f?.geometry||null,
+      accessLinks:detail.accessLinks
+    };
+  }).filter((x:any)=>x.id);
 }
 
 Deno.serve(async(req:Request)=>{
