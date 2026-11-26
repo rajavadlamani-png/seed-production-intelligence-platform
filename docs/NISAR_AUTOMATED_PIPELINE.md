@@ -142,7 +142,7 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 - Design, COG polygon-statistics worker source, and Harmony coordinator source are included in this draft PR.
 - The pilot field WH-SYN-016 has 731 saved boundary points, and the stored ring is already closed. The coordinator preserves all points and uses the bounding box only for Harmony extraction; the worker clips statistics to the saved polygon.
 - The beta field registry is not the same table as the production `fields` registry. The migration therefore introduces a separate `nisar_field_observations` table rather than attempting to write pilot records into the incompatible `satellite_observations` foreign key.
-- No database schema has been applied, no Supabase function has been deployed, no Earthdata secret has been configured, and no real Harmony COG has been processed.
+- The two NISAR database migrations have been applied and verified. The authenticated Harmony coordinator is deployed with JWT verification enabled. No Earthdata token or processor endpoint secret has been configured, and no real Harmony COG has been processed.
 - ASF polygon discovery, PR/UR grouping and Harmony submission/polling source are committed, but the orchestration source has not yet been type-checked or exercised against live Harmony. It is not production-ready until the migration, secret configuration, deployment, live COG test, mask interpretation, and end-to-end pilot validation are complete.
 
 ## Explicit non-goals for the first release
