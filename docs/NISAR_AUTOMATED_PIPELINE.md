@@ -54,18 +54,20 @@ The actual layer names are selected from the product's available variables and a
 
 ### 4. Central geospatial processor
 
-Harmony is the extraction/subsetting service, not the field-statistics engine. A dedicated server-side geospatial processor must read the resulting COGs and calculate statistics against each original field polygon.
+Harmony is the extraction/subsetting service, not the field-statistics engine. The initial COG-to-polygon statistics worker is now present at `services/nisar-cog-processor/`.
 
-The processor should:
-- use the COG georeferencing and CRS as supplied;
-- intersect valid pixels with the exact field polygon;
-- apply the product mask and exclude invalid/no-data pixels;
-- retain valid pixel count, total candidate pixels, valid-pixel fraction and quality-layer summaries;
-- calculate robust field summaries (at minimum median and interquartile range) for each available backscatter layer;
-- retain acquisition timestamp, product ID, frequency, polarization, nominal pixel spacing, processing maturity/version and Harmony job reference;
-- report an explicit no-valid-pixels / insufficient-resolution outcome rather than inventing a value.
+The worker:
+- opens remote COGs through GDAL `/vsicurl/` and HTTP range reads rather than intentionally downloading complete source rasters;
+- transforms the original WGS84 Polygon/MultiPolygon into the COG CRS;
+- calculates field-interior median, 25th percentile and 75th percentile for each supplied layer;
+- reports valid-pixel count, candidate pixel count, valid-pixel fraction, raster CRS, dimensions, pixel size and no-data metadata;
+- converts positive gamma0 power to dB and reports the number of positive samples;
+- records raw mask class counts without interpreting undocumented bit flags;
+- enforces an HTTPS host allowlist, a shared service token, a maximum polygon vertex count and a maximum raster window size.
 
-Do not run raster/HDF5 processing inside a short-lived Supabase Edge Function. Supabase should authenticate, coordinate jobs, store status and persist results. A separate geospatial worker should do raster computation.
+The worker deliberately does **not** interpret the GCOV mask bit flags or apply them as a validity filter yet. The mask's class/bit semantics must first be validated against the relevant product specification and a real Harmony output. No-data and non-finite pixels are excluded.
+
+The worker returns metrics only. It does not authenticate to Earthdata, submit Harmony jobs, write to Supabase, or persist raster assets. Supabase should authenticate, coordinate jobs, store job status and persist results. A separate orchestrator must connect Harmony outputs to this worker.
 
 ### 5. Resolution and field-scale rules
 
@@ -129,11 +131,17 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 1. Add the NISAR job/product/observation data model and tenant-safe access policies.
 2. Implement batch ASF discovery and product deduplication.
 3. Implement Harmony capability lookup, submission and asynchronous job polling.
-4. Implement the geospatial worker for COG-to-polygon statistics.
-5. Connect the worker and Supabase job state machine.
-6. Validate the WH-SYN-016 pilot against a known product and inspect the output quality.
-7. Enable scheduled batch processing only after the pilot passes.
-8. Add the NISAR series to the satellite report with clear sensor/source labels.
+4. Connect the COG processor to the orchestrator and test it against a real Harmony-produced GCOV COG.
+5. Validate the WH-SYN-016 pilot against a known product and inspect the output quality.
+6. Enable scheduled batch processing only after the pilot passes.
+7. Add the NISAR series to the satellite report with clear sensor/source labels.
+
+## Current implementation status
+
+- Design and COG polygon-statistics worker source are included in this draft PR.
+- Five local unit tests pass using a synthetic GeoTIFF.
+- No database schema has been changed, no Supabase function has been deployed, no Earthdata secret has been configured, and no real Harmony COG has been processed.
+- The worker is not production-ready until the orchestrator, network policy, live COG test, mask interpretation, and Supabase persistence path are implemented and validated.
 
 ## Explicit non-goals for the first release
 
@@ -141,4 +149,4 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 - No use of 80 m Frequency B as the primary small-field signal.
 - No automated drainage, irrigation or soil-moisture conclusion from backscatter alone.
 - No merging of NISAR and Sentinel-1 metrics without validation.
-- No automatic deployment or production scheduling until Earthdata credentials, the processing worker and pilot validation are complete.
+- No automatic deployment or production scheduling until Earthdata credentials, the orchestration path and pilot validation are complete.
