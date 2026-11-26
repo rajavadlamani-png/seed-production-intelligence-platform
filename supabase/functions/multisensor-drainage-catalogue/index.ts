@@ -103,18 +103,28 @@ async function bhoonidhiToken() {
   if (!response?.access_token) throw new Error("Bhoonidhi authentication did not return an access token.");
   return String(response.access_token);
 }
+const wait = (ms:number) => new Promise(resolve=>setTimeout(resolve,ms));
 async function searchBhoonidhi(collections:string[],geometry:any,from:string,to:string,token:string) {
   let body:any;
-  try {
-    body = await fetchJson("https://bhoonidhi-api.nrsc.gov.in/data/search",{
-      method:"POST",
-      headers:{"Content-Type":"application/json",Accept:"application/geo+json, application/json",Authorization:"Bearer "+token},
-      body:JSON.stringify({collections,datetime:from+"T00:00:00Z/"+to+"T23:59:59Z",intersects:geometry,limit:500})
-    });
-  } catch(e) {
-    // Treat the provider's explicit no-results response as an empty search result, not an outage.
-    if (/HTTP 404:.*NO RESULTS FOUND/i.test(String((e as Error)?.message||e))) return [];
-    throw e;
+  for(let attempt=0;attempt<3;attempt++) {
+    try {
+      body = await fetchJson("https://bhoonidhi-api.nrsc.gov.in/data/search",{
+        method:"POST",
+        headers:{"Content-Type":"application/json",Accept:"application/geo+json, application/json",Authorization:"Bearer "+token},
+        body:JSON.stringify({collections,datetime:from+"T00:00:00Z/"+to+"T23:59:59Z",intersects:geometry,limit:500})
+      });
+      break;
+    } catch(e) {
+      const message=String((e as Error)?.message||e);
+      // Treat the provider's explicit no-results response as an empty result.
+      if (/HTTP 404:.*NO RESULTS FOUND/i.test(message)) return [];
+      // Retry only rate-limit responses, with bounded exponential backoff.
+      if (/HTTP 429:/i.test(message)&&attempt<2) {
+        await wait(attempt===0?5000:15000);
+        continue;
+      }
+      throw e;
+    }
   }
   return (Array.isArray(body?.features)?body.features:[]).map((f:any)=>({
     id:String(f?.id||""),
@@ -175,22 +185,30 @@ Deno.serve(async(req:Request)=>{
       sourceResults.push({source:"EOS-04 (ISRO Bhoonidhi)",status:"not_searched",count:null,products:[],note:"Catalogue search skipped because Bhoonidhi authentication failed."});
     }
     if(token) {
-      const [nisarResult,eosPolygonResult,eosPointResult,eosBroadResult]=await Promise.allSettled([
-        searchBhoonidhi(["NISAR_SSAR_GSLC","NISAR_SSAR_GCOV","NISAR_SSAR_RSLC"],aoi.geometry,from,to,token),
-        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,from,to,token),
-        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],{type:"Point",coordinates:[aoi.center.lon,aoi.center.lat]},from,to,token),
-        searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],aoi.geometry,"2024-01-01",to,token)
-      ]);
+      let nisarResult:any;
+      try {
+        const products=await searchBhoonidhi(["NISAR_SSAR_GSLC","NISAR_SSAR_GCOV","NISAR_SSAR_RSLC"],aoi.geometry,from,to,token);
+        nisarResult={status:"fulfilled",value:products};
+      } catch(e) { nisarResult={status:"rejected",reason:e}; }
       if(nisarResult.status==="fulfilled") {
         sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"searched",count:nisarResult.value.length,products:nisarResult.value,access:"Bhoonidhi account/API access required."});
       } else {
         sourceResults.push({source:"NISAR S-band (ISRO Bhoonidhi)",status:"provider_error",count:null,products:[],error:String(nisarResult.reason?.message||nisarResult.reason)});
       }
-      const eosTests=[
-        {label:"Saved boundary · requested dates",result:eosPolygonResult},
-        {label:"AOI centre point · requested dates",result:eosPointResult},
-        {label:"Saved boundary · 1 Jan 2024 to end date",result:eosBroadResult}
+      const eosTests:any[]=[];
+      const eosQueries=[
+        {label:"Saved boundary · requested dates",geometry:aoi.geometry,from,to},
+        {label:"AOI centre point · requested dates",geometry:{type:"Point",coordinates:[aoi.center.lon,aoi.center.lat]},from,to},
+        {label:"Saved boundary · 1 Jan 2024 to end date",geometry:aoi.geometry,from:"2024-01-01",to}
       ];
+      for(let i=0;i<eosQueries.length;i++) {
+        if(i>0) await wait(4000);
+        const q=eosQueries[i];
+        try {
+          const products=await searchBhoonidhi(["EOS-04_SAR-MRS_L2A"],q.geometry,q.from,q.to,token);
+          eosTests.push({label:q.label,result:{status:"fulfilled",value:products}});
+        } catch(e) { eosTests.push({label:q.label,result:{status:"rejected",reason:e}}); }
+      }
       const eosErrors=eosTests.filter(t=>t.result.status==="rejected").map(t=>t.label+": "+String(t.result.reason?.message||t.result.reason));
       const eosProducts=eosTests.flatMap(t=>t.result.status==="fulfilled"?t.result.value:[]);
       const uniqueEos=[...new Map(eosProducts.map((p:any)=>[p.id,p])).values()];
