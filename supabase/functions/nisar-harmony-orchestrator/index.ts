@@ -365,7 +365,7 @@ async function persistObservation(admin: any, job: any, processing: any) {
 
 
 function validDate(value: unknown) {
-  return typeof value === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(value) &&
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     !Number.isNaN(Date.parse(value + "T00:00:00Z"));
 }
 
@@ -440,12 +440,12 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
       properties.fileName ?? properties.granuleName ?? properties.sceneName ?? properties.name ??
       (String(feature?.id ?? "").startsWith("NISAR_L2_") ? feature.id : "")
     );
-    const productName = rawName.replace(/^.*\\//, "");
+    const productName = rawName.replace(/^.*\//, "");
     if (!productName) return null;
     let parsed: any;
     try { parsed = parseProductName(productName); } catch { return null; }
     const productId = String(feature?.id ?? properties.fileID ?? properties.sceneName ?? productName);
-    const parts = productName.replace(/\\.h5$/i, "").split("_");
+    const parts = productName.replace(/\.h5$/i, "").split("_");
     const groupKey = [parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10], parts[11], parts[12]].join("|");
     return {
       productId,
