@@ -15,6 +15,14 @@ def test_gamma0_power_summary_includes_db_conversion():
     assert summary["positive_pixel_count"] == 3
 
 
+def test_nonpositive_gamma0_values_are_excluded():
+    values = np.array([0.0, -1.0, 1.0, 10.0])
+    summary = summarize_values(values, "gamma0_power", 4)
+    assert summary["valid_pixel_count"] == 2
+    assert summary["nonpositive_pixel_count"] == 2
+    assert summary["median"] == 5.5
+
+
 def test_empty_summary_is_explicit():
     summary = summarize_values(np.array([]), "gamma0_power", 4)
     assert summary["valid_pixel_count"] == 0
