@@ -67,7 +67,7 @@ The worker:
 
 The worker deliberately does **not** interpret the GCOV mask bit flags or apply them as a validity filter yet. The mask's class/bit semantics must first be validated against the relevant product specification and a real Harmony output. No-data and non-finite pixels are excluded.
 
-The worker returns metrics only. It does not authenticate to Earthdata, submit Harmony jobs, write to Supabase, or persist raster assets. Supabase should authenticate, coordinate jobs, store job status and persist results. A separate orchestrator must connect Harmony outputs to this worker.
+The worker returns metrics only. It does not authenticate to Earthdata, submit Harmony jobs, write to Supabase, or persist raster assets. The coordinator uses `nisar_processing_jobs` for service-managed job state and `nisar_field_observations` for tenant-readable NISAR metrics linked to `beta_field_records`. This is deliberately separate from `satellite_observations`, whose foreign key targets the distinct production `fields` registry.
 
 ### 5. Resolution and field-scale rules
 
@@ -128,20 +128,22 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 
 ## Implementation sequence
 
-1. Add the NISAR job/product/observation data model and tenant-safe access policies.
+1. Apply the NISAR job/observation migration and verify tenant-scoped access.
 2. Implement batch ASF discovery and product deduplication.
-3. Implement Harmony capability lookup, submission and asynchronous job polling.
-4. Connect the COG processor to the orchestrator and test it against a real Harmony-produced GCOV COG.
-5. Validate the WH-SYN-016 pilot against a known product and inspect the output quality.
-6. Enable scheduled batch processing only after the pilot passes.
-7. Add the NISAR series to the satellite report with clear sensor/source labels.
+3. Configure Earthdata and processor secrets in Supabase Edge Functions.
+4. Deploy the Harmony coordinator and private COG processor.
+5. Verify Harmony capabilities and submit the WH-SYN-016 sample product.
+6. Validate the real COG output, field-polygon statistics and mask semantics.
+7. Enable scheduled batch processing only after the pilot passes.
+8. Add the NISAR series to the satellite report with clear sensor/source labels.
 
 ## Current implementation status
 
-- Design and COG polygon-statistics worker source are included in this draft PR.
-- Five local unit tests pass using a synthetic GeoTIFF.
-- No database schema has been changed, no Supabase function has been deployed, no Earthdata secret has been configured, and no real Harmony COG has been processed.
-- The worker is not production-ready until the orchestrator, network policy, live COG test, mask interpretation, and Supabase persistence path are implemented and validated.
+- Design, COG polygon-statistics worker source, and Harmony coordinator source are included in this draft PR.
+- The pilot field WH-SYN-016 has 731 saved boundary points, and the stored ring is already closed. The coordinator preserves all points and uses the bounding box only for Harmony extraction; the worker clips statistics to the saved polygon.
+- The beta field registry is not the same table as the production `fields` registry. The migration therefore introduces a separate `nisar_field_observations` table rather than attempting to write pilot records into the incompatible `satellite_observations` foreign key.
+- No database schema has been applied, no Supabase function has been deployed, no Earthdata secret has been configured, and no real Harmony COG has been processed.
+- The orchestration source has not yet been type-checked or exercised against live Harmony. It is not production-ready until the migration, secret configuration, deployment, live COG test, mask interpretation, and end-to-end pilot validation are complete.
 
 ## Explicit non-goals for the first release
 
