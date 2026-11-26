@@ -4,6 +4,7 @@ import os
 import secrets
 from contextlib import contextmanager
 from collections import Counter
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
@@ -29,6 +30,8 @@ def validate_cog_url(url: str) -> str:
         raise ValueError("COG URL must use HTTPS.")
     if parsed.username or parsed.password:
         raise ValueError("Credentials must not be embedded in COG URLs.")
+    if parsed.port not in (None, 443):
+        raise ValueError("COG URL must use the standard HTTPS port.")
     if parsed.hostname.lower() not in allowed_hosts():
         raise ValueError("COG URL host is not on the configured allowlist.")
     return url
@@ -102,11 +105,14 @@ def summarize_values(values: np.ndarray, value_type: str, candidate_pixels: int)
             "p25": None,
             "p75": None,
             "median_db": None,
+            "positive_pixel_count": 0 if value_type == "gamma0_power" else None,
         }
     p25, median, p75 = np.percentile(values, [25, 50, 75]).tolist()
     median_db = None
+    positive_pixel_count = None
     if value_type == "gamma0_power":
         positive = values[values > 0]
+        positive_pixel_count = int(positive.size)
         median_db = float(10.0 * np.log10(np.median(positive))) if positive.size else None
     denominator = max(int(candidate_pixels), int(values.size))
     return {
@@ -117,6 +123,7 @@ def summarize_values(values: np.ndarray, value_type: str, candidate_pixels: int)
         "p25": float(p25),
         "p75": float(p75),
         "median_db": median_db,
+        "positive_pixel_count": positive_pixel_count,
     }
 
 
@@ -179,6 +186,12 @@ def zonal_stats(payload: ProcessRequest, authorization: str | None = Header(defa
         vertex_count = count_positions(coordinates)
         if vertex_count < 4 or vertex_count > 8000:
             raise ValueError("Field polygon must contain between 4 and 8,000 coordinate positions.")
+        try:
+            acquisition_time = datetime.fromisoformat(payload.acquired_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise ValueError("acquired_at must be an ISO 8601 timestamp.") from exc
+        if acquisition_time.tzinfo is None:
+            raise ValueError("acquired_at must include a timezone.")
 
         output_layers: list[dict[str, Any]] = []
         for layer in payload.layers:
