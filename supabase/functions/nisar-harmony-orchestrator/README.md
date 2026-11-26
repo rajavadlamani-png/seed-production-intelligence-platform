@@ -33,11 +33,11 @@ The function verifies the signed-in user's active company membership, reads the 
 { "action": "poll", "jobId": "<nisar_processing_jobs UUID>" }
 ```
 
-When Harmony reports completion, the function reads the output STAC assets, validates their HTTPS hosts, sends the COG links and exact saved field polygon to the private processor, then stores metrics and provenance in `satellite_observations`.
+When Harmony reports completion, the function reads the output STAC assets, validates their HTTPS hosts, sends the COG links and exact saved field polygon to the private processor, then stores metrics and provenance in `nisar_field_observations`. This dedicated table references `beta_field_records`; it does not write to `satellite_observations`, whose foreign key targets the separate production `fields` registry.
 
 ## Required database migration
 
-Apply `supabase/migrations/20261126080000_nisar_processing_jobs.sql` before calling `submit` or `poll`. The job table is service-managed: RLS is enabled and direct access is revoked from `anon` and `authenticated`.
+Apply `supabase/migrations/20261126080000_nisar_processing_jobs.sql` before calling `submit` or `poll`. The job table is service-managed: RLS is enabled and direct access is revoked from `anon` and `authenticated`. The migration also creates `nisar_field_observations`, with tenant-scoped SELECT policy for authenticated company members and service-role-only writes.
 
 ## Required Edge Function secrets
 
@@ -56,6 +56,7 @@ Supabase's built-in `SUPABASE_URL`, `SUPABASE_ANON_KEY` / `SUPABASE_PUBLISHABLE_
 - Harmony is asked to export GeoTIFF/COG layers and spatially subset to the field bounding box. The worker then clips to the exact field polygon. The bounding box is only an extraction optimization, not the field-statistics AOI.
 - Product filename parsing is used to determine acquisition timestamp and polarization mode. Confirm the product's full granule filename and collection membership before submitting.
 - The current function uses a single field/product job. Batch deduplication and scheduled discovery are a later layer.
+- The pilot registry `beta_field_records` and production `fields` registry are distinct. NISAR pilot observations therefore go to `nisar_field_observations`, not `satellite_observations`.
 - The COG processor's mask classes are recorded but not interpreted or applied as bit masks yet. That needs validation against the NISAR product specification and real COG output.
 - The worker's configured COG host allowlist must include the actual hostnames returned by Harmony STAC. Do not allow arbitrary hosts.
 - Temporary Harmony asset URLs are used in-memory and are not stored in the database.
