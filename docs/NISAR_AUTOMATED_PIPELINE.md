@@ -128,11 +128,11 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 
 ## Implementation sequence
 
-1. Apply the NISAR job/observation migration and verify tenant-scoped access.
+1. **Completed:** apply the NISAR job/observation migrations and verify tenant-scoped access.
 2. Extend the current single-field ASF discovery into batch discovery and cross-field product deduplication.
-3. Configure Earthdata and processor secrets in Supabase Edge Functions.
-4. Deploy the Harmony coordinator and private COG processor.
-5. Verify Harmony capabilities and submit the WH-SYN-016 sample product.
+3. Configure/verify Earthdata and processor secrets in Supabase Edge Functions.
+4. **Completed:** deploy the authenticated Harmony coordinator. Deploy the private COG processor to an approved container host.
+5. Verify live Harmony capabilities and submit the WH-SYN-016 sample product.
 6. Validate the real COG output, field-polygon statistics and mask semantics.
 7. Enable scheduled batch processing only after the pilot passes.
 8. Add the NISAR series to the satellite report with clear sensor/source labels.
@@ -143,7 +143,8 @@ Each state transition must retain timestamps and a diagnostic message. Retrying 
 - The pilot field WH-SYN-016 has 731 saved boundary points, and the stored ring is already closed. The coordinator preserves all points and uses the bounding box only for Harmony extraction; the worker clips statistics to the saved polygon.
 - The beta field registry is not the same table as the production `fields` registry. The migration therefore introduces a separate `nisar_field_observations` table rather than attempting to write pilot records into the incompatible `satellite_observations` foreign key.
 - The two NISAR database migrations have been applied and verified. The authenticated Harmony coordinator is deployed with JWT verification enabled. No Earthdata token or processor endpoint secret has been configured, and no real Harmony COG has been processed.
-- ASF polygon discovery, PR/UR grouping and Harmony submission/polling source are committed, but the orchestration source has not yet been type-checked or exercised against live Harmony. It is not production-ready until the migration, secret configuration, deployment, live COG test, mask interpretation, and end-to-end pilot validation are complete.
+- ASF polygon discovery, PR/UR grouping and Harmony submission/polling are implemented. The Supabase Edge Function deployment is active with JWT verification enabled; the deployment was accepted by Supabase, but the function has not yet been exercised with an authenticated user against live ASF/Harmony services.
+- The orchestration is not end-to-end operational until Earthdata access, the private processor deployment, live COG output validation, mask interpretation and the WH-SYN-016 pilot are complete.
 
 ## Explicit non-goals for the first release
 
