@@ -406,8 +406,16 @@ function polygonToWkt(geometry: any) {
   if (geometry?.type !== "Polygon" || !Array.isArray(geometry.coordinates?.[0])) {
     throw new Error("ASF discovery requires the saved Polygon boundary.");
   }
+  // Use a compact search envelope to avoid oversized query URLs. Exact field
+  // containment is checked against every original boundary point below.
   const ring = geometry.coordinates[0] as [number, number][];
-  return "POLYGON((" + ring.map(point => point[0] + " " + point[1]).join(",") + "))";
+  const lons = ring.map(point => point[0]);
+  const lats = ring.map(point => point[1]);
+  const west = Math.min(...lons), east = Math.max(...lons);
+  const south = Math.min(...lats), north = Math.max(...lats);
+  return "POLYGON((" + [
+    [west, south], [east, south], [east, north], [west, north], [west, south]
+  ].map(point => point[0] + " " + point[1]).join(",") + "))";
 }
 
 async function discoverAsfProducts(geometry: any, from: string, to: string) {
@@ -441,7 +449,7 @@ async function discoverAsfProducts(geometry: any, from: string, to: string) {
     const groupKey = [parts[4], parts[5], parts[6], parts[7], parts[8], parts[9], parts[10], parts[11], parts[12]].join("|");
     return {
       productId,
-      productName,
+      productName: parsed.granuleName,
       processingType: parsed.processingType,
       acquiredAt: parsed.acquiredAt,
       polarizationMode: parsed.polarizationMode,
@@ -553,6 +561,15 @@ async function submitAction(admin: any, user: any, body: any) {
   if (!/paddy|rice/i.test(String(field.record_data?.crop ?? ""))) throw new Error("The initial NISAR pilot is limited to Paddy/Rice fields.");
   const polygon = getExactFieldPolygon(field.record_data);
   const parsed = parseProductName(productName);
+  const acquisitionDate = parsed.acquiredAt.slice(0, 10);
+  const catalogueCheck = await discoverAsfProducts(polygon.geometry, acquisitionDate, acquisitionDate);
+  const confirmed = catalogueCheck.groups.find((group: any) =>
+    group.primary?.productName === parsed.granuleName &&
+    group.primary?.productId === productId
+  );
+  if (!confirmed) {
+    throw new Error("The selected product is not the unique footprint-confirmed PR/UR/OD candidate for this field and acquisition date. Run ASF discovery again and resolve any ambiguous variants.");
+  }
   if (parsed.nominalPixelSpacingM === null) throw new Error("Could not determine the Frequency A pixel spacing from the product name.");
   if (parsed.nominalPixelSpacingM > 20) throw new Error("This product's Frequency A spacing is too coarse for the initial small-field NISAR pilot.");
   const collection = String(body.collectionShortName ?? COLLECTION_SHORT_NAME);
