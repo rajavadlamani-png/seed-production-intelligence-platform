@@ -148,18 +148,29 @@
           </form>
 
         </div>      </div>
-      <p class="welcome-disclaimer">Prototype only. Uses sample data in your browser. This public demo does not provide secure authentication, user isolation or server-side data storage. Do not enter real farmer or company information.</p>
+      <p class="welcome-disclaimer">The public demo uses synthetic browser data only. Secure company sign-in opens your company-scoped live Supabase workspace. Do not enter real farmer or company information in the public demo.</p>
     </div>
   </section>
   <section class="secure-workspace-gate hidden" id="secureWorkspaceGate" aria-live="polite">
-    <div class="secure-workspace-card">
-      <img src="assets/sage-harvest-logo.svg" alt="Sage Harvest" class="secure-workspace-logo">
-      <p class="eyebrow">AUTHENTICATION VERIFIED</p>
-      <h1>Secure sign-in successful</h1>
-      <p id="secureIdentity" class="secure-identity"></p>
-      <p class="secure-next-step">Your Supabase session and active company membership have been verified. The operational screens are not yet connected to live database records, so sample data is intentionally hidden in this secure session.</p>
-      <div class="secure-status-row"><span class="secure-status-dot"></span><span>Authentication and membership check complete</span></div>
-      <button class="primary welcome-submit" id="secureSignOut" type="button">Sign out <span>↗</span></button>
+    <div class="live-workspace-shell">
+      <header class="live-workspace-header">
+        <div class="live-brand"><img src="assets/sage-harvest-logo.svg" alt="Sage Harvest"><div><p class="eyebrow">SAGEHARVEST · LIVE WORKSPACE</p><h1>Grower Master</h1></div></div>
+        <button class="outline" id="secureSignOut" type="button">Sign out</button>
+      </header>
+      <div class="live-workspace-identity">
+        <p id="secureIdentity" class="secure-identity"></p>
+        <div id="secureCompanyPicker" class="live-company-picker hidden"><label for="secureCompanySelect">Company workspace</label><select id="secureCompanySelect"></select></div>
+      </div>
+      <div id="liveWorkspaceMessage" class="live-workspace-message hidden" role="status"></div>
+      <section class="live-workspace-section">
+        <div class="live-section-heading"><div><p class="eyebrow">MASTER DATA · DATABASE RECORDS</p><h2>Grower registry</h2><p>Live records from your selected company. Changes are saved to Supabase.</p></div><button class="primary" id="refreshLiveGrowers" type="button">↻ Refresh</button></div>
+        <div id="liveGrowerSummary" class="live-metric-grid"></div>
+        <div class="live-grower-toolbar"><label for="liveGrowerSearch">Search growers</label><input id="liveGrowerSearch" type="search" placeholder="Grower name, code, contact, geography or field code"></div>
+        <div id="liveGrowersTable"><div class="live-loading">Waiting for company selection…</div></div>
+        <p id="liveLastRefreshed" class="live-table-footnote"></p>
+      </section>
+      <div id="liveGrowerModalHost"></div>
+      <footer class="live-workspace-footer">Tenant-scoped data access · Supabase authentication · Row-level security · Database audit events</footer>
     </div>
   </section>
   <div class="toast" id="toast" role="status"></div>
@@ -167,6 +178,6 @@
   <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="supabase-config.js"></script>
-  <script defer src="app.js?v=google-satellite-field-viewer-v1"></script>
+  <script defer src="app.js?v=live-grower-master-v1"></script>
 </body>
 </html>
