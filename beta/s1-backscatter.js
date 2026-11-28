@@ -95,13 +95,18 @@ function s1BackscatterSingleDrainageEvents(observations) {
     const afterClass = s1BackscatterObservationClass(after);
     const gapDays = (Date.parse(after.date + "T00:00:00Z") - Date.parse(before.date + "T00:00:00Z")) / 86400000;
     const valid = [before.vvDb,before.vhDb,after.vvDb,after.vhDb].every(v => Number.isFinite(Number(v)));
-    // One observed transition is sufficient for a candidate: paired open-water-like
-    // signature before, then no longer paired open-water-like at the next pass.
-    if (valid && beforeClass?.key === "flooded" && afterClass?.key !== "flooded" && gapDays > 0 && gapDays <= 18) {
+    // One observed transition is sufficient: a preceding open-water-like OR
+    // wet/saturated signature is followed by an acquisition matching neither band.
+    // A wet-to-unclassified transition is deliberately lower-confidence evidence.
+    const beforeWaterLike = ["flooded","wet"].includes(beforeClass?.key);
+    const afterWaterLike = ["flooded","wet"].includes(afterClass?.key);
+    if (valid && beforeWaterLike && !afterWaterLike && gapDays > 0 && gapDays <= 18) {
       const start = after.date;
       const endDate = new Date(Date.parse(start + "T00:00:00Z") + 10 * 86400000).toISOString().slice(0,10);
+      const signalBasis = beforeClass.key === "flooded" ? "Open-water-like signature exit" : "Wet/saturated signature exit";
+      const confidence = beforeClass.key === "flooded" ? "Moderate screening signal" : "Low screening signal";
       events.push({
-        before, after, start, end: endDate, gapDays,
+        before, after, start, end: endDate, gapDays, signalBasis, confidence,
         vvChange: Number(after.vvDb) - Number(before.vvDb),
         vhChange: Number(after.vhDb) - Number(before.vhDb),
         differenceChange: Number(after.vvMinusVhDb) - Number(before.vvMinusVhDb)
@@ -224,10 +229,11 @@ function s1BackscatterInterpretationMarkup() {
     const drainageCards = drainageEvents.length ? drainageEvents.map((event,index) =>
       '<div class="s1-period-card s1-drainage-event-card"><b>Candidate single drainage event ' + (index+1) + '</b>' +
       '<p><b>Estimated red window:</b> ' + s1BackscatterEscape(event.start + ' to ' + event.end) + ' (10 calendar days)</p>' +
-      '<p>Previous acquisition ' + s1BackscatterEscape(event.before.date) + ' matched the paired open-water-like reference band. Acquisition ' + s1BackscatterEscape(event.after.date) + ' no longer matched that band (' + event.gapDays.toFixed(0) + '-day observation gap).</p>' +
+      '<p><b>Signal basis:</b> ' + s1BackscatterEscape(event.signalBasis) + ' · ' + s1BackscatterEscape(event.confidence) + '.</p>' +
+      '<p>Previous acquisition ' + s1BackscatterEscape(event.before.date) + ' matched the ' + (event.before === event.before && s1BackscatterObservationClass(event.before)?.key === "flooded" ? "open-water-like" : "wet / potentially saturated") + ' reference band. Acquisition ' + s1BackscatterEscape(event.after.date) + ' no longer matched either water-related band (' + event.gapDays.toFixed(0) + '-day observation gap).</p>' +
       '<p>VV change: ' + (event.vvChange >= 0 ? '+' : '') + event.vvChange.toFixed(2) + ' dB · VH change: ' + (event.vhChange >= 0 ? '+' : '') + event.vhChange.toFixed(2) + ' dB · VV−VH change: ' + (event.differenceChange >= 0 ? '+' : '') + event.differenceChange.toFixed(2) + ' dB.</p>' +
       '<p><b>Interpretation:</b> one candidate transition consistent with loss of standing-water radar signature. It is not proof of the farmer physically opening a drain; crop growth, surface roughness and mixed pixels can also change backscatter.</p></div>'
-    ).join("") : '<p class="s1-reference-caveat">No single drainage transition was flagged. This requires a preceding paired open-water-like acquisition followed by an acquisition that no longer matches that signature, within an 18-day interval. No event is inferred where that sequence is absent.</p>';
+    ).join("") : '<p class="s1-reference-caveat">No single drainage transition was flagged. This requires a preceding paired open-water-like or wet/saturated signature followed by an acquisition that matches neither band, within an 18-day interval. A wet-to-unclassified transition is lower-confidence. No event is inferred where that sequence is absent.</p>';
     const statusTimeline = observations.map((row,index) => {
       const status = s1BackscatterObservationClass(row);
       const color = status?.color || "#64748b";
@@ -248,7 +254,7 @@ function s1BackscatterInterpretationMarkup() {
     return '<article class="s1-field-interpretation"><h4>' + s1BackscatterEscape(field.fieldNo) + '</h4><p><b>Latest acquisition:</b> ' + s1BackscatterEscape(latest.date) + ' · VV ' + fmt(latest.vvDb) + ' dB · VH ' + fmt(latest.vhDb) + ' dB · ' + s1BackscatterEscape(latestClass?.label || "No direct paired reference-band match") + '</p><h5>Field condition timeline (actual acquisition dates)</h5><div class="s1-status-timeline">' + statusTimeline + '</div><h5>Single drainage event screen</h5>' + drainageCards + '<h5>Persistent dry-like reference-band periods (separate legacy view)</h5>' + dryCards + '<details class="s1-record-details"><summary>View field reference comparisons · ' + observations.length + ' observations</summary><div class="s1-record-scroll"><table><thead><tr><th>Date</th><th>VV (dB)</th><th>VH (dB)</th><th>Reference comparison</th></tr></thead><tbody>' + rows + '</tbody></table></div></details></article>';
   }).join("");
   const referenceRows = bands.map(b=>'<tr><td><span class="s1-status-label"><i style="background:'+b.color+'"></i>'+s1BackscatterEscape(b.label)+'</span></td><td>'+b.vv[0]+' to '+b.vv[1]+'</td><td>'+b.vh[0]+' to '+b.vh[1]+'</td></tr>').join("");
-  return '<section class="s1-interpretation" aria-label="Field-specific Sentinel-1 interpretation"><h3>Selected-field interpretation</h3><p>Two interpretations are shown separately. The single-event screen flags one transition from a paired open-water-like signature to a subsequent acquisition that no longer matches it; it does not require complete moisture depletion or persistence across two dry-like acquisitions. The legacy dry-like period view still requires two consecutive reference-band matches.</p>' + summaries + '<h4>Colour reference bands</h4><div class="s1-record-scroll"><table><thead><tr><th>Reference condition</th><th>VV (dB)</th><th>VH (dB)</th></tr></thead><tbody>' + referenceRows + '</tbody></table></div><p class="s1-reference-caveat"><b>Scientific limitation:</b> These are indicative screening ranges, not locally calibrated thresholds. A candidate single drainage event means the paired open-water-like radar signature was present on one acquisition and absent on the next; it is an indirect surface-water proxy, not direct observation of standing water or proof of a farmer's drainage activity. The red 10-calendar-day window is an operational estimate anchored to the first non-open-water-like acquisition, not ten days of continuous satellite observation. Crop phenology, surface roughness, incidence geometry and mixed pixels can produce similar changes.</p></section>';
+  return '<section class="s1-interpretation" aria-label="Field-specific Sentinel-1 interpretation"><h3>Selected-field interpretation</h3><p>Two interpretations are shown separately. The single-event screen flags one transition from a paired open-water-like or wet/saturated signature to a subsequent acquisition that matches neither; it does not require complete moisture depletion or persistence across two dry-like acquisitions. The legacy dry-like period view still requires two consecutive reference-band matches.</p>' + summaries + '<h4>Colour reference bands</h4><div class="s1-record-scroll"><table><thead><tr><th>Reference condition</th><th>VV (dB)</th><th>VH (dB)</th></tr></thead><tbody>' + referenceRows + '</tbody></table></div><p class="s1-reference-caveat"><b>Scientific limitation:</b> These are indicative screening ranges, not locally calibrated thresholds. A candidate single drainage event means a paired open-water-like or wet/saturated radar signature was present on one acquisition and absent on the next; it is an indirect surface-water proxy, not direct observation of standing water or proof of a farmer's drainage activity. The red 10-calendar-day window is an operational estimate anchored to the first acquisition matching neither water-related band, not ten days of continuous satellite observation. Crop phenology, surface roughness, incidence geometry and mixed pixels can produce similar changes.</p></section>';
 }
 function s1BackscatterTableMarkup() {
   const rows = (s1BackscatterState.result?.fields || []).flatMap(field =>
