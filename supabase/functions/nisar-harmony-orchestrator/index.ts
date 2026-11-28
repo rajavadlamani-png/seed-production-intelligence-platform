@@ -168,6 +168,28 @@ async function authorizedField(admin: any, userId: string, fieldId: string) {
   return field;
 }
 
+async function findHarmonyJobsByLabel(label: string) {
+  if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
+  const url = new URL(HARMONY_ROOT + "/jobs");
+  url.searchParams.set("label", label);
+  url.searchParams.set("limit", "100");
+  const response = await fetchJson(url.toString(), {
+    headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/json" }
+  }, 60000);
+  const jobs = Array.isArray(response?.jobs) ? response.jobs : [];
+  return jobs.filter((job: any) => Array.isArray(job?.labels) && job.labels.includes(label))
+    .map((job: any) => ({
+      jobID: job.jobID ?? null,
+      status: job.status ?? null,
+      progress: job.progress ?? null,
+      createdAt: job.createdAt ?? null,
+      updatedAt: job.updatedAt ?? null,
+      labels: job.labels ?? [],
+      numInputGranules: job.numInputGranules ?? null,
+      message: typeof job.message === "string" ? job.message.slice(0, 300) : null
+    }));
+}
+
 async function getCapabilities(collectionShortName: string) {
   if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   const url = new URL(HARMONY_ROOT + "/capabilities");
@@ -775,9 +797,22 @@ Deno.serve(async (req: Request) => {
         variables: variableNames(capabilities)
       });
     }
+    if (action === "lookup") {
+      const fieldId = String(body.fieldId ?? "");
+      const productId = String(body.productId ?? "");
+      if (!fieldId || !productId) return json({ error: "fieldId and productId are required." }, 400);
+      const field = await authorizedField(admin, user.id, fieldId);
+      const expectedProductId = "NISAR_L2_PR_GCOV_036_012_A_009_4005_DHDH_A_20261118T002521_20261118T002555_P05036_N_F_J_002";
+      if (fieldId !== "3953c26d-dc93-41bb-ae80-7aa5da738799" || productId !== expectedProductId) {
+        return json({ error: "Lookup is restricted to the explicitly approved WH-SYN-016 pilot product." }, 400);
+      }
+      const label = ("sageharvest-" + field.field_no + "-" + productId).toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 200);
+      const jobs = await findHarmonyJobsByLabel(label);
+      return json({ ok: true, label, matchingJobs: jobs });
+    }
     if (action === "submit") return json(await submitAction(admin, user, body), 202);
     if (action === "poll") return json(await pollAction(admin, user, body));
-    return json({ error: "action must be capabilities, discover, submit or poll." }, 400);
+    return json({ error: "action must be capabilities, discover, lookup, submit or poll." }, 400);
   } catch (error) {
     if (error instanceof Response) return error;
     return json({ error: safeError(error) }, 400);
