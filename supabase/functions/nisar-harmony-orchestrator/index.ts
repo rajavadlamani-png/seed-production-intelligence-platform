@@ -170,30 +170,55 @@ async function authorizedField(admin: any, userId: string, fieldId: string) {
 
 async function findHarmonyJobsForPilot(label: string, productId: string) {
   if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
-  const url = new URL(HARMONY_ROOT + "/jobs");
-  url.searchParams.set("limit", "100");
-  const response = await fetchJson(url.toString(), {
-    headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/json" }
-  }, 60000);
-  const jobs = Array.isArray(response?.jobs) ? response.jobs : [];
-  return jobs.filter((job: any) => {
-    const labels = Array.isArray(job?.labels) ? job.labels : [];
-    const request = String(job?.request ?? "");
-    return labels.includes(label) || request.includes(productId);
-  }).map((job: any) => ({
-    jobID: job.jobID ?? null,
-    status: job.status ?? null,
-    progress: job.progress ?? null,
-    createdAt: job.createdAt ?? null,
-    updatedAt: job.updatedAt ?? null,
-    labels: job.labels ?? [],
-    requestMentionsProduct: String(job?.request ?? "").includes(productId),
-    numInputGranules: job.numInputGranules ?? null,
-    message: typeof job.message === "string" ? job.message.slice(0, 300) : null
-  }));
+  const serviceOrigin = new URL(HARMONY_ROOT).origin;
+  let nextUrl: URL | null = new URL(HARMONY_ROOT + "/jobs");
+  nextUrl.searchParams.set("limit", "100");
+  const matches: any[] = [];
+  let pages = 0;
+  while (nextUrl && pages < 10) {
+    const currentUrl = nextUrl;
+    const response = await fetchJson(currentUrl.toString(), {
+      headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/json" }
+    }, 60000);
+    const jobs = Array.isArray(response?.jobs) ? response.jobs : [];
+    matches.push(...jobs.filter((job: any) => {
+      const labels = Array.isArray(job?.labels) ? job.labels : [];
+      const request = String(job?.request ?? "");
+      return labels.includes(label) || request.includes(productId);
+    }).map((job: any) => ({
+      jobID: job.jobID ?? null,
+      status: job.status ?? null,
+      progress: job.progress ?? null,
+      createdAt: job.createdAt ?? null,
+      updatedAt: job.updatedAt ?? null,
+      labels: job.labels ?? [],
+      requestMentionsProduct: String(job?.request ?? "").includes(productId),
+      numInputGranules: job.numInputGranules ?? null,
+      message: typeof job.message === "string" ? job.message.slice(0, 300) : null
+    })));
+    pages += 1;
+    const nextLink = Array.isArray(response?.links)
+      ? response.links.find((link: any) => link?.rel === "next" && typeof link?.href === "string")
+      : null;
+    if (nextLink?.href) {
+      const candidate = new URL(nextLink.href, currentUrl);
+      if (candidate.origin !== serviceOrigin) throw new Error("Harmony jobs pagination returned a link outside the Harmony service.");
+      nextUrl = candidate;
+    } else {
+      nextUrl = null;
+    }
+  }
+  return { jobs: matches, complete: nextUrl === null, pages };
 }
 
-
+class HarmonySubmissionError extends Error {
+  ambiguous: boolean;
+  constructor(message: string, ambiguous: boolean) {
+    super(message);
+    this.name = "HarmonySubmissionError";
+    this.ambiguous = ambiguous;
+  }
+}
 
 async function getCapabilities(collectionShortName: string) {
   if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
@@ -222,12 +247,17 @@ async function submitHarmonyJob(productName: string, variables: string[], bbox: 
   url.searchParams.set("ignoreErrors", "false");
   url.searchParams.set("label", label.slice(0, 200));
 
-  const response = await fetch(url.toString(), {
-    method: "GET",
-    redirect: "manual",
-    headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/json" },
-    signal: AbortSignal.timeout(60000)
-  });
+  let response: Response;
+  try {
+    response = await fetch(url.toString(), {
+      method: "GET",
+      redirect: "manual",
+      headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/json" },
+      signal: AbortSignal.timeout(60000)
+    });
+  } catch (error) {
+    throw new HarmonySubmissionError("Harmony submission transport outcome is unknown: " + safeError(error), true);
+  }
   const text = await response.text();
   let body: any = {};
   try { body = text ? JSON.parse(text) : {}; }
@@ -238,11 +268,12 @@ async function submitHarmonyJob(productName: string, variables: string[], bbox: 
   if (!response.ok && ![301, 302, 303, 307, 308].includes(response.status)) {
     const detail = body?.message ?? body?.detail ?? body?.error ?? body?.errors ?? body;
     const diagnostic = JSON.stringify(detail).replace(/https?:\/\/\S+/g, "[provider-url]").slice(0, 900);
-    throw new Error("Harmony submission HTTP " + response.status + " (" +
-      (response.headers.get("content-type") ?? "unknown content type") + "): " + diagnostic);
+    const message = "Harmony submission HTTP " + response.status + " (" +
+      (response.headers.get("content-type") ?? "unknown content type") + "): " + diagnostic;
+    throw new HarmonySubmissionError(message, response.status >= 500);
   }
   if (!jobId) {
-    throw new Error("Harmony did not return a job ID. Response status " + response.status + "; inspect the Harmony response before retrying.");
+    throw new HarmonySubmissionError("Harmony response did not expose a job ID (HTTP " + response.status + "); acceptance is uncertain.", true);
   }
   return { jobId, requestUrl: url.toString(), response: body };
 }
@@ -596,27 +627,22 @@ async function submitAction(admin: any, user: any, body: any) {
   const catalogueCheck = await discoverAsfProducts(polygon.geometry, acquisitionDate, acquisitionDate);
   const selectedGroup = catalogueCheck.groups.find((group: any) => {
     const candidates = [group.primary, ...(group.alternatives ?? [])].filter(Boolean);
-    return candidates.some((candidate: any) =>
-      candidate.productName === parsed.granuleName && candidate.productId === productId
-    );
+    return candidates.some((candidate: any) => candidate.productName === parsed.granuleName && candidate.productId === productId);
   });
   const selectedCandidate = selectedGroup
     ? [selectedGroup.primary, ...(selectedGroup.alternatives ?? [])].filter(Boolean)
         .find((candidate: any) => candidate.productName === parsed.granuleName && candidate.productId === productId)
     : null;
-  if (!selectedGroup || !selectedCandidate) {
-    throw new Error("The exact product ID/name pair is not present in the current ASF catalogue for this field and acquisition date.");
-  }
-  if (selectedCandidate.processingType !== "PR" ||
-      selectedCandidate.coverage !== "F" ||
-      selectedCandidate.footprintContainsField !== true) {
+  if (!selectedGroup || !selectedCandidate) throw new Error("The exact product ID/name pair is not present in the current ASF catalogue for this field and acquisition date.");
+  if (selectedCandidate.processingType !== "PR" || selectedCandidate.coverage !== "F" || selectedCandidate.footprintContainsField !== true) {
     throw new Error("Explicit pilot selection requires a PR product with full coverage and confirmed containment of every saved field-boundary point.");
   }
   if (selectedGroup.selectionStatus.startsWith("ambiguous") && body.approvedVariantSelection !== true) {
     throw new Error("ASF returned multiple PR variants. Explicit user approval is required to select one.");
   }
-  if (parsed.nominalPixelSpacingM === null) throw new Error("Could not determine the Frequency A pixel spacing from the product name.");
-  if (parsed.nominalPixelSpacingM > 20) throw new Error("This product's Frequency A spacing is too coarse for the initial small-field NISAR pilot.");
+  if (parsed.nominalPixelSpacingM === null || parsed.nominalPixelSpacingM > 20) {
+    throw new Error("The product's Frequency A spacing is unavailable or too coarse for the initial small-field NISAR pilot.");
+  }
   const collection = String(body.collectionShortName ?? COLLECTION_SHORT_NAME);
   if (collection !== COLLECTION_SHORT_NAME) throw new Error("Use the configured NISAR GCOV collection short name.");
   const { data: existing, error: lookupError } = await admin.from("nisar_processing_jobs")
@@ -631,10 +657,53 @@ async function submitAction(admin: any, user: any, body: any) {
     return { ok: true, duplicate: true, job: existing, message: "A Harmony job is already in progress for this field/product." };
   }
 
+  const label = ("sageharvest-" + field.field_no + "-" + productId).toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 200);
+  const reconciliation = await findHarmonyJobsForPilot(label, productId);
+  if (!reconciliation.complete) throw new Error("Harmony job history lookup did not finish all available pages; refusing submission while duplicate status is uncertain.");
+
+  if (reconciliation.jobs.length > 1) {
+    if (existing?.id) await admin.from("nisar_processing_jobs").update({
+      status: "submission_unknown",
+      harmony_metadata: { reconciliation: reconciliation.jobs, pagesChecked: reconciliation.pages },
+      error_message: "Multiple matching Harmony jobs were found. Manual reconciliation is required; no new request was submitted.",
+      updated_at: new Date().toISOString()
+    }).eq("id", existing.id);
+    return { ok: false, submissionUnknown: true, matchingJobs: reconciliation.jobs, message: "Multiple Harmony jobs match this product; no new submission was made." };
+  }
+  if (reconciliation.jobs.length === 1) {
+    const match = reconciliation.jobs[0];
+    if (!match.jobID || !existing?.id) {
+      if (existing?.id) await admin.from("nisar_processing_jobs").update({
+        status: "submission_unknown",
+        harmony_metadata: { reconciliation: match, pagesChecked: reconciliation.pages },
+        error_message: "A matching Harmony record exists but could not be fully reconciled. Manual review is required.",
+        updated_at: new Date().toISOString()
+      }).eq("id", existing.id);
+      return { ok: false, submissionUnknown: true, matchingJobs: reconciliation.jobs, message: "A matching Harmony record exists but cannot be safely reconciled; no new submission was made." };
+    }
+    const { data: reconciled, error: reconcileError } = await admin.from("nisar_processing_jobs").update({
+      status: "harmony_submitted",
+      harmony_job_id: match.jobID,
+      submitted_at: existing.submitted_at ?? new Date().toISOString(),
+      harmony_metadata: { reconciliation: match, pagesChecked: reconciliation.pages },
+      error_message: null,
+      updated_at: new Date().toISOString()
+    }).eq("id", existing.id).select("*").single();
+    if (reconcileError) throw new Error("Harmony job was found but could not be reconciled into the database: " + reconcileError.message);
+    return { ok: true, duplicate: true, reconciled: true, job: reconciled, message: "An existing Harmony job was found; no duplicate request was submitted." };
+  }
+  if (existing?.status === "submission_unknown") {
+    return {
+      ok: false,
+      submissionUnknown: true,
+      requiresManualReconciliation: true,
+      job: existing,
+      message: "No matching Harmony job is currently listed, but this record has an ambiguous prior submission. Automatic retry is blocked; reconcile provider history before authorizing another attempt."
+    };
+  }
+
   const capabilities = await getCapabilities(collection);
   const selected = selectGcoveVariables(capabilities, parsed.polarizationMode);
-  const label = ("sageharvest-" + field.field_no + "-" + productId).toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 200);
-
   const row = {
     company_id: field.company_id,
     field_record_id: field.id,
@@ -666,7 +735,7 @@ async function submitAction(admin: any, user: any, body: any) {
     submitted_by: user.id,
     harmony_job_id: null,
     harmony_request_url: null,
-    harmony_metadata: {},
+    harmony_metadata: { preSubmissionReconciliation: { matchingJobs: 0, pagesChecked: reconciliation.pages } },
     processing_result: null,
     completed_at: null,
     error_message: null,
@@ -684,22 +753,29 @@ async function submitAction(admin: any, user: any, body: any) {
     job = data;
   }
 
+  let submitted: any = null;
   try {
-    const submitted = await submitHarmonyJob(parsed.granuleName, selected.all, polygon.bbox, label);
+    submitted = await submitHarmonyJob(parsed.granuleName, selected.all, polygon.bbox, label);
     const { data: updated, error } = await admin.from("nisar_processing_jobs").update({
       status: "harmony_submitted",
       harmony_job_id: submitted.jobId,
       harmony_request_url: submitted.requestUrl,
-      harmony_metadata: { submission: submitted.response },
+      harmony_metadata: { submission: submitted.response, preSubmissionReconciliation: { matchingJobs: 0, pagesChecked: reconciliation.pages } },
       submitted_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       error_message: null
     }).eq("id", job.id).select("*").single();
-    if (error) throw new Error("Harmony accepted the request but the job ID could not be saved: " + error.message);
+    if (error) throw new HarmonySubmissionError("Harmony accepted the request but the job ID could not be saved: " + error.message, true);
     return { ok: true, duplicate: false, job: updated, selectedVariables: selected.all };
   } catch (error) {
+    const ambiguous = error instanceof HarmonySubmissionError && error.ambiguous;
     await admin.from("nisar_processing_jobs").update({
-      status: "harmony_failed",
+      status: ambiguous ? "submission_unknown" : "harmony_failed",
+      harmony_job_id: submitted?.jobId ?? null,
+      harmony_request_url: submitted?.requestUrl ?? null,
+      harmony_metadata: submitted
+        ? { submission: submitted.response, preSubmissionReconciliation: { matchingJobs: 0, pagesChecked: reconciliation.pages } }
+        : { preSubmissionReconciliation: { matchingJobs: 0, pagesChecked: reconciliation.pages } },
       error_message: safeError(error),
       updated_at: new Date().toISOString()
     }).eq("id", job.id);
@@ -812,8 +888,8 @@ Deno.serve(async (req: Request) => {
         return json({ error: "Lookup is restricted to the explicitly approved WH-SYN-016 pilot product." }, 400);
       }
       const label = ("sageharvest-" + field.field_no + "-" + productId).toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 200);
-      const jobs = await findHarmonyJobsForPilot(label, productId);
-      return json({ ok: true, label, matchingJobs: jobs });
+      const result = await findHarmonyJobsForPilot(label, productId);
+      return json({ ok: true, label, matchingJobs: result.jobs, lookupComplete: result.complete, pagesChecked: result.pages });
     }
     if (action === "submit") return json(await submitAction(admin, user, body), 202);
     if (action === "poll") return json(await pollAction(admin, user, body));
