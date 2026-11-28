@@ -5,7 +5,7 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUB
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SECRET_KEY") ?? "";
 const EARTHDATA_TOKEN = Deno.env.get("EARTHDATA_BEARER_TOKEN") ?? "";
 const HARMONY_ROOT = (Deno.env.get("HARMONY_ROOT") ?? "https://harmony.earthdata.nasa.gov").replace(/\/$/, "");
-const COLLECTION_SHORT_NAME = Deno.env.get("NISAR_GCOV_COLLECTION_SHORT_NAME") ?? "NISAR_L2_GCOV_PROVISIONAL_V1";
+const COLLECTION_SHORT_NAME = "NISAR_L2_GCOV_V1"; // Final GCOV collection verified for the WH-SYN-016 pilot.
 const PROCESSOR_URL = (Deno.env.get("NISAR_PROCESSOR_URL") ?? "").replace(/\/$/, "");
 const PROCESSOR_TOKEN = Deno.env.get("NISAR_PROCESSOR_TOKEN") ?? "";
 const PROCESSING_VERSION = "NISAR-GCOV-ZONAL-0.2.0";
@@ -564,12 +564,26 @@ async function submitAction(admin: any, user: any, body: any) {
   const parsed = parseProductName(productName);
   const acquisitionDate = parsed.acquiredAt.slice(0, 10);
   const catalogueCheck = await discoverAsfProducts(polygon.geometry, acquisitionDate, acquisitionDate);
-  const confirmed = catalogueCheck.groups.find((group: any) =>
-    group.primary?.productName === parsed.granuleName &&
-    group.primary?.productId === productId
-  );
-  if (!confirmed) {
-    throw new Error("The selected product is not the unique footprint-confirmed PR/UR/OD candidate for this field and acquisition date. Run ASF discovery again and resolve any ambiguous variants.");
+  const selectedGroup = catalogueCheck.groups.find((group: any) => {
+    const candidates = [group.primary, ...(group.alternatives ?? [])].filter(Boolean);
+    return candidates.some((candidate: any) =>
+      candidate.productName === parsed.granuleName && candidate.productId === productId
+    );
+  });
+  const selectedCandidate = selectedGroup
+    ? [selectedGroup.primary, ...(selectedGroup.alternatives ?? [])].filter(Boolean)
+        .find((candidate: any) => candidate.productName === parsed.granuleName && candidate.productId === productId)
+    : null;
+  if (!selectedGroup || !selectedCandidate) {
+    throw new Error("The exact product ID/name pair is not present in the current ASF catalogue for this field and acquisition date.");
+  }
+  if (selectedCandidate.processingType !== "PR" ||
+      selectedCandidate.coverage !== "F" ||
+      selectedCandidate.footprintContainsField !== true) {
+    throw new Error("Explicit pilot selection requires a PR product with full coverage and confirmed containment of every saved field-boundary point.");
+  }
+  if (selectedGroup.selectionStatus.startsWith("ambiguous") && body.approvedVariantSelection !== true) {
+    throw new Error("ASF returned multiple PR variants. Explicit user approval is required to select one.");
   }
   if (parsed.nominalPixelSpacingM === null) throw new Error("Could not determine the Frequency A pixel spacing from the product name.");
   if (parsed.nominalPixelSpacingM > 20) throw new Error("This product's Frequency A spacing is too coarse for the initial small-field NISAR pilot.");
@@ -610,7 +624,14 @@ async function submitAction(admin: any, user: any, body: any) {
       nominal_pixel_spacing_m: parsed.nominalPixelSpacingM,
       original_boundary_point_count: polygon.originalPointCount,
       capabilities_version: capabilities.capabilitiesVersion ?? null,
-      available_variable_count: variableNames(capabilities).length
+      available_variable_count: variableNames(capabilities).length,
+      asf_selection_status: selectedGroup.selectionStatus,
+      explicit_variant_selection: selectedGroup.selectionStatus.startsWith("ambiguous"),
+      selected_product_coverage: selectedCandidate.coverage,
+      field_footprint_confirmed: selectedCandidate.footprintContainsField,
+      selection_rationale: body.approvedVariantSelection === true
+        ? "User-approved exact PR variant after QA comparison; latest processing date selected among equivalent QA summaries."
+        : "Unique ASF catalogue candidate."
     },
     submitted_by: user.id,
     harmony_job_id: null,
