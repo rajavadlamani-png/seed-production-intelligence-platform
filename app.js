@@ -992,6 +992,7 @@ const saveNewPassword=document.getElementById('saveNewPassword');
 const demoDetails=document.querySelector('.demo-details');
 const supabaseConfig=window.SEED_SUPABASE_CONFIG||{};
 let supabaseAuthClient=null;
+let secureMemberships=[], secureActiveMembership=null, secureUser=null, liveGrowers=[], liveFields=[], liveGeographies=[];
 try{
   if(window.supabase?.createClient&&supabaseConfig.url&&supabaseConfig.publishableKey){
     supabaseAuthClient=window.supabase.createClient(supabaseConfig.url,supabaseConfig.publishableKey);
@@ -1009,30 +1010,179 @@ function setSecureWorkspaceVisible(visible){
     secureWorkspaceGate?.classList.add('hidden');
   }
 }
+
+function liveWorkspaceMessage(message,isError=false){
+  const node=document.getElementById('liveWorkspaceMessage');
+  if(!node)return;
+  node.textContent=message||'';
+  node.classList.toggle('error',!!isError);
+  node.classList.toggle('hidden',!message);
+}
+function renderLiveGrowers(){
+  const summary=document.getElementById('liveGrowerSummary'),host=document.getElementById('liveGrowersTable');
+  if(!summary||!host)return;
+  const query=String(document.getElementById('liveGrowerSearch')?.value||'').trim().toLowerCase();
+  const filtered=liveGrowers.filter(g=>{
+    const fields=liveFields.filter(f=>f.grower_id===g.id);
+    return !query||[g.display_name,g.grower_code,g.contact_reference,g.geographyName,...fields.map(f=>f.field_code)]
+      .some(v=>String(v||'').toLowerCase().includes(query));
+  });
+  summary.innerHTML='<article class="live-metric"><small>Growers in company</small><b>'+liveGrowers.length+'</b></article><article class="live-metric"><small>Registered fields</small><b>'+liveFields.length+'</b></article><article class="live-metric"><small>Active growers</small><b>'+liveGrowers.filter(g=>g.status==='active').length+'</b></article><article class="live-metric"><small>Inactive / blocked</small><b>'+liveGrowers.filter(g=>g.status!=='active').length+'</b></article>';
+  if(!filtered.length){
+    host.innerHTML='<div class="live-empty"><b>'+(liveGrowers.length?'No growers match this search.':'No grower records exist for this company yet.')+'</b><p>'+(liveGrowers.length?'Try a different name, grower code, contact or field code.':'The live database returned zero growers. No sample records have been substituted.')+'</p></div>';
+    return;
+  }
+  const rows=filtered.map(g=>{
+    const fields=liveFields.filter(f=>f.grower_id===g.id);
+    const fieldHtml=fields.length?fields.map(f=>'<div class="live-field-line"><b>'+escape(f.field_code)+'</b><span>'+(f.declared_area===null?'Area not recorded':escape(f.declared_area)+' '+escape(f.declared_area_unit||''))+'</span></div>').join(''):'<span class="live-muted">No linked fields</span>';
+    const status=String(g.status||'active');
+    return '<tr><td><b>'+escape(g.display_name)+'</b><small>'+escape(g.grower_code)+'</small></td><td>'+escape(g.geographyName||'Location not assigned')+'</td><td>'+escape(g.contact_reference||'Not recorded')+'</td><td><span class="live-status '+escape(status)+'">'+escape(status.replaceAll('_',' '))+'</span></td><td>'+fieldHtml+'</td><td><div class="live-actions"><button type="button" class="small-action" data-live-edit="'+escape(g.id)+'">Edit</button><button type="button" class="small-action" data-live-history="'+escape(g.id)+'">History</button></div></td></tr>';
+  }).join('');
+  host.innerHTML='<div class="table-wrap"><table class="live-grower-table"><thead><tr><th>Grower / code</th><th>Village / geography</th><th>Contact reference</th><th>Status</th><th>Linked fields</th><th>Actions</th></tr></thead><tbody>'+rows+'</tbody></table></div><p class="live-table-footnote">Showing '+filtered.length+' of '+liveGrowers.length+' growers · live Supabase records</p>';
+}
+async function loadLiveGrowers(){
+  const company=secureActiveMembership;
+  if(!company||!supabaseAuthClient)return;
+  const host=document.getElementById('liveGrowersTable');
+  if(host)host.innerHTML='<div class="live-loading">Loading growers and linked fields from the database…</div>';
+  liveWorkspaceMessage('');
+  try{
+    const companyId=company.company_id;
+    const [growerResult,fieldResult,geographyResult]=await Promise.all([
+      supabaseAuthClient.from('growers').select('id,company_id,geography_id,grower_code,display_name,contact_reference,status,source_type,created_at,updated_at').eq('company_id',companyId).order('display_name'),
+      supabaseAuthClient.from('fields').select('id,company_id,grower_id,field_code,declared_area,declared_area_unit,status').eq('company_id',companyId).order('field_code'),
+      supabaseAuthClient.from('geographies').select('id,company_id,name,geography_type,parent_id').eq('company_id',companyId).order('name')
+    ]);
+    if(growerResult.error)throw growerResult.error;
+    if(fieldResult.error)throw fieldResult.error;
+    if(geographyResult.error)throw geographyResult.error;
+    liveFields=fieldResult.data||[];
+    liveGeographies=geographyResult.data||[];
+    const geographyById=new Map(liveGeographies.map(g=>[g.id,g.name]));
+    liveGrowers=(growerResult.data||[]).map(g=>({...g,geographyName:geographyById.get(g.geography_id)||''}));
+    renderLiveGrowers();
+    const refreshed=document.getElementById('liveLastRefreshed');
+    if(refreshed)refreshed.textContent='Last refreshed '+new Date().toLocaleString();
+  }catch(error){
+    console.error('Live grower load failed.',error);
+    liveGrowers=[];liveFields=[];liveGeographies=[];
+    if(host)host.innerHTML='<div class="live-empty"><b>Could not load the live grower registry.</b><p>Check the company membership, Data API permissions and row-level security policies, then refresh.</p></div>';
+    liveWorkspaceMessage(error?.message||'The database request failed. Please retry.',true);
+  }
+}
+function liveGrowerById(id){return liveGrowers.find(g=>g.id===id)}
+function closeLiveGrowerModal(){const host=document.getElementById('liveGrowerModalHost');if(host)host.innerHTML=''}
+function openLiveGrowerEditor(id){
+  const g=liveGrowerById(id),host=document.getElementById('liveGrowerModalHost');
+  if(!g||!host)return;
+  host.innerHTML='<div class="live-modal-backdrop" id="liveGrowerBackdrop"><section class="live-modal" role="dialog" aria-modal="true" aria-labelledby="liveGrowerEditTitle"><div class="live-modal-head"><div><p class="eyebrow">LIVE DATABASE · GROWER MASTER</p><h2 id="liveGrowerEditTitle">Edit grower</h2><p class="live-muted">'+escape(g.grower_code)+' · Record ID is retained</p></div><button type="button" class="icon-button" data-live-close aria-label="Close">×</button></div><form id="liveGrowerEditForm"><label>Grower name<input name="display_name" value="'+escape(g.display_name||'')+'" maxlength="160" required></label><label>Contact reference<input name="contact_reference" value="'+escape(g.contact_reference||'')+'" maxlength="160" placeholder="Phone or approved contact reference"></label><label>Grower status<select name="status"><option value="active" '+(g.status==='active'?'selected':'')+'>Active</option><option value="inactive" '+(g.status==='inactive'?'selected':'')+'>Inactive</option><option value="blocked" '+(g.status==='blocked'?'selected':'')+'>Blocked</option></select></label><p class="live-edit-note">This updates the existing growers row. Grower code, company, geography, linked fields, acreage, inspections and seed-lot relationships are preserved. Bank account details are not part of this grower table.</p><p id="liveGrowerEditError" class="live-form-error hidden" role="alert"></p><div class="live-modal-actions"><button type="button" class="outline" data-live-close>Cancel</button><button type="submit" class="primary" id="liveGrowerSave">Save to database</button></div></form></section></div>';
+  const form=document.getElementById('liveGrowerEditForm');
+  form.dataset.growerId=g.id;
+  form.addEventListener('submit',saveLiveGrower);
+  host.querySelectorAll('[data-live-close]').forEach(b=>b.addEventListener('click',closeLiveGrowerModal));
+  document.getElementById('liveGrowerBackdrop').addEventListener('click',e=>{if(e.target.id==='liveGrowerBackdrop')closeLiveGrowerModal()});
+}
+async function saveLiveGrower(event){
+  event.preventDefault();
+  const form=event.currentTarget,growerId=form.dataset.growerId,error=document.getElementById('liveGrowerEditError'),button=document.getElementById('liveGrowerSave');
+  const current=liveGrowerById(growerId);
+  if(!current||!secureActiveMembership)return;
+  const data=new FormData(form),displayName=String(data.get('display_name')||'').trim(),contactReference=String(data.get('contact_reference')||'').trim(),status=String(data.get('status')||'');
+  if(!displayName){error.textContent='Grower name is required.';error.classList.remove('hidden');return}
+  if(!['active','inactive','blocked'].includes(status)){error.textContent='Select a valid status.';error.classList.remove('hidden');return}
+  if(button){button.disabled=true;button.textContent='Saving…'}
+  try{
+    const {data:updated,error:rpcError}=await supabaseAuthClient.rpc('update_grower_master',{
+      p_grower_id:growerId,p_display_name:displayName,p_contact_reference:contactReference||null,p_status:status
+    });
+    if(rpcError)throw rpcError;
+    if(!updated?.id)throw new Error('The database did not confirm the grower update.');
+    closeLiveGrowerModal();
+    await loadLiveGrowers();
+    notify('Grower updated in the database. Audit event recorded.');
+  }catch(err){
+    console.error('Grower update failed.',err);
+    error.textContent=err?.message||'The database update failed. No success was reported.';
+    error.classList.remove('hidden');
+  }finally{
+    if(button){button.disabled=false;button.textContent='Save to database'}
+  }
+}
+async function showLiveGrowerHistory(id){
+  const g=liveGrowerById(id),host=document.getElementById('liveGrowerModalHost');
+  if(!g||!host||!secureActiveMembership)return;
+  host.innerHTML='<div class="live-modal-backdrop"><section class="live-modal"><p>Loading audit history…</p></section></div>';
+  try{
+    const {data,error}=await supabaseAuthClient.from('audit_events').select('action,entity_type,entity_id,occurred_at,details').eq('company_id',secureActiveMembership.company_id).eq('entity_type','grower').eq('entity_id',id).order('occurred_at',{ascending:false}).limit(50);
+    if(error)throw error;
+    const entries=data||[];
+    const body=entries.length?entries.map(entry=>{
+      const before=entry.details?.before||{},after=entry.details?.after||{},keys=['display_name','contact_reference','status'];
+      const changes=keys.filter(k=>String(before[k]??'')!==String(after[k]??'')).map(k=>'<li><b>'+escape(k.replaceAll('_',' '))+':</b> '+escape(before[k]??'—')+' <span>→</span> '+escape(after[k]??'—')+'</li>').join('');
+      return '<article class="live-history-entry"><b>'+escape(new Date(entry.occurred_at).toLocaleString())+'</b><small>'+escape(entry.action)+' · Authorized company user</small><ul>'+(changes||'<li>Audit event recorded; no field-level difference available.</li>')+'</ul></article>';
+    }).join(''):'<p class="live-muted">No audit events have been recorded for this grower.</p>';
+    host.innerHTML='<div class="live-modal-backdrop" id="liveGrowerBackdrop"><section class="live-modal" role="dialog" aria-modal="true" aria-labelledby="liveGrowerHistoryTitle"><div class="live-modal-head"><div><p class="eyebrow">AUDIT EVENTS · LIVE DATABASE</p><h2 id="liveGrowerHistoryTitle">Grower change history</h2><p class="live-muted">'+escape(g.display_name)+' · '+escape(g.grower_code)+'</p></div><button type="button" class="icon-button" data-live-close aria-label="Close">×</button></div><div class="live-history-list">'+body+'</div><div class="live-modal-actions"><button type="button" class="outline" data-live-close>Close</button></div></section></div>';
+    host.querySelectorAll('[data-live-close]').forEach(b=>b.addEventListener('click',closeLiveGrowerModal));
+    document.getElementById('liveGrowerBackdrop').addEventListener('click',e=>{if(e.target.id==='liveGrowerBackdrop')closeLiveGrowerModal()});
+  }catch(err){
+    console.error('Grower audit history load failed.',err);
+    host.innerHTML='<div class="live-modal-backdrop" id="liveGrowerBackdrop"><section class="live-modal"><h2>Audit history unavailable</h2><p>'+escape(err?.message||'Could not read audit events.')+'</p><div class="live-modal-actions"><button type="button" class="outline" data-live-close>Close</button></div></section></div>';
+    host.querySelector('[data-live-close]')?.addEventListener('click',closeLiveGrowerModal);
+  }
+}
+function bindLiveWorkspace(){
+  const select=document.getElementById('secureCompanySelect');
+  if(select&&!select.dataset.bound){select.dataset.bound='true';select.addEventListener('change',()=>{const membership=secureMemberships.find(m=>m.company_id===select.value);if(membership)activateSecureCompany(membership)})}
+  const refresh=document.getElementById('refreshLiveGrowers');
+  if(refresh&&!refresh.dataset.bound){refresh.dataset.bound='true';refresh.addEventListener('click',loadLiveGrowers)}
+  const search=document.getElementById('liveGrowerSearch');
+  if(search&&!search.dataset.bound){search.dataset.bound='true';search.addEventListener('input',renderLiveGrowers)}
+  const host=document.getElementById('liveGrowersTable');
+  if(host&&!host.dataset.bound){host.dataset.bound='true';host.addEventListener('click',event=>{
+    const edit=event.target.closest('[data-live-edit]'),history=event.target.closest('[data-live-history]');
+    if(edit)openLiveGrowerEditor(edit.dataset.liveEdit);
+    else if(history)showLiveGrowerHistory(history.dataset.liveHistory);
+  })}
+}
+async function activateSecureCompany(membership){
+  secureActiveMembership=membership;
+  const select=document.getElementById('secureCompanySelect');
+  if(select)select.value=membership.company_id;
+  const companyName=membership.companies?.name||'Authorized company',roleName=String(membership.role_key||'').replaceAll('_',' ');
+  if(secureIdentity)secureIdentity.textContent='Signed in as: '+(secureUser?.email||'authenticated user')+'\nCompany: '+companyName+'\nRole: '+roleName;
+  document.getElementById('secureCompanyPicker')?.classList.toggle('hidden',secureMemberships.length<=1);
+  await loadLiveGrowers();
+}
+
 async function verifyCompanyMembership(user){
   if(!supabaseAuthClient){secureAuthError('Secure sign-in is not configured. Please contact the platform administrator.');return false}
-  const {data:membership,error}=await supabaseAuthClient
-    .from('company_memberships')
-    .select('company_id, role_key, status, companies(name)')
-    .eq('user_id',user.id)
-    .eq('status','active')
-    .maybeSingle();
+  const {data:memberships,error}=await supabaseAuthClient.from('company_memberships')
+    .select('company_id, role_key, status, companies(name)').eq('user_id',user.id).eq('status','active');
   if(error){
     console.error('Company membership check failed.',error);
     await supabaseAuthClient.auth.signOut();
     secureAuthError('We could not verify your company access. Please try again or contact the platform administrator.');
     return false;
   }
-  if(!membership){
+  if(!memberships?.length){
     await supabaseAuthClient.auth.signOut();
     secureAuthError('Your account does not have an active company membership. Please ask your company administrator for access.');
     return false;
   }
-  const companyName=membership.companies?.name||'Authorized company';
-  const roleName=String(membership.role_key||'').replaceAll('_',' ');
-  if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nCompany: '+companyName+'\nRole: '+roleName;
+  secureUser=user;secureMemberships=memberships;
   secureLoginError?.classList.add('hidden');
+  const select=document.getElementById('secureCompanySelect');
+  if(select)select.innerHTML=memberships.map(m=>'<option value="'+escape(m.company_id)+'">'+escape(m.companies?.name||'Authorized company')+' · '+escape(String(m.role_key||'').replaceAll('_',' '))+'</option>').join('');
   setSecureWorkspaceVisible(true);
+  bindLiveWorkspace();
+  if(memberships.length===1)await activateSecureCompany(memberships[0]);
+  else{
+    secureActiveMembership=null;
+    if(secureIdentity)secureIdentity.textContent='Signed in as: '+(user.email||'authenticated user')+'\nSelect the company workspace you want to open.';
+    document.getElementById('secureCompanyPicker')?.classList.remove('hidden');
+    const host=document.getElementById('liveGrowersTable');
+    if(host)host.innerHTML='<div class="live-empty"><b>Select a company workspace.</b><p>Records will be loaded only after you choose a company.</p></div>';
+  }
   return true;
 }
 secureLoginForm?.addEventListener('submit',async event=>{
@@ -1112,7 +1262,9 @@ setNewPasswordForm?.addEventListener('submit',async event=>{
 });
 secureSignOut?.addEventListener('click',async()=>{
   if(supabaseAuthClient)await supabaseAuthClient.auth.signOut();
+  secureMemberships=[];secureActiveMembership=null;secureUser=null;liveGrowers=[];liveFields=[];liveGeographies=[];
   setSecureWorkspaceVisible(false);
+  document.body.classList.remove('demo-authenticated');
   if(secureLoginForm)secureLoginForm.reset();
   showPasswordFlow('login');
   notify('You have signed out.');
@@ -1158,6 +1310,6 @@ demoLoginForm?.addEventListener('submit',event=>{
   notify('Demo workspace opened. Sample data only.');
 });
 
-// Open the public sample workspace directly; company sign-in remains available only by restoring the welcome gate.
-document.body.classList.add('demo-authenticated');
+// Start at the welcome gate. Users may explicitly choose the public sample demo or secure company sign-in.
+document.body.classList.remove('demo-authenticated');
 render();
