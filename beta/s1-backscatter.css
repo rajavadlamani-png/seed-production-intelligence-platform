@@ -83,3 +83,8 @@
 .s1-timeline-point small{grid-column:2;color:var(--muted,#64748b);line-height:1.4}
 .s1-period-card{margin:8px 0;padding:11px;border-left:4px solid #d97706;border-radius:6px;background:var(--surface-subtle,#fff7ed)}
 .s1-period-card p{margin:5px 0;font-size:12px;line-height:1.5}
+
+/* Single-event drainage window visual */
+.s1-event-window-legend{display:inline-flex;align-items:center;gap:6px}
+.s1-event-window-legend i{display:inline-block;width:18px;height:10px;border-radius:2px;background:#dc2626;opacity:.28;border:1px solid #b91c1c}
+.s1-drainage-event-card{border-left-color:#dc2626;background:#fff7f7}
