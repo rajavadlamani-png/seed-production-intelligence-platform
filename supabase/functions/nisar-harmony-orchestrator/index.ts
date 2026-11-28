@@ -182,7 +182,7 @@ async function submitHarmonyJob(productName: string, variables: string[], bbox: 
   if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   const url = new URL(
     HARMONY_ROOT + "/" + encodeURIComponent(COLLECTION_SHORT_NAME) +
-    "/ogc-api-coverages/1.0.0/collections/parameter_vars/coverage/rangeset"
+    "/ogc-api-coverages/1.0.0/parameter_vars/coverage/rangeset"
   );
   url.searchParams.set("granuleName", productName);
   url.searchParams.set("variable", variables.join(","));
