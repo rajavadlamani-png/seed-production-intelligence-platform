@@ -168,26 +168,29 @@ async function authorizedField(admin: any, userId: string, fieldId: string) {
   return field;
 }
 
-async function findHarmonyJobsByLabel(label: string) {
+async function findHarmonyJobsForPilot(label: string, productId: string) {
   if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   const url = new URL(HARMONY_ROOT + "/jobs");
-  url.searchParams.set("label", label);
   url.searchParams.set("limit", "100");
   const response = await fetchJson(url.toString(), {
     headers: { Authorization: "Bearer " + EARTHDATA_TOKEN, Accept: "application/json" }
   }, 60000);
   const jobs = Array.isArray(response?.jobs) ? response.jobs : [];
-  return jobs.filter((job: any) => Array.isArray(job?.labels) && job.labels.includes(label))
-    .map((job: any) => ({
-      jobID: job.jobID ?? null,
-      status: job.status ?? null,
-      progress: job.progress ?? null,
-      createdAt: job.createdAt ?? null,
-      updatedAt: job.updatedAt ?? null,
-      labels: job.labels ?? [],
-      numInputGranules: job.numInputGranules ?? null,
-      message: typeof job.message === "string" ? job.message.slice(0, 300) : null
-    }));
+  return jobs.filter((job: any) => {
+    const labels = Array.isArray(job?.labels) ? job.labels : [];
+    const request = String(job?.request ?? "");
+    return labels.includes(label) || request.includes(productId);
+  }).map((job: any) => ({
+    jobID: job.jobID ?? null,
+    status: job.status ?? null,
+    progress: job.progress ?? null,
+    createdAt: job.createdAt ?? null,
+    updatedAt: job.updatedAt ?? null,
+    labels: job.labels ?? [],
+    requestMentionsProduct: String(job?.request ?? "").includes(productId),
+    numInputGranules: job.numInputGranules ?? null,
+    message: typeof job.message === "string" ? job.message.slice(0, 300) : null
+  }));
 }
 
 async function getCapabilities(collectionShortName: string) {
@@ -807,7 +810,7 @@ Deno.serve(async (req: Request) => {
         return json({ error: "Lookup is restricted to the explicitly approved WH-SYN-016 pilot product." }, 400);
       }
       const label = ("sageharvest-" + field.field_no + "-" + productId).toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 200);
-      const jobs = await findHarmonyJobsByLabel(label);
+      const jobs = await findHarmonyJobsForPilot(label, productId);
       return json({ ok: true, label, matchingJobs: jobs });
     }
     if (action === "submit") return json(await submitAction(admin, user, body), 202);
