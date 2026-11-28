@@ -630,3 +630,73 @@ body.secure-authenticated .mobile-switch{display:none!important}
 .ram-live-mic{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:12px;padding:14px;border:0;border-radius:10px;background:#eef1e9;color:var(--forest);cursor:pointer}
 .ram-live-mic:disabled{opacity:.5;cursor:not-allowed}
 .ram-live-mic>span{font-size:23px}.ram-live-mic b{font-size:11px}.ram-live-mic small{font-size:9px}
+
+
+/* Authenticated live Supabase Grower Master */
+.live-workspace-shell{width:min(1220px,100%);margin:0 auto;padding:28px 30px;color:#20352b}
+.live-workspace-header{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-bottom:22px;border-bottom:1px solid #e0e7df}
+.live-brand{display:flex;align-items:center;gap:13px}
+.live-brand img{width:52px;height:52px;object-fit:contain}
+.live-brand .eyebrow{margin:0 0 4px;font-size:9px}
+.live-brand h1{margin:0;color:#1c422e;font-size:26px}
+.live-workspace-identity{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:18px 0}
+.live-workspace-identity .secure-identity{margin:0;white-space:pre-line;min-width:220px}
+.live-company-picker{display:flex;align-items:center;gap:10px}
+.live-company-picker label,.live-grower-toolbar label{font-size:11px;font-weight:750;color:#506256}
+.live-company-picker select,.live-grower-toolbar input{min-width:250px;padding:10px 12px;border:1px solid #cad7cd;border-radius:8px;background:white;color:#20352b}
+.live-workspace-message{margin:12px 0;padding:11px 13px;border-radius:8px;background:#eff6ee;color:#315d3c;font-size:12px}
+.live-workspace-message.error{background:#fff0ed;color:#9b3f31}
+.live-workspace-section{margin-top:22px;padding:22px;border:1px solid #e0e7df;border-radius:15px;background:#fff;box-shadow:0 8px 28px #183d2b0a}
+.live-section-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+.live-section-heading h2{margin:3px 0 5px;font-size:21px;color:#1d432e}
+.live-section-heading p:not(.eyebrow){margin:0;color:#6b786d;font-size:12px}
+.live-metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:17px}
+.live-metric{padding:14px;border:1px solid #e6ece6;border-radius:10px;background:#fafcf9}
+.live-metric small{display:block;color:#68786b;font-size:10px;font-weight:700}
+.live-metric b{display:block;margin-top:5px;color:#244c34;font-size:23px}
+.live-grower-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:12px 0}
+.live-grower-toolbar input{width:min(470px,100%)}
+.live-grower-table{min-width:850px}
+.live-grower-table td{vertical-align:top}
+.live-grower-table td small{display:block;margin-top:4px;color:#77847a;font-size:10px}
+.live-status{display:inline-block;padding:5px 8px;border-radius:14px;background:#eaf4e9;color:#356e43;font-size:10px;font-weight:800;text-transform:capitalize}
+.live-status.inactive{background:#f4f0e6;color:#8a6a2c}
+.live-status.blocked{background:#f9e9e6;color:#9d4034}
+.live-field-line{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 5px;font-size:10px}
+.live-field-line b{color:#31563b}
+.live-field-line span,.live-muted{color:#748177}
+.live-actions{display:flex;gap:6px;flex-wrap:wrap}
+.live-loading,.live-empty{padding:28px 15px;text-align:center;color:#657469;font-size:12px}
+.live-empty b{display:block;margin-bottom:6px;color:#2d4a36;font-size:14px}
+.live-empty p{margin:0}
+.live-table-footnote{margin:10px 0 0;color:#829087;font-size:10px}
+.live-workspace-footer{padding:20px 0;color:#87938a;text-align:center;font-size:10px}
+.live-modal-backdrop{position:fixed;inset:0;z-index:1100;display:flex;align-items:center;justify-content:center;padding:16px;background:#102b1e99;backdrop-filter:blur(3px)}
+.live-modal{width:min(560px,100%);max-height:90vh;overflow:auto;padding:24px;border:1px solid #dce6dd;border-radius:15px;background:#fff;box-shadow:0 20px 70px #0003;color:#20352b}
+.live-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:18px}
+.live-modal-head h2{margin:4px 0;font-size:21px}
+.live-modal-head .eyebrow{margin:0}
+.live-modal form{display:grid;gap:13px}
+.live-modal form label{display:grid;gap:6px;color:#425849;font-size:11px;font-weight:750}
+.live-modal form input,.live-modal form select{width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid #cbd8d0;border-radius:8px;background:#fff;color:#20352b;font:inherit;font-weight:400}
+.live-edit-note{padding:10px 12px;border-radius:8px;background:#f3f7f1;color:#627267;font-size:10px;line-height:1.55}
+.live-form-error{padding:10px;border-radius:8px;background:#fff0ed;color:#9b3f31;font-size:11px}
+.live-modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:8px;padding-top:14px;border-top:1px solid #e4ebe5}
+.live-history-list{display:grid;gap:10px}
+.live-history-entry{padding:12px;border:1px solid #e1e9e1;border-radius:9px;background:#fbfcfa}
+.live-history-entry>b{display:block;font-size:11px}
+.live-history-entry>small{display:block;margin-top:3px;color:#718075;font-size:10px}
+.live-history-entry ul{margin:9px 0 0;padding-left:18px;color:#465b4d;font-size:11px;line-height:1.6}
+.live-history-entry li span{padding:0 4px;color:#27734d;font-weight:800}
+@media(max-width:760px){
+ .live-workspace-shell{padding:16px 12px}
+ .live-workspace-header,.live-workspace-identity,.live-section-heading{align-items:flex-start;flex-direction:column}
+ .live-company-picker{width:100%;align-items:flex-start;flex-direction:column}
+ .live-company-picker select{width:100%;min-width:0}
+ .live-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .live-workspace-section{padding:14px}
+ .live-grower-toolbar{align-items:stretch;flex-direction:column}
+ .live-grower-toolbar input{width:100%;min-width:0;box-sizing:border-box}
+ .live-modal-backdrop{padding:8px;align-items:flex-end}
+ .live-modal{max-height:92vh;padding:18px;border-radius:15px 15px 0 0}
+}
