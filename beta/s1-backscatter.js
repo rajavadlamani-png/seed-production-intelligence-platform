@@ -449,6 +449,7 @@ function bindS1BackscatterPanel() {
     if (!fieldIds.length) { s1BackscatterState.error = "Select one mapped paddy field."; renderManager(); return; }
     if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) { s1BackscatterState.error = "Enter a valid start date and end date."; renderManager(); return; }
     if (from > to) { s1BackscatterState.error = "The start date must be on or before the end date."; renderManager(); return; }
+    if ((Date.parse(to + "T00:00:00Z") - Date.parse(from + "T00:00:00Z")) / 86400000 > 365) { s1BackscatterState.error = "The selected date range cannot exceed 365 days. Choose a shorter period."; renderManager(); return; }
     s1BackscatterState.from = from; s1BackscatterState.to = to; s1BackscatterState.bufferM = bufferM; s1BackscatterState.savedKey = "";
     s1BackscatterState.relativeOrbit = orbitText; s1BackscatterState.orbitDirection = orbitDirection;
     s1BackscatterState.loadRequestId++;
