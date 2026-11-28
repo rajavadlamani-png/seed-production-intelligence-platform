@@ -209,7 +209,10 @@ async function submitHarmonyJob(productName: string, variables: string[], bbox: 
   const locationMatch = location.match(/\/jobs\/([A-Za-z0-9-]+)/);
   const jobId = String(body?.jobID ?? body?.jobId ?? body?.id ?? locationMatch?.[1] ?? "");
   if (!response.ok && ![301, 302, 303, 307, 308].includes(response.status)) {
-    throw new Error("Harmony submission HTTP " + response.status + ": " + String(body.message ?? body.detail ?? body.error ?? "Request failed").slice(0, 350));
+    const detail = body?.message ?? body?.detail ?? body?.error ?? body?.errors ?? body;
+    const diagnostic = JSON.stringify(detail).replace(/https?:\/\/\S+/g, "[provider-url]").slice(0, 900);
+    throw new Error("Harmony submission HTTP " + response.status + " (" +
+      (response.headers.get("content-type") ?? "unknown content type") + "): " + diagnostic);
   }
   if (!jobId) {
     throw new Error("Harmony did not return a job ID. Response status " + response.status + "; inspect the Harmony response before retrying.");
