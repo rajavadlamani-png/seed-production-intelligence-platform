@@ -88,3 +88,14 @@
 .s1-event-window-legend{display:inline-flex;align-items:center;gap:6px}
 .s1-event-window-legend i{display:inline-block;width:18px;height:10px;border-radius:2px;background:#dc2626;opacity:.28;border:1px solid #b91c1c}
 .s1-drainage-event-card{border-left-color:#dc2626;background:#fff7f7}
+
+/* Date-range extraction and independent raw-data/signature states */
+.s1-date-range-control{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;grid-column:1/-1}
+.s1-date-range-control small{grid-column:1/-1;color:var(--muted,#64748b);font-size:11px;line-height:1.45}
+.s1-data-guidance,.s1-data-empty{margin:12px 0;padding:13px 15px;border:1px solid var(--border,#dbe3df);border-radius:9px;background:var(--surface-subtle,#f8faf9);line-height:1.5}
+.s1-data-guidance p,.s1-data-empty p{margin:5px 0 0;font-size:12px}
+.s1-signature-status{margin:12px 0;padding:13px 15px;border-radius:9px;border:1px solid var(--border,#dbe3df);line-height:1.5}
+.s1-signature-status p{margin:5px 0 0;font-size:12px}
+.s1-signature-status.is-detected{border-left:4px solid #d97706;background:#fffaf0}
+.s1-signature-status.is-none{border-left:4px solid #64748b;background:var(--surface-subtle,#f8faf9)}
+@media(max-width:650px){.s1-date-range-control{grid-template-columns:1fr}}
