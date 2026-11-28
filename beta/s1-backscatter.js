@@ -86,6 +86,30 @@ function s1BackscatterDryIntervals(observations) {
   flush();
   return intervals;
 }
+function s1BackscatterSingleDrainageEvents(observations) {
+  const rows = (observations || []).slice().sort((a,b) => a.date.localeCompare(b.date));
+  const events = [];
+  for (let i = 1; i < rows.length; i++) {
+    const before = rows[i-1], after = rows[i];
+    const beforeClass = s1BackscatterObservationClass(before);
+    const afterClass = s1BackscatterObservationClass(after);
+    const gapDays = (Date.parse(after.date + "T00:00:00Z") - Date.parse(before.date + "T00:00:00Z")) / 86400000;
+    const valid = [before.vvDb,before.vhDb,after.vvDb,after.vhDb].every(v => Number.isFinite(Number(v)));
+    // One observed transition is sufficient for a candidate: paired open-water-like
+    // signature before, then no longer paired open-water-like at the next pass.
+    if (valid && beforeClass?.key === "flooded" && afterClass?.key !== "flooded" && gapDays > 0 && gapDays <= 18) {
+      const start = after.date;
+      const endDate = new Date(Date.parse(start + "T00:00:00Z") + 10 * 86400000).toISOString().slice(0,10);
+      events.push({
+        before, after, start, end: endDate, gapDays,
+        vvChange: Number(after.vvDb) - Number(before.vvDb),
+        vhChange: Number(after.vhDb) - Number(before.vhDb),
+        differenceChange: Number(after.vvMinusVhDb) - Number(before.vvMinusVhDb)
+      });
+    }
+  }
+  return events;
+}
 function s1BackscatterChartMarkup() {
   const result = s1BackscatterState.result;
   const fields = result?.fields || [];
@@ -100,7 +124,9 @@ function s1BackscatterChartMarkup() {
   const allDates = observations.map(o => Date.parse(o.date + "T00:00:00Z")).filter(Number.isFinite);
   const allValues = observations.flatMap(o => metrics.map(m => Number(o[m.key]))).filter(Number.isFinite);
   if (!allValues.length) return '<div class="s1-empty">No valid backscatter values are available for the selected series.</div>';
-  const minT = Math.min(...allDates), maxT = Math.max(...allDates);
+  const drainageEvents = fields.flatMap(field => s1BackscatterSingleDrainageEvents(field.observations || []).map(event => ({ ...event, fieldNo: field.fieldNo })));
+  const minT = Math.min(...allDates), maxObservedT = Math.max(...allDates);
+  const maxT = Math.max(maxObservedT, ...drainageEvents.map(event => Date.parse(event.end + "T00:00:00Z")));
   const tSpan = Math.max(1, maxT - minT);
   const rawMin = Math.min(...allValues), rawMax = Math.max(...allValues);
   const pad = Math.max(1.5, (rawMax - rawMin) * 0.12);
@@ -144,6 +170,12 @@ function s1BackscatterChartMarkup() {
       return polylines + markers;
     }).join("");
   }).join("");
+  const drainageOverlay = drainageEvents.map(event => {
+    const startX = Math.max(L, Math.min(W-R, x(event.start)));
+    const endX = Math.max(L, Math.min(W-R, x(event.end)));
+    if (endX <= startX) return "";
+    return '<rect x="' + startX.toFixed(1) + '" y="' + T + '" width="' + (endX-startX).toFixed(1) + '" height="' + (H-T-B) + '" fill="#dc2626" opacity=".13"><title>Candidate single drainage event · estimated 10-day window ' + s1BackscatterEscape(event.start + " to " + event.end) + '</title></rect><text x="' + (startX+4).toFixed(1) + '" y="' + (T+27) + '" font-size="10" font-weight="800" fill="#b91c1c">CANDIDATE DRAINAGE · 10 DAYS</text>';
+  }).join("");
   const annotations = (s1BackscatterState.annotations || []).filter(a => a.event_date >= s1BackscatterState.from && a.event_date <= s1BackscatterState.to);
   const eventColors = { planting: "#15803d", drainage: "#d97706", harvest: "#7c3aed" };
   const annotationLines = annotations.map(a => {
@@ -162,7 +194,7 @@ function s1BackscatterChartMarkup() {
   const fieldLegend = fields.map((f,i)=>'<span><i style="background:' + colors[i%colors.length] + '"></i>' + s1BackscatterEscape(f.fieldNo) + ' · orbit ' + f.orbit + ' ' + s1BackscatterEscape(f.orbitDirection) + '</span>').join("");
   const metricLegend = metrics.map(m=>'<span><i class="s1-line-swatch" style="' + (m.dash ? 'border-top-style:dashed;' : '') + '"></i>' + m.label + '</span>').join("");
   const statusLegend = s1BackscatterReferenceBands().map(b=>'<span><i style="background:' + b.color + '"></i>' + s1BackscatterEscape(b.label) + '</span>').join("") + '<span><i style="background:#64748b"></i>No direct match</span><span class="s1-dry-ring-legend"><i></i>Red circle = candidate dry-like acquisition</span>';
-  return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + statusLegend + '</div>';
+  return '<div class="s1-chart-scroll"><svg id="s1BackscatterChart" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Sentinel-1 backscatter observations at actual acquisition dates"><text x="' + (W/2) + '" y="18" text-anchor="middle" font-size="12" fill="currentColor">Sentinel-1 GRD · Gamma0 terrain-corrected · median backscatter (dB)</text>' + yGrid + drainageOverlay + annotationLines + fieldLines + '<line x1="' + L + '" y1="' + T + '" x2="' + L + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/><line x1="' + L + '" y1="' + (H-B) + '" x2="' + (W-R) + '" y2="' + (H-B) + '" stroke="currentColor" opacity=".5"/>' + dateTicks + '<text x="18" y="' + (H/2) + '" transform="rotate(-90 18 ' + (H/2) + ')" text-anchor="middle" font-size="11" fill="currentColor">Backscatter (dB)</text><text x="' + (W/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="11" fill="currentColor">Acquisition date · no daily interpolation</text></svg></div><div class="s1-legend">' + fieldLegend + metricLegend + statusLegend + '</div>';
 }
 function s1BackscatterInterpretationMarkup() {
   const bands = s1BackscatterReferenceBands();
@@ -172,6 +204,7 @@ function s1BackscatterInterpretationMarkup() {
   const summaries = fields.map(field => {
     const observations = (field.observations || []).slice().sort((a,b)=>a.date.localeCompare(b.date));
     const dryRuns = s1BackscatterDryIntervals(observations);
+    const drainageEvents = s1BackscatterSingleDrainageEvents(observations);
     const latest = observations[observations.length-1];
     const latestClass = s1BackscatterObservationClass(latest);
     const dryCards = dryRuns.length ? dryRuns.map((run,index) => {
@@ -188,6 +221,13 @@ function s1BackscatterInterpretationMarkup() {
         (transition ? '<p><b>Possible drainage-related transition:</b> the previous acquisition matched the open-water-like reference band and the following dry-like signature persisted. This is not confirmation of drainage.</p>' : '<p>No immediately preceding open-water-like observation was found to bracket a possible drainage transition.</p>') +
         '</div>';
     }).join("") : '<p class="s1-reference-caveat">No persistent dry-like interval was identified. A single matching acquisition is treated as an isolated observation, not a period.</p>';
+    const drainageCards = drainageEvents.length ? drainageEvents.map((event,index) =>
+      '<div class="s1-period-card s1-drainage-event-card"><b>Candidate single drainage event ' + (index+1) + '</b>' +
+      '<p><b>Estimated red window:</b> ' + s1BackscatterEscape(event.start + ' to ' + event.end) + ' (10 calendar days)</p>' +
+      '<p>Previous acquisition ' + s1BackscatterEscape(event.before.date) + ' matched the paired open-water-like reference band. Acquisition ' + s1BackscatterEscape(event.after.date) + ' no longer matched that band (' + event.gapDays.toFixed(0) + '-day observation gap).</p>' +
+      '<p>VV change: ' + (event.vvChange >= 0 ? '+' : '') + event.vvChange.toFixed(2) + ' dB · VH change: ' + (event.vhChange >= 0 ? '+' : '') + event.vhChange.toFixed(2) + ' dB · VV−VH change: ' + (event.differenceChange >= 0 ? '+' : '') + event.differenceChange.toFixed(2) + ' dB.</p>' +
+      '<p><b>Interpretation:</b> one candidate transition consistent with loss of standing-water radar signature. It is not proof of the farmer physically opening a drain; crop growth, surface roughness and mixed pixels can also change backscatter.</p></div>'
+    ).join("") : '<p class="s1-reference-caveat">No single drainage transition was flagged. This requires a preceding paired open-water-like acquisition followed by an acquisition that no longer matches that signature, within an 18-day interval. No event is inferred where that sequence is absent.</p>';
     const statusTimeline = observations.map((row,index) => {
       const status = s1BackscatterObservationClass(row);
       const color = status?.color || "#64748b";
@@ -205,10 +245,10 @@ function s1BackscatterInterpretationMarkup() {
       const color = matches.length === 1 ? matches[0].color : "#64748b";
       return '<tr><td>' + s1BackscatterEscape(row.date) + '</td><td>' + fmt(row.vvDb) + '</td><td>' + fmt(row.vhDb) + '</td><td><span class="s1-status-label"><i style="background:' + color + '"></i>' + s1BackscatterEscape(label) + '</span></td></tr>';
     }).join("");
-    return '<article class="s1-field-interpretation"><h4>' + s1BackscatterEscape(field.fieldNo) + '</h4><p><b>Latest acquisition:</b> ' + s1BackscatterEscape(latest.date) + ' · VV ' + fmt(latest.vvDb) + ' dB · VH ' + fmt(latest.vhDb) + ' dB · ' + s1BackscatterEscape(latestClass?.label || "No direct paired reference-band match") + '</p><h5>Field condition timeline (actual acquisition dates)</h5><div class="s1-status-timeline">' + statusTimeline + '</div><h5>Candidate dry-like / drainage-related periods</h5>' + dryCards + '<details class="s1-record-details"><summary>View field reference comparisons · ' + observations.length + ' observations</summary><div class="s1-record-scroll"><table><thead><tr><th>Date</th><th>VV (dB)</th><th>VH (dB)</th><th>Reference comparison</th></tr></thead><tbody>' + rows + '</tbody></table></div></details></article>';
+    return '<article class="s1-field-interpretation"><h4>' + s1BackscatterEscape(field.fieldNo) + '</h4><p><b>Latest acquisition:</b> ' + s1BackscatterEscape(latest.date) + ' · VV ' + fmt(latest.vvDb) + ' dB · VH ' + fmt(latest.vhDb) + ' dB · ' + s1BackscatterEscape(latestClass?.label || "No direct paired reference-band match") + '</p><h5>Field condition timeline (actual acquisition dates)</h5><div class="s1-status-timeline">' + statusTimeline + '</div><h5>Single drainage event screen</h5>' + drainageCards + '<h5>Persistent dry-like reference-band periods (separate legacy view)</h5>' + dryCards + '<details class="s1-record-details"><summary>View field reference comparisons · ' + observations.length + ' observations</summary><div class="s1-record-scroll"><table><thead><tr><th>Date</th><th>VV (dB)</th><th>VH (dB)</th><th>Reference comparison</th></tr></thead><tbody>' + rows + '</tbody></table></div></details></article>';
   }).join("");
   const referenceRows = bands.map(b=>'<tr><td><span class="s1-status-label"><i style="background:'+b.color+'"></i>'+s1BackscatterEscape(b.label)+'</span></td><td>'+b.vv[0]+' to '+b.vv[1]+'</td><td>'+b.vh[0]+' to '+b.vh[1]+'</td></tr>').join("");
-  return '<section class="s1-interpretation" aria-label="Field-specific Sentinel-1 interpretation"><h3>Selected-field interpretation</h3><p>Acquisition points are colour-coded when both VV and VH fall within the same indicative rice-field reference band. Grey means no direct paired match. A persistent dry-like period requires at least two consecutive matching acquisitions no more than 18 days apart.</p>' + summaries + '<h4>Colour reference bands</h4><div class="s1-record-scroll"><table><thead><tr><th>Reference condition</th><th>VV (dB)</th><th>VH (dB)</th></tr></thead><tbody>' + referenceRows + '</tbody></table></div><p class="s1-reference-caveat"><b>Scientific limitation:</b> These are indicative screening ranges, not locally calibrated thresholds. The current processing is terrain-corrected Gamma0; compatibility of these reference ranges with this exact product must be validated. A dry-like signature is not proof of low soil moisture, and a radar transition is not proof that drainage was completed.</p></section>';
+  return '<section class="s1-interpretation" aria-label="Field-specific Sentinel-1 interpretation"><h3>Selected-field interpretation</h3><p>Two interpretations are shown separately. The single-event screen flags one transition from a paired open-water-like signature to a subsequent acquisition that no longer matches it; it does not require complete moisture depletion or persistence across two dry-like acquisitions. The legacy dry-like period view still requires two consecutive reference-band matches.</p>' + summaries + '<h4>Colour reference bands</h4><div class="s1-record-scroll"><table><thead><tr><th>Reference condition</th><th>VV (dB)</th><th>VH (dB)</th></tr></thead><tbody>' + referenceRows + '</tbody></table></div><p class="s1-reference-caveat"><b>Scientific limitation:</b> These are indicative screening ranges, not locally calibrated thresholds. A candidate single drainage event means the paired open-water-like radar signature was present on one acquisition and absent on the next; it is an indirect surface-water proxy, not direct observation of standing water or proof of a farmer's drainage activity. The red 10-calendar-day window is an operational estimate anchored to the first non-open-water-like acquisition, not ten days of continuous satellite observation. Crop phenology, surface roughness, incidence geometry and mixed pixels can produce similar changes.</p></section>';
 }
 function s1BackscatterTableMarkup() {
   const rows = (s1BackscatterState.result?.fields || []).flatMap(field =>
@@ -231,7 +271,7 @@ function s1BackscatterPanelMarkup() {
   const total = (result?.fields || []).reduce((n,f)=>n+(f.observations||[]).length,0);
   const errors = (result?.errors || []).map(e=>'<p class="s1-error">' + s1BackscatterEscape(e.fieldNo + ": " + e.error) + '</p>').join("");
   const annotationList = (s1BackscatterState.annotations || []).map(a=>'<div class="s1-annotation-row"><b>' + s1BackscatterEscape(a.event_type) + '</b><span>' + s1BackscatterEscape(a.field_no) + ' · ' + s1BackscatterEscape(a.event_date) + '</span><small>' + s1BackscatterEscape(a.notes || "") + '</small></div>').join("");
-  return '<section class="panel s1-backscatter-panel" id="s1BackscatterPanel"><div class="panel-head"><div><p class="eyebrow">RADAR EVIDENCE · INDEPENDENT OF VWC</p><h2>Sentinel-1 Backscatter Trend Analysis</h2><p class="muted">Explore VV, VH and VV−VH at actual Sentinel-1 acquisition dates. This is a separate radar-signal view, not a soil-moisture estimate.</p><p><a class="outline" href="multisensor-drainage-pilot.html" target="_blank" rel="noopener">Open multi-sensor drainage pilot →</a></p></div></div>' +
+  return '<section class="panel s1-backscatter-panel" id="s1BackscatterPanel"><div class="panel-head"><div><p class="eyebrow">RADAR EVIDENCE · INDEPENDENT OF VWC</p><h2>Sentinel-1 Backscatter Trend Analysis</h2><p class="muted">Explore VV, VH and VV−VH at actual Sentinel-1 acquisition dates. The single-event screen flags a transition out of an open-water-like radar signature; it does not require complete soil-moisture depletion or a second dry acquisition.</p><p><a class="outline" href="multisensor-drainage-pilot.html" target="_blank" rel="noopener">Open multi-sensor drainage pilot →</a></p></div></div>' +
     (fields.length ? '<div class="s1-controls-grid"><div class="s1-field-picker"><b>Select one field at a time</b><div class="s1-field-list">' + s1BackscatterFieldMarkup(fields) + '</div><small id="s1SelectedCount">' + s1BackscatterState.selectedIds.length + ' of 1 selected</small></div><div class="s1-control-column"><label>Start date<input id="s1From" type="date" value="' + s1BackscatterEscape(s1BackscatterState.from) + '"></label><label>End date<input id="s1To" type="date" value="' + s1BackscatterEscape(s1BackscatterState.to) + '"></label><label>Buffer radius around GPS reference point (metres)<input id="s1Buffer" type="number" min="10" max="500" step="10" value="' + s1BackscatterState.bufferM + '"></label><label>Relative orbit number · blank = most frequent<input id="s1Orbit" type="number" min="1" max="175" placeholder="Automatic" value="' + s1BackscatterEscape(s1BackscatterState.relativeOrbit) + '"></label><label>Pass direction<select id="s1Direction"><option value="AUTO" ' + (s1BackscatterState.orbitDirection==="AUTO"?"selected":"") + '>Automatic · most frequent</option><option value="ASCENDING" ' + (s1BackscatterState.orbitDirection==="ASCENDING"?"selected":"") + '>Ascending</option><option value="DESCENDING" ' + (s1BackscatterState.orbitDirection==="DESCENDING"?"selected":"") + '>Descending</option></select></label><button type="button" class="primary" id="s1Run" ' + (s1BackscatterState.loading?"disabled":"") + '>' + (s1BackscatterState.loading?"Processing acquisitions…":"Generate backscatter trend →") + '</button></div></div>' : '<p class="s1-empty">No Paddy fields with a usable saved GPS point or at least three valid saved GPS points are available in this workspace.</p>') +
     (s1BackscatterState.error ? '<p class="s1-error" role="alert">' + s1BackscatterEscape(s1BackscatterState.error) + '</p>' : '') +
     (result ? '<div class="s1-result-summary"><b>' + total + ' acquisition observations saved</b><span>' + s1BackscatterEscape(result.from) + ' to ' + s1BackscatterEscape(result.to) + ' · ' + result.bufferM + ' m buffer</span><span>Processing: ' + s1BackscatterEscape(result.processingVersion) + '</span></div>' : '') +
@@ -241,7 +281,7 @@ function s1BackscatterPanelMarkup() {
     '<div class="s1-actions"><button type="button" class="outline" id="s1ExportCsv" ' + (total?"":"disabled") + '>Export CSV</button><button type="button" class="outline" id="s1ExportPng" ' + (total?"":"disabled") + '>Export chart PNG</button></div>' +
     '<div class="s1-annotation-panel"><h3>Field activity markers</h3><p class="muted">Add a planting, drainage or harvest date. These are user-entered annotations, not satellite-detected events.</p><div class="s1-annotation-form"><label>Field<select id="s1AnnotationField">' + annotationOptions + '</select></label><label>Event<select id="s1AnnotationType"><option value="planting">Planting</option><option value="drainage">Drainage</option><option value="harvest">Harvest</option></select></label><label>Date<input id="s1AnnotationDate" type="date" value="' + s1BackscatterEscape(s1BackscatterState.annotationDate) + '"></label><label>Notes<input id="s1AnnotationNotes" type="text" maxlength="300" placeholder="Optional context"></label><button type="button" class="outline" id="s1SaveAnnotation" ' + (selected.length?"":"disabled") + '>Save marker</button></div><div class="s1-annotation-list">' + (annotationList || '<small>No user-entered markers in this date range.</small>') + '</div></div>' +
     '<p class="root-vwc-muted">Default date window: last 180 days (approximately one crop season, editable). The centre is taken from a saved GPS point where available; otherwise the coordinate-wise median of valid saved GPS boundary points is used. The initial 50 m radius is a screening default, not a validated field sampling footprint. Orbit and pass are selected per field by the most frequent available combination unless specified. A gap longer than 18 days is shown as a line break; no values are interpolated.</p>' +
-    '<p class="s1-screening-note">Screening view only. Backscatter trends are not soil moisture and do not confirm a drainage event on their own.</p></section>';
+    '<p class="s1-screening-note">Screening view only. The red 10-day highlight is a candidate surface-water recession window inferred from two actual acquisitions. Treat it as supporting evidence alongside field inspection, farmer activity records and rainfall context—not as standalone confirmation.</p></section>';
 }
 async function s1BackscatterLoadAnnotations() {
   const ids = s1BackscatterState.selectedIds || [];
