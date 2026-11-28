@@ -193,6 +193,22 @@ async function findHarmonyJobsForPilot(label: string, productId: string) {
   }));
 }
 
+
+function earthdataTokenIdentity() {
+  if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
+  const parts = EARTHDATA_TOKEN.split(".");
+  if (parts.length !== 3) throw new Error("Configured Earthdata credential is not a JWT; identity claims are unavailable.");
+  const encoded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const padded = encoded + "=".repeat((4 - encoded.length % 4) % 4);
+  const claims = JSON.parse(atob(padded));
+  return {
+    uid: typeof claims.uid === "string" ? claims.uid : null,
+    type: typeof claims.type === "string" ? claims.type : null,
+    issuer: typeof claims.iss === "string" ? claims.iss : null,
+    expiresAt: typeof claims.exp === "number" ? new Date(claims.exp * 1000).toISOString() : null
+  };
+}
+
 async function getCapabilities(collectionShortName: string) {
   if (!EARTHDATA_TOKEN) throw new Error("EARTHDATA_BEARER_TOKEN is not configured in Edge Function secrets.");
   const url = new URL(HARMONY_ROOT + "/capabilities");
@@ -799,6 +815,14 @@ Deno.serve(async (req: Request) => {
         outputFormats: capabilities.outputFormats ?? [],
         variables: variableNames(capabilities)
       });
+    }
+    if (action === "earthdata_identity") {
+      const fieldId = String(body.fieldId ?? "");
+      if (fieldId !== "3953c26d-dc93-41bb-ae80-7aa5da738799") {
+        return json({ error: "Identity diagnostic is restricted to the WH-SYN-016 pilot." }, 400);
+      }
+      await authorizedField(admin, user.id, fieldId);
+      return json({ ok: true, earthdataIdentity: earthdataTokenIdentity() });
     }
     if (action === "lookup") {
       const fieldId = String(body.fieldId ?? "");
